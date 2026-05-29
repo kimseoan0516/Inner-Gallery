@@ -1,0 +1,46 @@
+# Environment
+.env
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
+# Data
+*.db
+journal_*.json
+error.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Google Cloud Service Account Keys (Security)
+backend/gen-lang-client-*.json
+*.json.key
+google-key.json
+
+# Secrets
+backend/.secret_key
+
+# Generated / large data files (rebuild with build_index.py)
+backend/artwork_index/
+backend/artwork_sources/
+
+# Temp debug files
+_*.txt
+_*.json
+
+# Backend data cache
+backend/data/web_detection_cache.json
+
