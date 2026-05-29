@@ -75,7 +75,7 @@ function LoadingOverlay({ msg }) {
   )
 }
 
-function CameraView({ videoRef, cameraStream, flashActive, scanPhase, scanMatch, onStart, onCapture, onCancel, error }) {
+function CameraView({ videoRef, cameraStream, flashActive, scanPhase, scanMatch, onStart, onCapture, onCancel, error, isMobile }) {
   const locked = scanPhase === 'locked'
   const scanning = scanPhase === 'scanning'
 
@@ -84,7 +84,7 @@ function CameraView({ videoRef, cameraStream, flashActive, scanPhase, scanMatch,
       <VintageFrame>
         <div style={{ position: 'relative', width: '100%', height: '100%' }}>
           <video ref={videoRef} autoPlay playsInline muted
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: cameraStream ? 'block' : 'none', transform: 'scaleX(-1)' }} />
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: cameraStream ? 'block' : 'none', transform: isMobile ? 'none' : 'scaleX(-1)' }} />
 
           {/* ── 스캔/인식 오버레이 ─────────────────── */}
           {cameraStream && (scanning || locked) && (
@@ -241,9 +241,11 @@ export default function Upload({ mode: pageMode }) {
 
   const fileRef   = useRef()
   const videoRef  = useRef()
-  const streamRef   = useRef(null)  // stable ref for stream cleanup
-  const autoScanRef = useRef(null)  // interval handle
-  const scanLockRef = useRef(false) // prevent concurrent scan requests
+  const streamRef   = useRef(null)
+  const autoScanRef = useRef(null)
+  const scanLockRef = useRef(false)
+
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
 
   // Expand artist-only FAISS candidates → famous artworks from local DB
   const expandCands = (candidates) => {
@@ -376,8 +378,10 @@ export default function Upload({ mode: pageMode }) {
         const canvas = document.createElement('canvas')
         canvas.width = v.videoWidth; canvas.height = v.videoHeight
         const ctx = canvas.getContext('2d')
-        ctx.translate(canvas.width, 0)
-        ctx.scale(-1, 1)
+        if (!isMobile) {
+          ctx.translate(canvas.width, 0)
+          ctx.scale(-1, 1)
+        }
         ctx.drawImage(v, 0, 0)
         await new Promise(resolve => {
           canvas.toBlob(async (blob) => {
@@ -430,8 +434,10 @@ export default function Upload({ mode: pageMode }) {
     const c = document.createElement('canvas')
     c.width = v.videoWidth; c.height = v.videoHeight
     const ctx = c.getContext('2d')
-    ctx.translate(c.width, 0)
-    ctx.scale(-1, 1)
+    if (!isMobile) {
+      ctx.translate(c.width, 0)
+      ctx.scale(-1, 1)
+    }
     ctx.drawImage(v, 0, 0)
     c.toBlob(blob => { setImg(new File([blob], 'capture.jpg', { type: 'image/jpeg' })); stopCam() }, 'image/jpeg', 0.92)
   }
@@ -542,6 +548,7 @@ export default function Upload({ mode: pageMode }) {
             onCapture={capture}
             onCancel={stopCam}
             error={error}
+            isMobile={isMobile}
           />
         ) : (
           <>
