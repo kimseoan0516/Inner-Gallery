@@ -1,3 +1,15 @@
+---
+title: Inner Gallery Api
+emoji: 🖼️
+colorFrom: yellow
+colorTo: orange
+sdk: docker
+app_port: 7860
+pinned: false
+license: mit
+short_description: An AI-powered art journal using computer vision and LLM
+---
+
 <div align="center">
 
 # Inner Gallery
