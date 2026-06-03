@@ -84,7 +84,7 @@ const QUOTE_RE  = /([「『「'"'][^「』""'\n]{1,60}?[」』""'"])/g
 
 function renderHighlightedParagraph(text, idx) {
   if (!text) return '';
-  const combined = /(\*\*(.*?)\*\*)|([「『][^「』\n]{1,100}?[」』])|(==(.*?)==)/g;
+  const combined = /(\*\*(.*?)\*\*)|([「『][^「』\n]{1,100}?[」』])|(==([^=\n]{5,120}?)==)/g;
   const result = [];
   let last = 0;
   let m;
