@@ -893,9 +893,10 @@ export default function Results() {
               )}
 
               {eraData && !eraLoading && eraData._not_in_db && (
-                <p style={{ marginTop: 14, fontSize: 12, color: 'var(--sub)', lineHeight: 1.7, fontStyle: 'italic' }}>
-                  <strong style={{ color: 'var(--gold)', fontStyle: 'normal' }}>{eraData._title || '이 작품'}</strong>의 시대 배경 정보를 준비 중입니다.<br />
-                  현재 데이터베이스에 포함되지 않은 작품입니다.
+                <p style={{ marginTop: 14, fontSize: 12, color: 'var(--sub)', lineHeight: 1.9, fontFamily: "'Noto Serif KR', serif" }}>
+                  전시장에서 직접 만난 작품이군요.<br />
+                  <strong style={{ color: 'var(--gold2)', fontStyle: 'normal' }}>{eraData._title || '이 작품'}</strong>은 아직 저희 아카이브에 담기지 않았습니다.<br />
+                  색채와 구도로 느낀 감상이 오히려 이 작품과 가장 솔직한 대화일지도 모릅니다.
                 </p>
               )}
 
