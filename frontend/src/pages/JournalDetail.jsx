@@ -448,9 +448,11 @@ export default function JournalDetail() {
               </>
             )}
 
-            <button className="btn-primary" style={{ width: '100%', height: 48 }} onClick={() => navigate('/drawing', { state: { existingEntryDate: rec.date, title, artist, palette: rec.dominant_colors, moodColorHex: rec.mood_color } })}>
+            <button className="btn-primary" style={{ width: '100%', height: 48 }} onClick={() => nav('/drawing', { state: { existingEntryDate: rec.date, title, artist: rec.artwork_artist, palette: rec.dominant_colors, moodColorHex: rec.mood_color } })}>
               마음 스케치 그리기
             </button>
+          </>
+        )}
 
         <button className="btn-ghost" onClick={() => nav('/journal')} style={{ width: '100%', height: 42 }}>
           기록 목록으로
