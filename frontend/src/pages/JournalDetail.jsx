@@ -449,7 +449,7 @@ export default function JournalDetail() {
                 {eraData && !eraLoading && !eraData._no_era && !eraData._not_in_db && (
                   <div className="card" style={{ padding: '22px 20px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-                      <span style={{ fontSize: 14, color: 'var(--gold2)', lineHeight: 1 }}>◈</span>
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--gold2)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                       <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', letterSpacing: 0.3 }}>작품의 시대와 이야기</span>
                     </div>
                     <p style={{ fontSize: 9, color: 'var(--gold)', fontStyle: 'italic', letterSpacing: 1.5, marginLeft: 22, marginBottom: 10 }}>Story & Era</p>
