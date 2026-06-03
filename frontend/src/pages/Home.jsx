@@ -200,7 +200,7 @@ export default function Home() {
         <div style={{ textAlign: 'center', marginBottom: 26 }}>
           <h1 style={{
             fontFamily: "'Cinzel', serif",
-            fontSize: 46, fontWeight: 600,
+            fontSize: 38, fontWeight: 600,
             color: 'var(--text)', letterSpacing: 2,
             lineHeight: 1.2, marginBottom: 12,
           }}>Inner Gallery</h1>
