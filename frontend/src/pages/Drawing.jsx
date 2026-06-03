@@ -178,6 +178,14 @@ export default function Drawing() {
     }
   }
 
+  const fillWithColor = useCallback((fillColor) => {
+    const canvas = canvasRef.current; if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    ctx.save(); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1
+    ctx.fillStyle = fillColor; ctx.fillRect(0, 0, canvas.width, canvas.height)
+    ctx.restore(); saveSnap()
+  }, [saveSnap])
+
   const startDraw = useCallback(e => {
     e.preventDefault()
     if (sketchMode === 'color') {
@@ -239,14 +247,6 @@ export default function Drawing() {
     canvasRef.current.getContext('2d').clearRect(0, 0, canvasRef.current.width, canvasRef.current.height)
     saveSnap()
   }
-
-  const fillWithColor = useCallback((fillColor) => {
-    const canvas = canvasRef.current; if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    ctx.save(); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1
-    ctx.fillStyle = fillColor; ctx.fillRect(0, 0, canvas.width, canvas.height)
-    ctx.restore(); saveSnap()
-  }, [saveSnap])
 
   const buildSketchB64 = () => {
     const canvas = canvasRef.current; if (!canvas) return ''
