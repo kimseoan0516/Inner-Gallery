@@ -91,19 +91,23 @@ export default function Drawing() {
   const [reflectionText, setReflectionText] = useState('')
   const [textPos,        setTextPos]        = useState(null)
   const [textVal,        setTextVal]        = useState('')
-  const [customColor,    setCustomColor]    = useState('#C9A84C')
-  const [eraserPos,      setEraserPos]      = useState(null)
+  const [customColor,      setCustomColor]      = useState('#C9A84C')
+  const [eraserPos,        setEraserPos]        = useState(null)
+  const [artworkPaletteIdx, setArtworkPaletteIdx] = useState(0)
+
+  const paletteRgbColors = palette.map(c => Array.isArray(c) ? `rgb(${c[0]},${c[1]},${c[2]})` : String(c))
+  const selectedArtworkColor = paletteRgbColors[artworkPaletteIdx] || artworkAtmosphereColor
 
   const canvasBg = bgMode === 'overlay' ? 'transparent'
     : bgMode === 'dark'    ? '#1C1008'
     : bgMode === 'mood'    ? moodColorHex
-    : bgMode === 'artwork' ? artworkAtmosphereColor
+    : bgMode === 'artwork' ? selectedArtworkColor
     : '#F5F0E8'
 
   const effectiveBgColor = bgMode === 'overlay' ? '#1C1008'
     : bgMode === 'dark'    ? '#1C1008'
     : bgMode === 'mood'    ? moodColorHex
-    : bgMode === 'artwork' ? artworkAtmosphereColor
+    : bgMode === 'artwork' ? selectedArtworkColor
     : '#F5F0E8'
 
   const bgModeName = { artwork: '작품 분위기', overlay: '원작 위에', white: '밝은 여백', dark: '어두운 배경', mood: '마음색' }[bgMode] || ''
@@ -292,7 +296,7 @@ export default function Drawing() {
     finally { setSaving(false) }
   }
 
-  const paletteColors = palette.map(c => Array.isArray(c) ? `rgb(${c[0]},${c[1]},${c[2]})` : String(c))
+  const paletteColors = paletteRgbColors
   const toolCursor = tool === 'text' ? 'text' : tool === 'eraser' ? 'cell' : 'crosshair'
 
   // ── Saved screen ──────────────────────────────────────────────────────────
@@ -478,18 +482,30 @@ export default function Drawing() {
           <div style={{ position: 'absolute', left: eraserPos.x - (size * 2.5) / 2, top: eraserPos.y - (size * 2.5) / 2, width: size * 2.5, height: size * 2.5, border: '1.5px solid rgba(0,0,0,0.5)', borderRadius: '50%', pointerEvents: 'none', zIndex: 5, boxShadow: '0 0 0 1px rgba(255,255,255,0.5)' }} />
         )}
         {textPos && (
-          <input
-            ref={textInputRef} value={textVal}
-            onChange={e => setTextVal(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') commitText(); if (e.key === 'Escape') { setTextPos(null); setTextVal('') } }}
-            onBlur={commitText}
-            style={{ position: 'absolute', left: textPos.x, top: textPos.y - 20, background: 'transparent', border: 'none', borderBottom: `1px solid ${color}`, color, fontSize: size * 2 + 10, fontFamily: "'Noto Serif KR', serif", outline: 'none', minWidth: 60, caretColor: color, zIndex: 10 }}
-          />
+          <div
+            style={{ position: 'absolute', left: textPos.x, top: textPos.y - 24, zIndex: 10, cursor: 'move', userSelect: 'none' }}
+            onMouseDown={e => {
+              if (e.target === textInputRef.current) return
+              const startX = e.clientX - textPos.x, startY = e.clientY - (textPos.y - 24)
+              const onMove = mv => setTextPos(p => ({ ...p, x: mv.clientX - startX, y: mv.clientY - startY + 24 }))
+              const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
+              window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp)
+            }}
+          >
+            <div style={{ fontSize: 9, color, opacity: 0.6, marginBottom: 2, letterSpacing: 1 }}>↕ 드래그로 이동</div>
+            <input
+              ref={textInputRef} value={textVal}
+              onChange={e => setTextVal(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') commitText(); if (e.key === 'Escape') { setTextPos(null); setTextVal('') } }}
+              onBlur={commitText}
+              style={{ background: 'transparent', border: 'none', borderBottom: `1px solid ${color}`, color, fontSize: size * 2 + 10, fontFamily: "'Noto Serif KR', serif", outline: 'none', minWidth: 80, caretColor: color, cursor: 'text' }}
+            />
+          </div>
         )}
       </div>
 
       {/* Bottom controls */}
-      <div style={{ padding: '6px 10px 12px', background: 'var(--card)', borderTop: '1px solid var(--line)', flexShrink: 0 }}>
+      <div style={{ padding: '6px 10px 12px', background: 'var(--card)', borderTop: '1px solid var(--line)', flexShrink: 0, overflowY: 'auto', maxHeight: '40vh' }}>
 
         {/* Row 1: tools + size + bg + clear + save */}
         <div style={{ display: 'flex', gap: 5, alignItems: 'center', marginBottom: 8 }}>
@@ -526,7 +542,8 @@ export default function Drawing() {
           )}
 
           {/* Background selector */}
-          <div style={{ display: 'flex', gap: 4, alignItems: 'center', flex: 1, overflowX: 'auto' }}>
+          <span style={{ fontSize: 9, color: 'var(--sub)', fontWeight: 700, flexShrink: 0, letterSpacing: 0.5 }}>배경</span>
+          <div className="hide-scroll" style={{ display: 'flex', gap: 4, alignItems: 'center', flex: 1, overflowX: 'auto' }}>
             {bgModeOptions.map(({ key, label, swatch }) => (
               <button key={key} onClick={() => setBgMode(key)} style={{
                 display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0,
@@ -543,6 +560,19 @@ export default function Drawing() {
                 {label}
               </button>
             ))}
+            {/* 작품색 선택 시 팔레트 스와치 인라인 표시 */}
+            {bgMode === 'artwork' && paletteRgbColors.length > 0 && (
+              <>
+                <div style={{ width: 1, height: 14, background: 'var(--line)', flexShrink: 0 }} />
+                {paletteRgbColors.map((c, i) => (
+                  <button key={i} onClick={() => setArtworkPaletteIdx(i)} style={{
+                    width: 18, height: 18, borderRadius: 4, background: c, flexShrink: 0,
+                    border: artworkPaletteIdx === i ? '2px solid var(--gold2)' : '1px solid var(--line)',
+                    cursor: 'pointer', transform: artworkPaletteIdx === i ? 'scale(1.2)' : 'scale(1)', transition: 'transform 0.1s',
+                  }} />
+                ))}
+              </>
+            )}
           </div>
 
           <div style={{ width: 1, height: 20, background: 'var(--line)', flexShrink: 0 }} />
