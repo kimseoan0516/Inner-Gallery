@@ -541,7 +541,7 @@ export default function Results() {
         {candidates?.length > 0 && (
           <div className="card" style={{ padding: '18px 20px' }}>
             <SectionHead
-              icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>}
+              icon="◎"
               title={
                 identification_status === 'confirmed' ? '이 작품일 가능성이 높은 후보' :
                 identification_status === 'partial' ? '시각적으로 가장 유사한 후보' :
@@ -650,7 +650,7 @@ export default function Results() {
 
         {/* Color palette */}
         <div className="card" style={{ padding: '18px 18px' }}>
-          <SectionHead icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.93" y1="4.93" x2="6.34" y2="6.34"/><line x1="17.66" y1="17.66" x2="19.07" y2="19.07"/><line x1="4.93" y1="19.07" x2="6.34" y2="17.66"/><line x1="17.66" y1="6.34" x2="19.07" y2="4.93"/></svg>} title="색채 분석" en="Color Analysis" />
+          <SectionHead icon="⊙" title="색채 분석" en="Color Analysis" />
           <div style={{ marginTop: 12 }}>
             <PaletteBar colors={color.dominant_colors} />
           </div>
@@ -752,7 +752,7 @@ export default function Results() {
 
         {/* Emotion bars */}
         <div className="card" style={{ padding: '18px 18px' }}>
-          <SectionHead icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>} title="작품 분위기" en="Emotional Tone" />
+          <SectionHead icon="◎" title="작품 분위기" en="Emotional Tone" />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 4 }}>
             {evidence.map((e, i) => (
               <div key={i}>
@@ -769,7 +769,7 @@ export default function Results() {
         {/* Similar artworks */}
         {similar?.length > 0 && (
           <div className="card" style={{ padding: '18px 20px' }}>
-            <SectionHead icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>} title="비슷한 명화 추천" en="Similar Masterpieces" />
+            <SectionHead icon="⊡" title="비슷한 명화 추천" en="Similar Masterpieces" />
             <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 0 }}>
               {similar.map((s, i) => (
                 <div key={i} style={{
@@ -822,7 +822,7 @@ export default function Results() {
         {/* Questions — numbered */}
         {activeEssay.questions?.length > 0 && (
           <div className="card" style={{ padding: '18px 18px' }}>
-            <SectionHead icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>} title="감상 질문" en="Reflection Questions" />
+            <SectionHead icon="○" title="감상 질문" en="Reflection Questions" />
             <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 8 }}>
               {activeEssay.questions.map((q, i) => (
                 <div key={i} style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
@@ -857,7 +857,7 @@ export default function Results() {
             display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--gold2)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+              <span style={{ fontSize: 14, color: 'var(--gold2)', lineHeight: 1 }}>◈</span>
               <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>작품의 시대와 이야기</span>
             </div>
             <span style={{
@@ -975,7 +975,7 @@ export default function Results() {
 
         {/* Mood color picker */}
         <div className="card" style={{ padding: '18px 20px' }}>
-          <SectionHead icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="10.5" r="2.5"/><circle cx="8.5" cy="7.5" r="2.5"/><circle cx="6.5" cy="12.5" r="2.5"/><path d="M12 22a7 7 0 0 1-7-7c0-2.38 1.19-4.47 3-5.74V17a4 4 0 0 0 8 0v-2.26c1.81 1.27 3 3.36 3 5.74a7 7 0 0 1-7 7z"/></svg>} title="마음 색 고르기" en="My Mood Color" />
+          <SectionHead icon="◎" title="마음 색 고르기" en="My Mood Color" />
           <p style={{ fontSize: 11, color: 'var(--sub)', marginTop: 10, marginBottom: 14, lineHeight: 1.7 }}>
             지금 내 마음을 색으로 표현한다면?
           </p>
@@ -1189,7 +1189,7 @@ export default function Results() {
 
         {/* Post-emotion chips */}
         <div className="card" style={{ padding: '18px 20px' }}>
-          <SectionHead icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>} title="감상 후 나의 감정" en="After Viewing" />
+          <SectionHead icon="○" title="감상 후 나의 감정" en="After Viewing" />
           <p style={{ fontSize: 11, color: 'var(--sub)', marginTop: 10, marginBottom: 12, lineHeight: 1.7 }}>
             이 그림을 본 후 어떤 감정이 느껴지나요?
           </p>
@@ -1229,7 +1229,7 @@ export default function Results() {
         {/* Before/after emotion comparison */}
         {preEmotion?.length > 0 && postEmotion.length > 0 && (
           <div className="card" style={{ padding: '18px 20px' }}>
-            <SectionHead icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>} title="감상 전후 비교" en="Emotion Journey" />
+            <SectionHead icon="⊞" title="감상 전후 비교" en="Emotion Journey" />
             <div style={{ marginTop: 14, display: 'grid', gridTemplateColumns: '1fr auto 1fr', gap: 12, alignItems: 'start' }}>
               <div>
                 <p style={{ fontSize: 9, color: 'var(--gold)', letterSpacing: 2, fontWeight: 700, marginBottom: 10, textAlign: 'center' }}>BEFORE</p>
@@ -1258,7 +1258,7 @@ export default function Results() {
 
         {/* Reflection input */}
         <div className="card" style={{ padding: '18px 18px' }}>
-          <SectionHead icon={<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>} title="나의 감상" en="My Reflection" />
+          <SectionHead icon="✎" title="나의 감상" en="My Reflection" />
           <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 10 }}>
             <textarea rows={4}
               placeholder="이 그림이 오늘의 나에게 어떻게 닿았나요…"
