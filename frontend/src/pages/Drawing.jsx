@@ -6,10 +6,9 @@ import LoginModal from '../components/LoginModal.jsx'
 import GoldDivider from '../components/GoldDivider.jsx'
 
 const MODE_CONFIG = {
-  free:  { label: '자유롭게',     question: '이 작품을 보고 마음에 남은 것을 자유롭게 남겨보세요.',  tool: 'pen',   size: 6  },
-  color: { label: '색으로 채우기', question: '지금 감정에 가까운 색으로 화면을 채워보세요.',          tool: 'brush', size: 22 },
-  line:  { label: '선으로 남기기', question: '이 작품을 보고 떠오른 선을 남겨보세요.',               tool: 'pen',   size: 2  },
-  text:  { label: '문장 쓰기',     question: '작품이 건넨 말을 한 문장으로 적어보세요.',              tool: 'text',  size: 6  },
+  line:  { label: '선으로 남기기', question: '이 작품을 보고 떠오른 선을 남겨보세요.',      tool: 'pen',   size: 2  },
+  color: { label: '색으로 채우기', question: '아래에서 색을 고른 뒤 캔버스를 클릭하세요.', tool: 'brush', size: 22 },
+  text:  { label: '문장 쓰기',     question: '작품이 건넨 말을 한 문장으로 적어보세요.',    tool: 'text',  size: 6  },
 }
 
 const BASE_COLORS = [
@@ -72,7 +71,7 @@ export default function Drawing() {
       })()
     : '#1C1008'
 
-  const [sketchMode,     setSketchMode]     = useState('free')
+  const [sketchMode,     setSketchMode]     = useState('line')
   const [tool,           setTool]           = useState('pen')
   const [color,          setColor]          = useState('#C9A84C')
   const [size,           setSize]           = useState(6)
@@ -180,6 +179,10 @@ export default function Drawing() {
 
   const startDraw = useCallback(e => {
     e.preventDefault()
+    if (sketchMode === 'color') {
+      fillWithColor(color)
+      return
+    }
     if (tool === 'text') {
       const canvas = canvasRef.current
       const rect = canvas.getBoundingClientRect()
@@ -191,7 +194,7 @@ export default function Drawing() {
       return
     }
     drawing.current = true; lastPt.current = getPos(e, canvasRef.current)
-  }, [tool])
+  }, [tool, sketchMode, color, fillWithColor])
 
   const draw = useCallback(e => {
     e.preventDefault()
