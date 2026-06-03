@@ -397,7 +397,7 @@ export default function Drawing() {
 
   // ── Main drawing screen ───────────────────────────────────────────────────
   return (
-    <div className="screen" style={{ display: 'flex', flexDirection: 'column', height: '100vh', maxHeight: '100vh', background: 'var(--bg)' }}>
+    <div className="screen" style={{ background: 'var(--bg)', overflowY: 'auto' }}>
       {showLoginModal && (
         <LoginModal onSuccess={() => { setShowLoginModal(false); doSave() }} onClose={() => setShowLoginModal(false)} />
       )}
@@ -459,7 +459,7 @@ export default function Drawing() {
       </div>
 
       {/* Canvas */}
-      <div style={{ flex: 1, position: 'relative', overflow: 'hidden', margin: '0 10px 8px', borderRadius: 10, border: '1px solid var(--line)', boxShadow: '0 4px 20px rgba(0,0,0,0.12)', minHeight: 0, background: canvasBg }}>
+      <div style={{ position: 'relative', overflow: 'hidden', margin: '0 10px 8px', borderRadius: 10, border: '1px solid var(--line)', boxShadow: '0 4px 20px rgba(0,0,0,0.12)', height: '55vw', minHeight: 280, maxHeight: 480, background: canvasBg }}>
         {bgMode === 'overlay' && overlayImg && (
           <img src={`data:image/jpeg;base64,${overlayImg}`} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', opacity: 0.45, pointerEvents: 'none', zIndex: 0 }} />
         )}
@@ -505,7 +505,7 @@ export default function Drawing() {
       </div>
 
       {/* Bottom controls */}
-      <div style={{ padding: '6px 10px 12px', background: 'var(--card)', borderTop: '1px solid var(--line)', flexShrink: 0, overflowY: 'auto', maxHeight: '40vh' }}>
+      <div style={{ padding: '6px 10px 20px', background: 'var(--card)', borderTop: '1px solid var(--line)' }}>
 
         {/* Row 1: tools + size + bg + clear + save */}
         <div style={{ display: 'flex', gap: 5, alignItems: 'center', marginBottom: 8 }}>
