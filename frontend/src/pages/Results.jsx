@@ -894,9 +894,8 @@ export default function Results() {
 
               {eraData && !eraLoading && eraData._not_in_db && (
                 <p style={{ marginTop: 14, fontSize: 12, color: 'var(--sub)', lineHeight: 1.9, fontFamily: "'Noto Serif KR', serif" }}>
-                  전시장에서 직접 만난 작품이군요.<br />
-                  <strong style={{ color: 'var(--gold2)', fontStyle: 'normal' }}>{eraData._title || '이 작품'}</strong>은 아직 저희 아카이브에 담기지 않았습니다.<br />
-                  색채와 구도로 느낀 감상이 오히려 이 작품과 가장 솔직한 대화일지도 모릅니다.
+                  아직 이 작품에 대한 해설이 준비되지 않았어요.<br />
+                  먼저 색, 구도, 분위기에서 느껴지는 인상을 자유롭게 감상해보세요.
                 </p>
               )}
 
