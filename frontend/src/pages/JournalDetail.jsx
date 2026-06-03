@@ -27,6 +27,21 @@ export default function JournalDetail() {
   if (!rec) { nav('/journal'); return null }
 
   const hasIdentity = !!(rec.artwork_title && rec.artwork_artist)
+  const extractEn = t => { const m = t?.match(/\(([^)]+)\)/); return m ? m[1].trim() : (t || '') }
+
+  useEffect(() => {
+    if (!hasIdentity) return
+    setEraLoading(true)
+    getArtworkEra({
+      title:  extractEn(rec.artwork_title),
+      artist: extractEn(rec.artwork_artist),
+      year:   rec.artwork_year || '',
+      identificationStatus: 'confirmed',
+      visualContext: '',
+    }).then(data => setEraData(data))
+      .catch(() => setEraData({ _error: true }))
+      .finally(() => setEraLoading(false))
+  }, [])
 
   const isSketch = rec.entry_type === 'sketch'
   const title = isSketch
@@ -318,22 +333,7 @@ export default function JournalDetail() {
             {(rec.essay_body?.length > 0 || rec.questions?.length > 0 || rec.comfort) && (
               <button
                 type="button"
-                onClick={() => {
-                  const next = !reportOpen
-                  setReportOpen(next)
-                  if (next && hasIdentity && !eraData && !eraLoading) {
-                    setEraLoading(true)
-                    // "한국어명 (English Name)" 형식에서 영어명 추출
-                    const extractEn = t => { const m = t?.match(/\(([^)]+)\)/); return m ? m[1].trim() : (t || '') }
-                    getArtworkEra({
-                      title:  extractEn(rec.artwork_title),
-                      artist: extractEn(rec.artwork_artist),
-                      year:   rec.artwork_year || '',
-                      identificationStatus: 'confirmed',
-                      visualContext: '',
-                    }).then(data => setEraData(data)).catch(() => setEraData(null)).finally(() => setEraLoading(false))
-                  }
-                }}
+                onClick={() => setReportOpen(v => !v)}
                 style={{
                   width: '100%', display: 'flex', alignItems: 'center', gap: 14,
                   background: 'none', border: 'none', cursor: 'pointer', padding: '6px 0', outline: 'none',
@@ -448,7 +448,7 @@ export default function JournalDetail() {
                     <p style={{ fontSize: 12, color: 'var(--sub)' }}>시대 배경을 불러오는 중…</p>
                   </div>
                 )}
-                {eraData && !eraLoading && !eraData._no_era && !eraData._not_in_db && (
+                {eraData && !eraLoading && !eraData._no_era && !eraData._not_in_db && !eraData._error && (
                   <div className="card" style={{ padding: '22px 20px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--gold2)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
