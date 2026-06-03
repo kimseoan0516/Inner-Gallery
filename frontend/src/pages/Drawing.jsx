@@ -7,7 +7,7 @@ import GoldDivider from '../components/GoldDivider.jsx'
 
 const MODE_CONFIG = {
   line:  { label: '선으로 남기기', question: '이 작품을 보고 떠오른 선을 남겨보세요.',      tool: 'pen',   size: 2  },
-  color: { label: '색으로 채우기', question: '아래에서 색을 고른 뒤 캔버스를 클릭하세요.', tool: 'brush', size: 22 },
+  color: { label: '색으로 채우기', question: '아래에서 색을 골라 캔버스를 채워보세요.', tool: 'brush', size: 22 },
   text:  { label: '문장 쓰기',     question: '작품이 건넨 말을 한 문장으로 적어보세요.',    tool: 'text',  size: 6  },
 }
 
@@ -61,6 +61,7 @@ export default function Drawing() {
   const historyIdxRef = useRef(-1)
   const textInputRef  = useRef(null)
   const bgImgRef      = useRef(null)
+  const fillColorRef  = useRef('#C9A84C')
 
   const moodColorHex = moodColor || '#F4F1EB'
   const artworkAtmosphereColor = palette.length > 0
@@ -92,19 +93,28 @@ export default function Drawing() {
   const [textPos,        setTextPos]        = useState(null)
   const [textVal,        setTextVal]        = useState('')
   const [customColor,      setCustomColor]      = useState('#C9A84C')
+  const [fillColor,        setFillColor]        = useState('#C9A84C')
+  const [fillBgColor,      setFillBgColor]      = useState(null)   // CSS 배경으로만 처리 (캔버스 픽셀 X)
   const [eraserPos,        setEraserPos]        = useState(null)
   const [artworkPaletteIdx, setArtworkPaletteIdx] = useState(0)
 
-  const paletteRgbColors = palette.map(c => Array.isArray(c) ? `rgb(${c[0]},${c[1]},${c[2]})` : String(c))
+  const paletteRgbColors = palette.map(c => {
+    if (Array.isArray(c)) return `rgb(${c[0]},${c[1]},${c[2]})`
+    if (c?.rgb) return `rgb(${c.rgb[0]},${c.rgb[1]},${c.rgb[2]})`
+    return String(c)
+  })
   const selectedArtworkColor = paletteRgbColors[artworkPaletteIdx] || artworkAtmosphereColor
 
-  const canvasBg = bgMode === 'overlay' ? 'transparent'
+  // fillBgColor가 있으면 그 색이 우선, 없으면 bgMode에서 파생
+  const canvasBg = fillBgColor ? fillBgColor
+    : bgMode === 'overlay' ? 'transparent'
     : bgMode === 'dark'    ? '#1C1008'
     : bgMode === 'mood'    ? moodColorHex
     : bgMode === 'artwork' ? selectedArtworkColor
     : '#F5F0E8'
 
-  const effectiveBgColor = bgMode === 'overlay' ? '#1C1008'
+  const effectiveBgColor = fillBgColor ? fillBgColor
+    : bgMode === 'overlay' ? '#1C1008'
     : bgMode === 'dark'    ? '#1C1008'
     : bgMode === 'mood'    ? moodColorHex
     : bgMode === 'artwork' ? selectedArtworkColor
@@ -145,6 +155,24 @@ export default function Drawing() {
     setSketchMode(mode)
     const cfg = MODE_CONFIG[mode]
     setTool(cfg.tool); setSize(cfg.size)
+    if (mode === 'color') {
+      const canvas = canvasRef.current
+      if (canvas && canvas.width > 0) fillWithColor(fillColorRef.current)
+    }
+    if (mode === 'text') {
+      // 채우기 색과 대비되는 텍스트 색 자동 선택
+      const fc = fillColorRef.current
+      if (fc.startsWith('#') && fc.length === 7) {
+        const r = parseInt(fc.slice(1, 3), 16)
+        const g = parseInt(fc.slice(3, 5), 16)
+        const b = parseInt(fc.slice(5, 7), 16)
+        const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+        setColor(lum < 0.5 ? '#F4F0E8' : '#1A0800')
+      } else {
+        setColor('#1A0800')
+      }
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const saveSnap = useCallback(() => {
@@ -178,18 +206,16 @@ export default function Drawing() {
     }
   }
 
-  const fillWithColor = useCallback((fillColor) => {
-    const canvas = canvasRef.current; if (!canvas) return
-    const ctx = canvas.getContext('2d')
-    ctx.save(); ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1
-    ctx.fillStyle = fillColor; ctx.fillRect(0, 0, canvas.width, canvas.height)
-    ctx.restore(); saveSnap()
-  }, [saveSnap])
+  // 색으로 채우기는 캔버스 픽셀이 아닌 CSS 배경 상태만 변경
+  // → 배경 버튼 클릭 시 언제나 변경 가능, 선/텍스트는 투명 캔버스에 그려져 배경 위에 항상 보임
+  const fillWithColor = useCallback((c) => {
+    setFillBgColor(c)
+  }, [])
 
   const startDraw = useCallback(e => {
     e.preventDefault()
     if (sketchMode === 'color') {
-      fillWithColor(color)
+      fillWithColor(fillColorRef.current)
       return
     }
     if (tool === 'text') {
@@ -212,16 +238,37 @@ export default function Drawing() {
     const ctx = canvas.getContext('2d')
     const pos = getPos(e, canvas)
     ctx.save()
-    if (tool === 'eraser') { ctx.globalCompositeOperation = 'destination-out'; ctx.globalAlpha = 1 }
-    else if (tool === 'brush') { ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 0.45 }
-    else { ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1 }
-    ctx.beginPath()
-    ctx.moveTo(lastPt.current.x, lastPt.current.y)
-    ctx.lineTo(pos.x, pos.y)
-    ctx.strokeStyle = tool === 'eraser' ? 'rgba(0,0,0,1)' : color
-    ctx.lineWidth = tool === 'eraser' ? size * 2.5 : size
     ctx.lineCap = 'round'; ctx.lineJoin = 'round'
-    ctx.stroke(); ctx.restore()
+
+    if (tool === 'eraser') {
+      ctx.globalCompositeOperation = 'destination-out'; ctx.globalAlpha = 1
+      ctx.strokeStyle = 'rgba(0,0,0,1)'; ctx.lineWidth = size * 2.5
+      ctx.beginPath(); ctx.moveTo(lastPt.current.x, lastPt.current.y); ctx.lineTo(pos.x, pos.y); ctx.stroke()
+    } else if (tool === 'brush') {
+      // 동양 붓 효과: 중심 획 + 좌우 털 획 + 번짐
+      ctx.globalCompositeOperation = 'source-over'; ctx.strokeStyle = color
+      const dx = pos.x - lastPt.current.x, dy = pos.y - lastPt.current.y
+      const dist = Math.sqrt(dx * dx + dy * dy) || 0.001
+      const nx = -dy / dist, ny = dx / dist  // 획 수직 방향
+      const sp = size * 0.38
+
+      ctx.globalAlpha = 0.52; ctx.lineWidth = size  // 중심획
+      ctx.beginPath(); ctx.moveTo(lastPt.current.x, lastPt.current.y); ctx.lineTo(pos.x, pos.y); ctx.stroke()
+
+      ctx.globalAlpha = 0.18; ctx.lineWidth = size * 0.45  // 측면 털 ×2
+      ctx.beginPath(); ctx.moveTo(lastPt.current.x + nx*sp, lastPt.current.y + ny*sp); ctx.lineTo(pos.x + nx*sp, pos.y + ny*sp); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(lastPt.current.x - nx*sp, lastPt.current.y - ny*sp); ctx.lineTo(pos.x - nx*sp, pos.y - ny*sp); ctx.stroke()
+
+      ctx.globalAlpha = 0.07; ctx.lineWidth = size * 0.22  // 외측 번짐 ×2
+      const sp2 = size * 0.65
+      ctx.beginPath(); ctx.moveTo(lastPt.current.x + nx*sp2, lastPt.current.y + ny*sp2); ctx.lineTo(pos.x + nx*sp2, pos.y + ny*sp2); ctx.stroke()
+      ctx.beginPath(); ctx.moveTo(lastPt.current.x - nx*sp2, lastPt.current.y - ny*sp2); ctx.lineTo(pos.x - nx*sp2, pos.y - ny*sp2); ctx.stroke()
+    } else {
+      ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1
+      ctx.strokeStyle = color; ctx.lineWidth = size
+      ctx.beginPath(); ctx.moveTo(lastPt.current.x, lastPt.current.y); ctx.lineTo(pos.x, pos.y); ctx.stroke()
+    }
+    ctx.restore()
     lastPt.current = pos
   }, [tool, color, size])
 
@@ -253,7 +300,7 @@ export default function Drawing() {
     const tc = document.createElement('canvas')
     tc.width = canvas.width; tc.height = canvas.height
     const ctx = tc.getContext('2d')
-    if (bgMode === 'overlay' && bgImgRef.current) {
+    if (!fillBgColor && bgMode === 'overlay' && bgImgRef.current) {
       ctx.fillStyle = '#1C1008'; ctx.fillRect(0, 0, tc.width, tc.height)
       ctx.globalAlpha = 0.45; ctx.drawImage(bgImgRef.current, 0, 0, tc.width, tc.height); ctx.globalAlpha = 1
     } else {
@@ -286,14 +333,16 @@ export default function Drawing() {
       sketch_note:       saveNote,
       sketch_guide:      MODE_CONFIG[sketchMode].question,
       moods:             saveKeywords,
-      mood_color:        effectiveBgColor,
-      mood_color_name:   bgModeName,
+      mood_color:        moodColorHex,
+      mood_color_name:   '',
       sketch_reflection: withReflection ? reflectionText : '',
     }
     try {
       if (existingEntryDate) {
-        // 기존 감상 기록에 스케치 추가
-        await updateJournalSketch(existingEntryDate, sketchData)
+        // 기존 감상 기록에 스케치 추가 — 마음색은 결과 페이지에서 선택한 값이 이미 저장돼 있으므로 건드리지 않음
+        // eslint-disable-next-line no-unused-vars
+        const { mood_color, mood_color_name, ...sketchDataForUpdate } = sketchData
+        await updateJournalSketch(existingEntryDate, sketchDataForUpdate)
       } else {
         // 독립적인 스케치 기록 생성
         const now = new Date()
@@ -307,7 +356,14 @@ export default function Drawing() {
   }
 
   const paletteColors = paletteRgbColors
-  const toolCursor = tool === 'text' ? 'text' : tool === 'eraser' ? 'cell' : 'crosshair'
+  const _penSvg = encodeURIComponent(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24">` +
+    `<path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25z" fill="%232a1a0a" opacity="0.85"/>` +
+    `<path d="M20.71 7.04a1 1 0 0 0 0-1.41l-2.34-2.34a1 1 0 0 0-1.41 0L15.13 5.12l3.75 3.75 1.83-1.83z" fill="%232a1a0a" opacity="0.65"/>` +
+    `</svg>`
+  )
+  const toolCursor = tool === 'text' ? 'text' : tool === 'eraser' ? 'cell'
+    : `url("data:image/svg+xml,${_penSvg}") 3 21, crosshair`
 
   // ── Saved screen ──────────────────────────────────────────────────────────
   if (savedOk) {
@@ -357,15 +413,6 @@ export default function Drawing() {
               {(title || artist) && <p style={{ fontSize: 10, color: 'var(--sub)' }}>{[title, artist].filter(Boolean).join(' · ')} 감상 후</p>}
             </div>
             <GoldDivider />
-            {effectiveBgColor && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ width: 28, height: 28, borderRadius: 6, background: effectiveBgColor, border: '1px solid var(--line)', flexShrink: 0 }} />
-                <div>
-                  <p style={{ fontSize: 8, color: 'var(--gold)', letterSpacing: 2, marginBottom: 2 }}>오늘의 마음 배경</p>
-                  <p style={{ fontSize: 12, color: 'var(--text)', fontWeight: 600 }}>{bgModeName}</p>
-                </div>
-              </div>
-            )}
             {saveKeywords.length > 0 && (
               <div>
                 <p style={{ fontSize: 8, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8 }}>감정 키워드</p>
@@ -379,14 +426,6 @@ export default function Drawing() {
             {saveNote && (
               <div style={{ borderLeft: '2px solid rgba(184,145,42,0.3)', paddingLeft: 14 }}>
                 <p style={{ fontSize: 12, color: 'var(--body)', lineHeight: 1.8, fontStyle: 'italic', fontFamily: "'Noto Serif KR', serif" }}>"{saveNote}"</p>
-              </div>
-            )}
-            {reflectionText && (
-              <div style={{ borderTop: '1px solid var(--line)', paddingTop: 14 }}>
-                <p style={{ fontSize: 8, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8 }}>AI 스케치 회고</p>
-                <p style={{ fontSize: 12, color: 'var(--body)', lineHeight: 1.9, fontFamily: "'Noto Serif KR', serif" }}>
-                  {reflectionText.split('\n').filter(l => l.trim() && !l.startsWith('[')).join(' ')}
-                </p>
               </div>
             )}
           </div>
@@ -472,8 +511,9 @@ export default function Drawing() {
 
       {/* Canvas */}
       <div style={{ position: 'relative', overflow: 'hidden', margin: '0 10px 8px', borderRadius: 10, border: '1px solid var(--line)', boxShadow: '0 4px 20px rgba(0,0,0,0.12)', height: '55vw', minHeight: 280, maxHeight: 480, background: canvasBg }}>
-        {bgMode === 'overlay' && overlayImg && (
-          <img src={`data:image/jpeg;base64,${overlayImg}`} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', opacity: 0.45, pointerEvents: 'none', zIndex: 0 }} />
+        {/* Overlay Image (behind canvas) */}
+        {bgMode === 'overlay' && bgImgRef.current && (
+          <img src={`data:image/jpeg;base64,${overlayImg}`} alt="" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0.45, objectFit: 'contain', pointerEvents: 'none' }} />
         )}
         <canvas
           ref={canvasRef}
@@ -495,22 +535,32 @@ export default function Drawing() {
         )}
         {textPos && (
           <div
-            style={{ position: 'absolute', left: textPos.x, top: textPos.y - 24, zIndex: 10, cursor: 'move', userSelect: 'none' }}
-            onMouseDown={e => {
-              if (e.target === textInputRef.current) return
-              const startX = e.clientX - textPos.x, startY = e.clientY - (textPos.y - 24)
-              const onMove = mv => setTextPos(p => ({ ...p, x: mv.clientX - startX, y: mv.clientY - startY + 24 }))
-              const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp) }
-              window.addEventListener('mousemove', onMove); window.addEventListener('mouseup', onUp)
-            }}
+            style={{ position: 'absolute', left: textPos.x, top: textPos.y - 8, zIndex: 10, pointerEvents: 'auto' }}
+            onMouseDown={e => e.stopPropagation()}
+            onTouchStart={e => e.stopPropagation()}
           >
-            <div style={{ fontSize: 9, color, opacity: 0.6, marginBottom: 2, letterSpacing: 1 }}>↕ 드래그로 이동</div>
             <input
               ref={textInputRef} value={textVal}
               onChange={e => setTextVal(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') commitText(); if (e.key === 'Escape') { setTextPos(null); setTextVal('') } }}
+              onKeyDown={e => {
+                if (e.key === 'Enter') { e.preventDefault(); commitText() }
+                if (e.key === 'Escape') { setTextPos(null); setTextVal('') }
+              }}
               onBlur={commitText}
-              style={{ background: 'transparent', border: 'none', borderBottom: `1px solid ${color}`, color, fontSize: size * 2 + 10, fontFamily: "'Noto Serif KR', serif", outline: 'none', minWidth: 80, caretColor: color, cursor: 'text' }}
+              style={{
+                background: 'rgba(0,0,0,0.08)',
+                border: 'none',
+                borderBottom: `2px solid ${color}`,
+                color,
+                fontSize: size * 2 + 10,
+                fontFamily: "'Noto Serif KR', serif",
+                outline: 'none',
+                minWidth: 100,
+                padding: '2px 4px',
+                caretColor: color,
+                cursor: 'text',
+                textShadow: color === '#F4F0E8' ? '0 0 4px rgba(0,0,0,0.5)' : '0 0 4px rgba(255,255,255,0.3)',
+              }}
             />
           </div>
         )}
@@ -524,8 +574,8 @@ export default function Drawing() {
           {sketchMode !== 'color' && (
             <>
               {[
-                { key: 'pen',    svg: <path d="M12 19l7-7 3 3-7 7-3-3z"/>, extra: <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/> },
-                { key: 'brush',  svg: <><path d="M18.37 2.63 14 7l-1.59-1.59-2.83 2.83 1.59 1.59L7 14l-1.59-1.59-2.83 2.83L4 16.76a2.49 2.49 0 0 0 .18.24 2.1 2.1 0 0 0 2.88.3c.33-.31.7-.6 1.01-.88.25-.22.5-.45.77-.67l6.26 6.26 1.41-1.41-6.26-6.26.67-.77c.28-.31.57-.68.88-1.01a2.1 2.1 0 0 0 .3-2.88 2.49 2.49 0 0 0-.24-.18"/><path d="m21.37 5.37-2.83 2.83-2.83-2.83 2.83-2.83 2.83 2.83z"/></> },
+                { key: 'pen',    svg: <><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></> },
+                { key: 'brush',  svg: <path d="M12 2Q20 4 22 12Q20 20 12 22Q4 20 2 12Q4 4 12 2z"/> },
                 { key: 'eraser', svg: <><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></> },
                 { key: 'text',   svg: <><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></> },
               ].map(({ key, svg, extra }) => (
@@ -539,55 +589,71 @@ export default function Drawing() {
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{svg}{extra}</svg>
                 </button>
               ))}
-              <div style={{ width: 1, height: 20, background: 'var(--line)', flexShrink: 0 }} />
-              {SIZE_PRESETS.map(({ size: s, label }) => (
-                <button key={s} onClick={() => setSize(s)} style={{
-                  width: 30, height: 30, borderRadius: 8, flexShrink: 0, fontSize: 10, fontFamily: 'inherit', fontWeight: 700,
-                  background: size === s ? 'rgba(184,145,42,0.12)' : 'transparent',
-                  border: size === s ? '1px solid rgba(184,145,42,0.5)' : '1px solid transparent',
-                  color: size === s ? 'var(--gold2)' : 'var(--sub)',
-                  cursor: 'pointer',
-                }}>{label}</button>
-              ))}
-              <div style={{ width: 1, height: 20, background: 'var(--line)', flexShrink: 0 }} />
+              <div style={{ width: 0, height: 20, borderLeft: '1px solid var(--line)', flexShrink: 0 }} />
+              {SIZE_PRESETS.map(({ size: s }) => {
+                const dotPx = s === 2 ? 4 : s === 8 ? 10 : 18
+                const on = size === s
+                return (
+                  <button key={s} onClick={() => setSize(s)} style={{
+                    width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+                    background: on ? 'rgba(184,145,42,0.12)' : 'transparent',
+                    border: on ? '1px solid rgba(184,145,42,0.5)' : '1px solid transparent',
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  }}>
+                    <div style={{ width: dotPx, height: dotPx, borderRadius: '50%', background: on ? 'var(--gold2)' : 'var(--sub)', flexShrink: 0 }} />
+                  </button>
+                )
+              })}
+              <div style={{ width: 0, height: 20, borderLeft: '1px solid var(--line)', flexShrink: 0 }} />
+
+              {/* Background selector */}
+              <span style={{ fontSize: 9, color: 'var(--sub)', fontWeight: 700, flexShrink: 0, letterSpacing: 0.5 }}>배경</span>
+              <div className="hide-scroll" style={{ display: 'flex', gap: 4, alignItems: 'center', flex: 1, overflowX: 'auto' }}>
+                {bgModeOptions.map(({ key, label, swatch }) => (
+                  <button key={key} onClick={() => { 
+                    setBgMode(key)
+                    setFillBgColor(null)
+                    setFillColor(null)
+                    fillColorRef.current = null
+                  }} style={{
+                    display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0,
+                    padding: '4px 8px', borderRadius: 12, fontSize: 9, fontFamily: 'inherit', cursor: 'pointer',
+                    border: (bgMode === key && !fillBgColor) ? '1px solid rgba(184,145,42,0.6)' : '1px solid var(--line)',
+                    background: (bgMode === key && !fillBgColor) ? 'rgba(184,145,42,0.1)' : 'transparent',
+                    color: (bgMode === key && !fillBgColor) ? 'var(--gold2)' : 'var(--sub)',
+                    fontWeight: (bgMode === key && !fillBgColor) ? 700 : 400,
+                  }}>
+                    {swatch !== null
+                      ? <div style={{ width: 10, height: 10, borderRadius: 2, background: swatch, border: '1px solid rgba(0,0,0,0.1)', flexShrink: 0 }} />
+                      : <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                    }
+                    {label}
+                  </button>
+                ))}
+                {/* 작품색 선택 시 팔레트 스와치 인라인 표시 */}
+                {bgMode === 'artwork' && paletteRgbColors.length > 0 && (
+                  <>
+                    <div style={{ width: 1, height: 14, background: 'var(--line)', flexShrink: 0 }} />
+                    {paletteRgbColors.map((c, i) => (
+                      <button key={i} onClick={() => { 
+                        setArtworkPaletteIdx(i)
+                        setBgMode('artwork')
+                        setFillBgColor(null)
+                        setFillColor(null)
+                        fillColorRef.current = null
+                      }} style={{
+                        width: 18, height: 18, borderRadius: 4, background: c, flexShrink: 0,
+                        border: (artworkPaletteIdx === i && !fillBgColor) ? '2px solid var(--gold2)' : '1px solid var(--line)',
+                        cursor: 'pointer', boxShadow: (artworkPaletteIdx === i && !fillBgColor) ? '0 0 0 2px var(--gold2)' : 'none', transition: 'box-shadow 0.1s',
+                      }} />
+                    ))}
+                  </>
+                )}
+              </div>
+              <div style={{ width: 0, height: 20, borderLeft: '1px solid var(--line)', flexShrink: 0 }} />
             </>
           )}
-
-          {/* Background selector */}
-          <span style={{ fontSize: 9, color: 'var(--sub)', fontWeight: 700, flexShrink: 0, letterSpacing: 0.5 }}>배경</span>
-          <div className="hide-scroll" style={{ display: 'flex', gap: 4, alignItems: 'center', flex: 1, overflowX: 'auto' }}>
-            {bgModeOptions.map(({ key, label, swatch }) => (
-              <button key={key} onClick={() => setBgMode(key)} style={{
-                display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0,
-                padding: '4px 8px', borderRadius: 12, fontSize: 9, fontFamily: 'inherit', cursor: 'pointer',
-                border: bgMode === key ? '1px solid rgba(184,145,42,0.6)' : '1px solid var(--line)',
-                background: bgMode === key ? 'rgba(184,145,42,0.1)' : 'transparent',
-                color: bgMode === key ? 'var(--gold2)' : 'var(--sub)',
-                fontWeight: bgMode === key ? 700 : 400,
-              }}>
-                {swatch !== null
-                  ? <div style={{ width: 10, height: 10, borderRadius: 2, background: swatch, border: '1px solid rgba(0,0,0,0.1)', flexShrink: 0 }} />
-                  : <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
-                }
-                {label}
-              </button>
-            ))}
-            {/* 작품색 선택 시 팔레트 스와치 인라인 표시 */}
-            {bgMode === 'artwork' && paletteRgbColors.length > 0 && (
-              <>
-                <div style={{ width: 1, height: 14, background: 'var(--line)', flexShrink: 0 }} />
-                {paletteRgbColors.map((c, i) => (
-                  <button key={i} onClick={() => setArtworkPaletteIdx(i)} style={{
-                    width: 18, height: 18, borderRadius: 4, background: c, flexShrink: 0,
-                    border: artworkPaletteIdx === i ? '2px solid var(--gold2)' : '1px solid var(--line)',
-                    cursor: 'pointer', boxShadow: artworkPaletteIdx === i ? '0 0 0 2px var(--gold2)' : 'none', transition: 'box-shadow 0.1s',
-                  }} />
-                ))}
-              </>
-            )}
-          </div>
-
-          <div style={{ width: 1, height: 20, background: 'var(--line)', flexShrink: 0 }} />
+          {sketchMode === 'color' && <div style={{ flex: 1 }} />}
           <button onClick={clear} style={{ padding: '0 8px', height: 30, borderRadius: 8, fontSize: 10, fontFamily: 'inherit', background: 'transparent', border: '1px solid var(--line)', color: 'var(--sub)', cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }}>초기화</button>
           <button onClick={() => { setShowSave(true); setSaveStep('form') }} style={{
             padding: '0 12px', height: 30, borderRadius: 8, fontSize: 11, fontFamily: 'inherit', flexShrink: 0,
@@ -598,17 +664,33 @@ export default function Drawing() {
 
         {/* Color palette */}
         <div className="hide-scroll" style={{ display: 'flex', gap: 6, alignItems: 'center', overflowX: 'auto', padding: '4px 2px 4px' }}>
-          {BASE_COLORS.map((c, i) => (
-            <button key={`b${i}`} onClick={() => { setColor(c); if (tool === 'eraser') setTool('pen'); if (sketchMode === 'color') fillWithColor(c) }} style={{
-              width: 24, height: 24, borderRadius: 6, background: c, flexShrink: 0,
-              border: color === c && tool !== 'eraser' ? '2px solid var(--gold2)' : '1px solid var(--line)',
-              cursor: 'pointer', boxShadow: color === c && tool !== 'eraser' ? '0 0 0 2px var(--gold2)' : 'none', transition: 'box-shadow 0.1s',
-            }} />
-          ))}
+          {BASE_COLORS.map((c, i) => {
+            const isFillSelected = sketchMode === 'color' ? fillColor === c : color === c && tool !== 'eraser'
+            return (
+              <button key={`b${i}`} onClick={() => {
+                if (sketchMode === 'color') {
+                  fillColorRef.current = c; setFillColor(c); fillWithColor(c)
+                } else {
+                  setColor(c); if (tool === 'eraser') setTool('pen')
+                }
+              }} style={{
+                width: 24, height: 24, borderRadius: 6, background: c, flexShrink: 0,
+                border: isFillSelected ? '2px solid var(--gold2)' : '1px solid var(--line)',
+                cursor: 'pointer', boxShadow: isFillSelected ? '0 0 0 2px var(--gold2)' : 'none', transition: 'box-shadow 0.1s',
+              }} />
+            )
+          })}
           <label style={{ position: 'relative', width: 24, height: 24, flexShrink: 0, cursor: 'pointer' }}>
             <div style={{ width: 24, height: 24, borderRadius: 6, background: 'conic-gradient(red, yellow, lime, aqua, blue, magenta, red)', border: '1px solid var(--line)' }} />
-            <input type="color" value={customColor}
-              onChange={e => { setCustomColor(e.target.value); setColor(e.target.value); if (tool === 'eraser') setTool('pen'); if (sketchMode === 'color') fillWithColor(e.target.value) }}
+            <input type="color" value={sketchMode === 'color' ? fillColor : customColor}
+              onChange={e => {
+                const v = e.target.value
+                if (sketchMode === 'color') {
+                  fillColorRef.current = v; setFillColor(v); setCustomColor(v); fillWithColor(v)
+                } else {
+                  setCustomColor(v); setColor(v); if (tool === 'eraser') setTool('pen')
+                }
+              }}
               style={{ position: 'absolute', inset: 0, opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }}
             />
           </label>
@@ -616,13 +698,22 @@ export default function Drawing() {
             <>
               <div style={{ width: 1, height: 18, background: 'var(--line)', flexShrink: 0 }} />
               <span style={{ fontSize: 8, color: 'var(--sub)', flexShrink: 0, whiteSpace: 'nowrap' }}>원작</span>
-              {paletteColors.map((c, i) => (
-                <button key={`p${i}`} onClick={() => { setColor(c); if (tool === 'eraser') setTool('pen'); if (sketchMode === 'color') fillWithColor(c) }} style={{
-                  width: 24, height: 24, borderRadius: 6, background: c, flexShrink: 0,
-                  border: color === c && tool !== 'eraser' ? '2px solid var(--gold2)' : '1px solid var(--line)',
-                  cursor: 'pointer', transform: color === c && tool !== 'eraser' ? 'scale(1.2)' : 'scale(1)', transition: 'transform 0.1s',
-                }} />
-              ))}
+              {paletteColors.map((c, i) => {
+                const isFillSelected = sketchMode === 'color' ? fillColor === c : color === c && tool !== 'eraser'
+                return (
+                  <button key={`p${i}`} onClick={() => {
+                    if (sketchMode === 'color') {
+                      fillColorRef.current = c; setFillColor(c); fillWithColor(c)
+                    } else {
+                      setColor(c); if (tool === 'eraser') setTool('pen')
+                    }
+                  }} style={{
+                    width: 24, height: 24, borderRadius: 6, background: c, flexShrink: 0,
+                    border: isFillSelected ? '2px solid var(--gold2)' : '1px solid var(--line)',
+                    cursor: 'pointer', transform: isFillSelected ? 'scale(1.2)' : 'scale(1)', transition: 'transform 0.1s',
+                  }} />
+                )
+              })}
             </>
           )}
         </div>
@@ -630,13 +721,14 @@ export default function Drawing() {
 
       {/* Save modal */}
       {showSave && (
-        <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
+        <div style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(0,0,0,0.5)', display: 'flex', flexDirection: 'column', justifyContent: 'flex-end', alignItems: 'center' }}>
           <div style={{
             background: 'var(--card)', borderTop: '1px solid var(--line)',
             borderTopLeftRadius: 20, borderTopRightRadius: 20,
             padding: '20px 20px 44px',
             display: 'flex', flexDirection: 'column', gap: 16,
             maxHeight: '90vh', overflowY: 'auto',
+            width: '100%', maxWidth: 480,
           }}>
             <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--line)', margin: '0 auto -4px' }} />
 

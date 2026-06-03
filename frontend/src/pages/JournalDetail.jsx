@@ -102,35 +102,7 @@ export default function JournalDetail() {
               )}
             </div>
 
-            <GoldDivider />
 
-            {rec.sketch_guide && (
-              <div className="card" style={{ padding: '16px 18px' }}>
-                <SecLabel icon="○" title="감상 질문" en="Guide Question" />
-                <p style={{ fontSize: 13, color: 'var(--sub)', lineHeight: 1.8, fontStyle: 'italic', fontFamily: "'Noto Serif KR', serif", marginTop: 10 }}>
-                  "{rec.sketch_guide}"
-                </p>
-              </div>
-            )}
-
-            {rec.sketch_reflection && (
-              <div className="card" style={{ padding: '16px 18px' }}>
-                <SecLabel icon="◈" title="마음 회고" en="Reflection" />
-                <p style={{ fontSize: 13, color: 'var(--body)', lineHeight: 1.9, fontFamily: "'Noto Serif KR', serif", marginTop: 10 }}>
-                  {rec.sketch_reflection}
-                </p>
-              </div>
-            )}
-
-            {rec.mood_color && (
-              <div className="card" style={{ padding: '14px 18px', display: 'flex', alignItems: 'center', gap: 14 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 3, background: rec.mood_color, border: '1px solid rgba(120,90,50,0.18)', flexShrink: 0 }} />
-                <div>
-                  <p style={{ fontSize: 10, color: 'var(--gold)', letterSpacing: 1.5, marginBottom: 3 }}>그날의 마음 색</p>
-                  <p style={{ fontSize: 13, color: 'var(--text)', fontWeight: 600 }}>{rec.mood_color_name || rec.mood_color}</p>
-                </div>
-              </div>
-            )}
 
             {rec.moods?.length > 0 && (
               <div className="card" style={{ padding: '16px 18px' }}>
@@ -475,8 +447,10 @@ export default function JournalDetail() {
                 )}
               </>
             )}
-          </>
-        )}
+
+            <button className="btn-primary" style={{ width: '100%', height: 48 }} onClick={() => navigate('/drawing', { state: { existingEntryDate: rec.date, title, artist, palette: rec.dominant_colors, moodColorHex: rec.mood_color } })}>
+              마음 스케치 그리기
+            </button>
 
         <button className="btn-ghost" onClick={() => nav('/journal')} style={{ width: '100%', height: 42 }}>
           기록 목록으로

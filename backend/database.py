@@ -221,8 +221,10 @@ def update_journal_sketch(user_id: int, date: str, sketch: dict):
         c.execute(
             """UPDATE journal_entries
                SET sketch_image = ?, sketch_title = ?, sketch_note = ?,
-                   sketch_guide = ?, sketch_reflection = ?, mood_color = ?,
-                   mood_color_name = ?, moods = ?
+                   sketch_guide = ?, sketch_reflection = ?, 
+                   mood_color = CASE WHEN ? != '' THEN ? ELSE mood_color END,
+                   mood_color_name = CASE WHEN ? != '' THEN ? ELSE mood_color_name END,
+                   moods = ?
                WHERE user_id = ? AND date = ?""",
             (
                 sketch.get("sketch_image", ""),
@@ -230,8 +232,8 @@ def update_journal_sketch(user_id: int, date: str, sketch: dict):
                 sketch.get("sketch_note", ""),
                 sketch.get("sketch_guide", ""),
                 sketch.get("sketch_reflection", ""),
-                sketch.get("mood_color", ""),
-                sketch.get("mood_color_name", ""),
+                sketch.get("mood_color", ""), sketch.get("mood_color", ""),
+                sketch.get("mood_color_name", ""), sketch.get("mood_color_name", ""),
                 _dumps(sketch.get("moods", [])),
                 user_id, date,
             ),

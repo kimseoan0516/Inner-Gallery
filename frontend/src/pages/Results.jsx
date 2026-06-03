@@ -84,13 +84,16 @@ const QUOTE_RE  = /([「『「'"'][^「』""'\n]{1,60}?[」』""'"])/g
 
 function renderHighlightedParagraph(text, idx) {
   if (!text) return '';
-  const combined = /(\*\*(.*?)\*\*)|([「『][^「』\n]{1,100}?[」』])|(==([^=\n]{5,120}?)==)/g;
+  const combined = /(\*\*(.*?)\*\*)|([「『][^「』\n]{1,100}?[」』])/g;
   const result = [];
   let last = 0;
   let m;
   while ((m = combined.exec(text)) !== null) {
-    if (m.index > last) result.push(text.slice(last, m.index));
+    if (m.index > last) {
+      result.push(text.slice(last, m.index));
+    }
     if (m[1]) {
+      // Markdown bold phrase — underline highlight (most important sentences)
       result.push(
         <span key={`b-${m.index}`} style={{
           color: 'var(--text)', fontWeight: 700,
@@ -99,31 +102,28 @@ function renderHighlightedParagraph(text, idx) {
           textDecorationColor: 'rgba(154,120,50,0.45)',
           textUnderlineOffset: '3px',
           textDecorationThickness: '1.5px',
-        }}>{m[2]}</span>
+        }}>
+          {m[2]}
+        </span>
       );
     } else if (m[3]) {
-      // 「」 — 작품 제목 표기 (기존 유지)
+      // Quoted/bracketed core sentence — warm highlight
       result.push(
         <span key={`q-${m.index}`} style={{
-          color: 'var(--gold2)', fontWeight: 600,
+          color: 'var(--gold2)', fontWeight: 600, fontStyle: 'normal',
           background: 'rgba(184,145,42,0.09)',
-          padding: '1px 3px', borderRadius: 3,
-        }}>{m[3]}</span>
-      );
-    } else if (m[4]) {
-      // ==text== — 핵심 감상 문구 강조
-      result.push(
-        <span key={`h-${m.index}`} style={{
-          color: 'var(--gold2)', fontWeight: 600,
-          background: 'rgba(184,145,42,0.12)',
-          padding: '1px 5px', borderRadius: 3,
-          borderBottom: '1.5px solid rgba(184,145,42,0.4)',
-        }}>{m[5]}</span>
+          padding: '1px 3px',
+          borderRadius: 3,
+        }}>
+          {m[3]}
+        </span>
       );
     }
     last = combined.lastIndex;
   }
-  if (last < text.length) result.push(text.slice(last));
+  if (last < text.length) {
+    result.push(text.slice(last));
+  }
   return result;
 }
 
@@ -159,9 +159,9 @@ const EMOTION_CATEGORIES = [
   { label: '분노와 복잡한 감정', emotions: ['짜증', '화', '증오', '애증'] },
   { label: '안정과 위로',       emotions: ['평온함', '편안함', '여유', '휴식', '온기', '위로', '수용', '화해', '환기'] },
   { label: '회복과 긍정',       emotions: ['회복', '긍정감', '희망', '기쁨', '설렘', '기대', '자신감', '열정', '생기', '자유로움', '풍족함', '영감'] },
-  { label: '깊은 감각과 바라봄', emotions: ['감동', '경이로움', '황홀감', '성찰', '집중', '깨달음', '배려심', '호기심', '통찰'] },
+  { label: '깊은 감각과 바라봄', emotions: ['감동', '경이로움', '황홀감', '성찰', '집중', '깨달음', '이해', '배려심', '호기심', '통찰'] },
 ]
-const DEFAULT_EMOTIONS = ['슬픔', '외로움', '지침', '불안', '긴장감', '짜증', '평온함', '온기', '희망', '기쁨', '설렘', '감동', '경이로움']
+const DEFAULT_EMOTIONS = ['슬픔', '외로움', '지침', '불안', '긴장감', '짜증', '평온함', '온기', '희망', '기쁨', '설렘', '이해', '감동', '경이로움']
 
 const MOOD_COLORS = [
   { hex: '#5EB0AA', name: '청록색',       mood: '평온함' },
@@ -240,6 +240,17 @@ export default function Results() {
 
   const displayInfo = correctedInfo || info
   const activeEssay = correctedEssay || essay
+
+  // LLM이 essay.title을 body[0]에 **굵게** 넣는 경우를 처리
+  // body[0]이 **...**로만 이루어진 짧은 구절이면 제목으로 추출
+  const derivedEssayTitle = activeEssay.title || (() => {
+    const first = activeEssay.body?.[0] || ''
+    const m = first.match(/^\*\*(.*?)\*\*$/)
+    return (m && m[1].length <= 30) ? m[1] : ''
+  })()
+  const essayDisplayBody = (!activeEssay.title && derivedEssayTitle && activeEssay.body?.[0]?.match(/^\*\*.*\*\*$/))
+    ? (activeEssay.body || []).slice(1)
+    : (activeEssay.body || [])
   // 작품명/화가를 "확정"해서 보여주거나 저장/대화에 쓰지 않도록 안전장치
   // - LLM/후보가 추정한 신원을 사용자가 확인하지 않은 경우, 이름을 숨긴다.
   const identityConfirmed =
@@ -505,16 +516,11 @@ export default function Results() {
               return (
                 <>
                   <p style={{ fontSize: 20, fontWeight: 700, fontFamily: "'Noto Serif KR', serif", color: 'var(--text)', lineHeight: 1.32, letterSpacing: '-0.3px', marginBottom: 6 }}>
-                    {titleKo || titleEn || essay.title || '작품 분석 결과'}
+                    {titleKo || titleEn || '작품 분석 결과'}
                   </p>
                   {titleKo && titleEn && (
                     <p style={{ fontSize: 12, color: 'rgba(70,52,40,0.50)', fontStyle: 'italic', marginBottom: 14, letterSpacing: 0.1, lineHeight: 1.4 }}>
                       {titleEn}
-                    </p>
-                  )}
-                  {essay.title && (
-                    <p style={{ fontSize: 13, color: 'var(--gold2)', lineHeight: 1.6, letterSpacing: 0.1 }}>
-                      {essay.title}
                     </p>
                   )}
                 </>
@@ -522,6 +528,12 @@ export default function Results() {
             })() : (
               <p style={{ fontSize: 20, fontWeight: 700, fontFamily: "'Noto Serif KR', serif", color: 'var(--text)', lineHeight: 1.32, marginBottom: 6 }}>
                 이름을 알 수 없는 작품
+              </p>
+            )}
+            {/* 한줄 평 — identityConfirmed 여부와 무관하게 항상 표시 */}
+            {derivedEssayTitle && (
+              <p style={{ fontSize: 13, color: 'var(--gold2)', lineHeight: 1.6, letterSpacing: 0.1, marginTop: 6 }}>
+                {derivedEssayTitle}
               </p>
             )}
             {safeInfo.year && (
@@ -807,12 +819,12 @@ export default function Results() {
             </div>
             <p style={{ fontSize: 12, color: 'var(--sub)' }}>감상 해설을 다시 작성하고 있습니다…</p>
           </div>
-        ) : activeEssay.body?.length > 0 && (
+        ) : essayDisplayBody.length > 0 && (
           <EssayCard title="감상 해설" en="Docent Commentary">
             <div style={{ fontSize: 13, color: 'var(--body)', lineHeight: 1.9, fontFamily: "'Noto Serif KR', serif" }}>
-              {activeEssay.body.map((p, i) => (
-                <p key={i} style={{ marginBottom: i < activeEssay.body.length - 1 ? 20 : 0 }}>
-                  {renderHighlightedParagraph(p, i)}
+              {essayDisplayBody.map((p, i) => (
+                <p key={i} style={{ marginBottom: i < essayDisplayBody.length - 1 ? 20 : 0 }}>
+                  {p.replace(/\*\*(.*?)\*\*/g, '$1').replace(/[「『][^「』\n]*[」』]/g, m => m.slice(1, -1))}
                 </p>
               ))}
             </div>

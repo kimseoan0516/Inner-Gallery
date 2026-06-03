@@ -188,19 +188,22 @@ function TicketCard({ rec, onClick, onUpdateNote }) {
       
       {/* Top half - Image */}
       <div style={{
-        position: 'relative', height: 420, background: imgBg,
-        borderTopLeftRadius: 12, borderTopRightRadius: 12, overflow: 'hidden'
+        position: 'relative', height: isSketch ? 'auto' : 420, background: imgBg,
+        borderTopLeftRadius: 12, borderTopRightRadius: 12, overflow: 'hidden',
+        minHeight: isSketch ? 160 : 420,
       }}>
         {imgSrc
-          ? <img src={imgSrc} alt={title} style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          ? <img src={imgSrc} alt={title} style={{ width: '100%', height: isSketch ? 'auto' : '100%', objectFit: isSketch ? 'contain' : 'cover', display: 'block' }} />
           : <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:24, opacity:0.3, color:'var(--gold2)' }}>◇</div>
         }
         
         {/* Scalloped dot pattern for the ticket feel */}
         <div style={{ position: 'absolute', bottom: -6, left: 0, right: 0, height: 12, backgroundImage: 'radial-gradient(circle, #F4F1EB 4px, transparent 4px)', backgroundSize: '16px 12px', backgroundPosition: 'center bottom', zIndex: 2 }} />
 
-        <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.4) 40%, transparent 100%)' }} />
-        
+        {!isSketch && (
+          <div style={{ position: 'absolute', inset: 0, background: 'linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.4) 40%, transparent 100%)' }} />
+        )}
+
         <div style={{ position: 'absolute', top: 16, left: 22, right: 18, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
           <div style={{ background: 'rgba(255,255,255,0.65)', color: '#111', fontSize: 10, padding: '4px 10px', borderRadius: 4, fontWeight: 700, letterSpacing: 0.5 }}>
             ARCHIVE
@@ -210,10 +213,12 @@ function TicketCard({ rec, onClick, onUpdateNote }) {
           </div>
         </div>
 
-        <div style={{ position: 'absolute', bottom: 22, left: 16, right: 16 }}>
-          <h3 style={{ margin: 0, fontSize: 20, color: 'white', fontFamily: "'Georgia', 'Noto Serif KR', serif", letterSpacing: 0.5, marginBottom: 4 }}>{title}</h3>
-          <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>{artist}</p>
-        </div>
+        {!isSketch && (
+          <div style={{ position: 'absolute', bottom: 22, left: 16, right: 16 }}>
+            <h3 style={{ margin: 0, fontSize: 20, color: 'white', fontFamily: "'Georgia', 'Noto Serif KR', serif", letterSpacing: 0.5, marginBottom: 4 }}>{title}</h3>
+            <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>{artist}</p>
+          </div>
+        )}
       </div>
 
       {/* Seamless connection */}
