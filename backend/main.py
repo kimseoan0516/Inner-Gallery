@@ -12,6 +12,8 @@ import cv2
 import numpy as np
 from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import List, Any
 
@@ -24,7 +26,7 @@ from modules.llm_generator        import generate_interpretation, analyze_artwor
 from modules.quality_checker      import check_image_quality
 from modules.artwork_matcher      import match_artwork, top_k_artists, is_available as matcher_available
 from modules.era_lookup           import lookup_artwork
-from backend.database             import init_db, get_journal, save_journal_entry, delete_journal_entry
+from backend.database             import init_db, get_journal, save_journal_entry, delete_journal_entry, update_journal_note
 from backend.auth                 import router as auth_router, get_current_user
 
 app = FastAPI(title="Inner Gallery API")
@@ -369,12 +371,13 @@ def sanitize_visual_data(color, comp, person, figure, artwork_type, is_abstract=
     }
 
 
-def _build_payload(info, color, comp, person, figure, scores, att_x, att_y, candidates=None, identification_status="unknown", artwork_type="자동", is_abstract=False):
+def _build_payload(info, color, comp, person, figure, scores, att_x, att_y, candidates=None, identification_status="unknown", artwork_type="자동", is_abstract=False, user_provided_name=False):
     sanitized = sanitize_visual_data(color, comp, person, figure, artwork_type, is_abstract)
     return {
         "artwork_info": {k: info.get(k) for k in ("title", "artist", "year", "medium")},
         "candidates": candidates or [],
         "identification_status": identification_status,
+        "user_provided_name": user_provided_name,
         "visual_analysis": {
             "dominant_colors": [c["name"] for c in color["dominant_colors"]],
             "brightness":  color["brightness_label"],
@@ -1003,8 +1006,9 @@ async def analyze(
 
         # LLM 해설 및 세부 바인딩용 후보 지정
         payload_candidates = candidates if identification_status in ("confirmed", "ocr_confirmed", "internal_match", "web_confirmed") else []
+        user_provided_name = bool((hint_title or hint_artist) and not ocr_auto_injected)
 
-        payload   = _build_payload(info, color, comp, person, figure, scores, att_x, att_y, candidates=payload_candidates, identification_status=identification_status, artwork_type=artwork_type, is_abstract=is_abstract)
+        payload   = _build_payload(info, color, comp, person, figure, scores, att_x, att_y, candidates=payload_candidates, identification_status=identification_status, artwork_type=artwork_type, is_abstract=is_abstract, user_provided_name=user_provided_name)
         essay_raw = generate_interpretation(payload, _API_KEY, mode, artwork_type, analysis_focus, artwork_description)
         essay     = _parse_essay(essay_raw)
 
@@ -1141,6 +1145,7 @@ async def essay_text_api(req: EssayTextRequest):
             },
             "candidates": [],
             "identification_status": "confirmed",
+            "user_provided_name": True,
             "visual_analysis": {},
             "mood_scores": {},
         }
@@ -1163,7 +1168,6 @@ class NoteUpdateRequest(BaseModel):
 
 @app.patch("/api/journal/{date:path}/note")
 def journal_update_note(date: str, req: NoteUpdateRequest, user=Depends(get_current_user)):
-    from database import update_journal_note
     update_journal_note(user["id"], date, req.note)
     return {"ok": True}
 
@@ -1477,3 +1481,13 @@ async def docent_chat(req: ChatRequest):
         return {"reply": text.strip()}
     except Exception as e:
         raise HTTPException(500, str(e))
+
+
+# ── 프론트엔드 정적 파일 서빙 (Docker 빌드 후) ──────────────────────────────
+_dist = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "frontend", "dist")
+if os.path.exists(_dist):
+    app.mount("/assets", StaticFiles(directory=os.path.join(_dist, "assets")), name="assets")
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_frontend(full_path: str):
+        return FileResponse(os.path.join(_dist, "index.html"))

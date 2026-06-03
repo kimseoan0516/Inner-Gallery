@@ -1,0 +1,10 @@
+{
+  "dim": 512,
+  "count": 18455,
+  "model": "clip-ViT-B-32",
+  "sources": [
+    "best_artworks_of_all_time.zip",
+    "greatest_artists_of_all_time.zip"
+  ],
+  "artists": 54
+}

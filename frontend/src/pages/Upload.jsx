@@ -375,14 +375,7 @@ export default function Upload({ mode: pageMode }) {
       if (!v || v.readyState < 2 || v.videoWidth === 0) return
       scanLockRef.current = true
       try {
-        const canvas = document.createElement('canvas')
-        canvas.width = v.videoWidth; canvas.height = v.videoHeight
-        const ctx = canvas.getContext('2d')
-        if (!isMobile) {
-          ctx.translate(canvas.width, 0)
-          ctx.scale(-1, 1)
-        }
-        ctx.drawImage(v, 0, 0)
+        const canvas = captureFramedCanvas(v)
         await new Promise(resolve => {
           canvas.toBlob(async (blob) => {
             if (!blob) { resolve(); return }
@@ -426,19 +419,28 @@ export default function Upload({ mode: pageMode }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // 액자 오버레이 영역(top:7% left:5% right:5% bottom:7%)만 잘라서 캔버스 반환
+  const captureFramedCanvas = (v) => {
+    const vw = v.videoWidth, vh = v.videoHeight
+    const full = document.createElement('canvas')
+    full.width = vw; full.height = vh
+    const fCtx = full.getContext('2d')
+    if (!isMobile) { fCtx.translate(vw, 0); fCtx.scale(-1, 1) }
+    fCtx.drawImage(v, 0, 0)
+    const x = Math.round(vw * 0.05), y = Math.round(vh * 0.07)
+    const w = Math.round(vw * 0.90), h = Math.round(vh * 0.86)
+    const crop = document.createElement('canvas')
+    crop.width = w; crop.height = h
+    crop.getContext('2d').drawImage(full, x, y, w, h, 0, 0, w, h)
+    return crop
+  }
+
   const capture = () => {
     const v = videoRef.current; if (!v) return
     stopAutoScan()
     setFlashActive(true)
     setTimeout(() => setFlashActive(false), 400)
-    const c = document.createElement('canvas')
-    c.width = v.videoWidth; c.height = v.videoHeight
-    const ctx = c.getContext('2d')
-    if (!isMobile) {
-      ctx.translate(c.width, 0)
-      ctx.scale(-1, 1)
-    }
-    ctx.drawImage(v, 0, 0)
+    const c = captureFramedCanvas(v)
     c.toBlob(blob => { setImg(new File([blob], 'capture.jpg', { type: 'image/jpeg' })); stopCam() }, 'image/jpeg', 0.92)
   }
 

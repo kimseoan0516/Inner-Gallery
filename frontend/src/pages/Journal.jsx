@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useApp } from '../context/AppContext.jsx'
+import { toPng } from 'html-to-image'
 
 import { getJournal, updateJournalNote } from '../api.js'
 import GoldDivider from '../components/GoldDivider.jsx'
@@ -75,6 +76,8 @@ export default function Journal() {
 function TicketCard({ rec, onClick, onUpdateNote }) {
   const [isEditing, setIsEditing] = useState(false)
   const [noteText, setNoteText] = useState(rec.ticket_memo || '')
+  const [capturing, setCapturing] = useState(false)
+  const ticketRef = useRef(null)
 
   useEffect(() => {
     setNoteText(rec.ticket_memo || '')
@@ -99,20 +102,89 @@ function TicketCard({ rec, onClick, onUpdateNote }) {
   const dd = dateObj.getDate().toString().padStart(2, '0')
   const ticketNo = `No. IG-${yy}${mm}${dd}`
 
+  const captureTicket = async () => {
+    const el = ticketRef.current
+    if (!el) return null
+    const capture = toPng(el, {
+      pixelRatio: 2,
+      skipFonts: true,
+      filter: node => !node.dataset?.noCapture,
+    })
+    const timeout = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('캡처 시간 초과')), 8000)
+    )
+    return Promise.race([capture, timeout])
+  }
+
+  const handleSave = async (e) => {
+    e.stopPropagation()
+    setCapturing(true)
+    try {
+      const dataUrl = await captureTicket()
+      if (!dataUrl) return
+      const a = document.createElement('a')
+      a.href = dataUrl
+      a.download = `inner-gallery-${dateStr}.png`
+      a.click()
+    } catch {
+      alert('이미지 저장에 실패했습니다. 다시 시도해주세요.')
+    } finally {
+      setCapturing(false)
+    }
+  }
+
+  const handleShare = async (e) => {
+    e.stopPropagation()
+    setCapturing(true)
+    try {
+      const dataUrl = await captureTicket()
+      if (!dataUrl) return
+      const res = await fetch(dataUrl)
+      const blob = await res.blob()
+      const file = new File([blob], `inner-gallery-${dateStr}.png`, { type: 'image/png' })
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: `${title} — Inner Gallery`,
+          text: `${title}${artist ? ` · ${artist}` : ''} | Inner Gallery`,
+        })
+      } else {
+        const a = document.createElement('a')
+        a.href = dataUrl
+        a.download = `inner-gallery-${dateStr}.png`
+        a.click()
+      }
+    } catch (err) {
+      if (err?.name !== 'AbortError') {
+        alert('공유에 실패했습니다. 이미지 저장으로 대체합니다.')
+        try {
+          const dataUrl = await captureTicket()
+          const a = document.createElement('a')
+          a.href = dataUrl
+          a.download = `inner-gallery-${dateStr}.png`
+          a.click()
+        } catch { /* ignore */ }
+      }
+    } finally {
+      setCapturing(false)
+    }
+  }
+
   let snippet = rec.ticket_memo || '기록된 감상 메모가 없습니다.'
   if (snippet.length > 70 && !isEditing) snippet = snippet.substring(0, 70) + '...'
 
   return (
-    <div 
+    <div
       onClick={onClick}
-      style={{ 
-        display: 'flex', flexDirection: 'column', width: '100%', 
+      style={{
+        display: 'flex', flexDirection: 'column', width: '100%',
         cursor: 'pointer', filter: 'drop-shadow(0 12px 24px rgba(0,0,0,0.5))',
         transform: 'translateY(0)', transition: 'transform 0.2s',
       }}
       onMouseEnter={e => e.currentTarget.style.transform = 'translateY(-4px)'}
       onMouseLeave={e => e.currentTarget.style.transform = 'translateY(0)'}
     >
+    <div ref={ticketRef} style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
       
       {/* Top half - Image */}
       <div style={{
@@ -222,15 +294,32 @@ function TicketCard({ rec, onClick, onUpdateNote }) {
           )}
         </div>
 
-        <div style={{ display: 'flex', gap: 12 }}>
-          <button style={{ flex: 1, background: 'transparent', border: '1px solid #D4C9BD', borderRadius: 6, padding: '10px 0', fontSize: 12, color: '#3A332E', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer', outline: 'none' }} onClick={(e)=>{e.stopPropagation()}}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg> Like
+        {/* Inner Gallery 워터마크 */}
+        <div style={{ textAlign: 'center', paddingBottom: 10, paddingTop: 2 }}>
+          <span style={{ fontSize: 8, color: 'rgba(184,145,42,0.35)', letterSpacing: 2.5, fontFamily: 'monospace', fontWeight: 600 }}>INNER GALLERY</span>
+        </div>
+
+        {/* 캡처 제외 버튼 영역 */}
+        <div data-no-capture="true" style={{ display: 'flex', gap: 12, paddingTop: 4 }}>
+          <button
+            disabled={capturing}
+            style={{ flex: 1, background: 'transparent', border: '1px solid #D4C9BD', borderRadius: 6, padding: '10px 0', fontSize: 12, color: '#3A332E', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: capturing ? 'wait' : 'pointer', outline: 'none', opacity: capturing ? 0.5 : 1 }}
+            onClick={handleSave}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            {capturing ? '저장 중…' : '이미지 저장'}
           </button>
-          <button style={{ flex: 1, background: 'transparent', border: '1px solid #D4C9BD', borderRadius: 6, padding: '10px 0', fontSize: 12, color: '#3A332E', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: 'pointer', outline: 'none' }} onClick={(e)=>{e.stopPropagation()}}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg> Share
+          <button
+            disabled={capturing}
+            style={{ flex: 1, background: '#3A332E', border: 'none', borderRadius: 6, padding: '10px 0', fontSize: 12, color: 'white', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: capturing ? 'wait' : 'pointer', outline: 'none', opacity: capturing ? 0.5 : 1 }}
+            onClick={handleShare}
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+            {capturing ? '처리 중…' : '티켓 공유'}
           </button>
         </div>
-      </div>
+      </div>{/* bottom half end */}
+    </div>{/* ticketRef end */}
     </div>
   )
 }

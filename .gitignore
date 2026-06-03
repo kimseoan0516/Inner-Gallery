@@ -34,7 +34,7 @@ google-key.json
 backend/.secret_key
 
 # Generated / large data files (rebuild with build_index.py)
-backend/artwork_index/
+backend/artwork_index/_images/
 backend/artwork_sources/
 
 # Temp debug files

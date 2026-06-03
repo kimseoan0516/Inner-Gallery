@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext.jsx'
-import { deleteJournal } from '../api.js'
+import { deleteJournal, getArtworkEra } from '../api.js'
 import GoldDivider from '../components/GoldDivider.jsx'
 
 function SecLabel({ icon, title, en }) {
@@ -21,8 +21,12 @@ export default function JournalDetail() {
   const nav = useNavigate()
   const { selectedEntry: rec } = useApp()
   const [reportOpen, setReportOpen] = useState(false)
+  const [eraData,    setEraData]    = useState(null)
+  const [eraLoading, setEraLoading] = useState(false)
 
   if (!rec) { nav('/journal'); return null }
+
+  const hasIdentity = !!(rec.artwork_title && rec.artwork_artist)
 
   const isSketch = rec.entry_type === 'sketch'
   const title = isSketch
@@ -310,57 +314,46 @@ export default function JournalDetail() {
               </div>
             )}
 
-            {/* ④⑤ 아카이브 리포트 토글 카드 */}
+            {/* ④⑤ 아카이브 리포트 토글 */}
             {(rec.essay_body?.length > 0 || rec.questions?.length > 0 || rec.comfort) && (
-              <div
-                onClick={() => setReportOpen(v => !v)}
-                style={{
-                  overflow: 'hidden',
-                  borderRadius: 8,
-                  border: `1px solid ${reportOpen ? 'rgba(184,145,42,0.32)' : 'rgba(184,145,42,0.18)'}`,
-                  background: reportOpen ? 'rgba(184,145,42,0.05)' : 'rgba(184,145,42,0.02)',
-                  cursor: 'pointer',
-                  transition: 'background 0.2s, border-color 0.2s',
-                  userSelect: 'none',
+              <button
+                type="button"
+                onClick={() => {
+                  const next = !reportOpen
+                  setReportOpen(next)
+                  if (next && hasIdentity && !eraData && !eraLoading) {
+                    setEraLoading(true)
+                    getArtworkEra({
+                      title: rec.artwork_title,
+                      artist: rec.artwork_artist,
+                      year: rec.artwork_year || '',
+                      identificationStatus: 'confirmed',
+                      visualContext: '',
+                    }).then(data => setEraData(data)).catch(() => setEraData(null)).finally(() => setEraLoading(false))
+                  }
                 }}
+                style={{
+                  width: '100%', display: 'flex', alignItems: 'center', gap: 14,
+                  background: 'none', border: 'none', cursor: 'pointer', padding: '6px 0', outline: 'none',
+                }}
+                onMouseEnter={e => e.currentTarget.querySelector('span').style.color = 'rgba(184,145,42,0.95)'}
+                onMouseLeave={e => e.currentTarget.querySelector('span').style.color = 'rgba(184,145,42,0.55)'}
               >
-                {/* 얇은 골드 상단 라인 */}
-                <div style={{ height: 1, background: 'linear-gradient(90deg, transparent, rgba(201,168,76,0.5), transparent)' }} />
-
-                <div style={{ padding: '16px 20px' }}>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-                    <div style={{ flex: 1 }}>
-                      <p style={{ fontSize: 8, color: 'rgba(184,145,42,0.55)', letterSpacing: 3, fontWeight: 700, fontFamily: 'monospace', marginBottom: 7 }}>
-                        ARCHIVED REFLECTION REPORT
-                      </p>
-                      <p style={{ fontSize: 11, color: 'var(--sub)', lineHeight: 1.75, fontFamily: "'Noto Serif KR', serif" }}>
-                        이날 저장된 감상 해설과 질문을 다시 볼 수 있어요.
-                      </p>
-                      {dateTimeDisp && (
-                        <p style={{ fontSize: 8, color: 'rgba(184,145,42,0.3)', marginTop: 5, letterSpacing: 0.8, fontFamily: 'monospace' }}>
-                          {dateTimeDisp}
-                        </p>
-                      )}
-                    </div>
-                    <span style={{
-                      fontSize: 18, color: 'rgba(184,145,42,0.5)',
-                      transform: reportOpen ? 'rotate(90deg)' : 'none',
-                      transition: 'transform 0.2s',
-                      flexShrink: 0, marginTop: 2, lineHeight: 1,
-                    }}>›</span>
-                  </div>
-
-                  <div style={{
-                    marginTop: 14, paddingTop: 12,
-                    borderTop: '1px dashed rgba(184,145,42,0.15)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-                  }}>
-                    <span style={{ fontSize: 11, color: 'var(--gold2)', letterSpacing: 0.5 }}>
-                      {reportOpen ? '접기 ↑' : '이날의 감상 리포트 보기 ↓'}
-                    </span>
-                  </div>
-                </div>
-              </div>
+                <div style={{ flex: 1, height: 1, background: 'linear-gradient(to right, transparent, rgba(184,145,42,0.22))' }} />
+                <span style={{
+                  display: 'flex', alignItems: 'center', gap: 7,
+                  fontSize: 10, color: 'rgba(184,145,42,0.55)',
+                  letterSpacing: 2, fontWeight: 600, fontFamily: 'monospace',
+                  whiteSpace: 'nowrap', transition: 'color 0.2s', userSelect: 'none',
+                }}>
+                  {reportOpen ? 'CLOSE REPORT' : 'VIEW REPORT'}
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+                    style={{ transform: reportOpen ? 'rotate(180deg)' : 'none', transition: 'transform 0.25s' }}>
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </span>
+                <div style={{ flex: 1, height: 1, background: 'linear-gradient(to left, transparent, rgba(184,145,42,0.22))' }} />
+              </button>
             )}
 
             {/* ⑤ 전체 리포트 (AI 해설만, 접기/펼치기) */}
@@ -438,6 +431,70 @@ export default function JournalDetail() {
                       <div style={{ height: 1, width: 32, background: 'rgba(184,145,42,0.22)' }} />
                       <span style={{ fontSize: 7, color: 'rgba(184,145,42,0.4)', letterSpacing: 2.5, fontFamily: 'monospace' }}>INNER GALLERY</span>
                       <div style={{ height: 1, width: 32, background: 'rgba(184,145,42,0.22)' }} />
+                    </div>
+                  </div>
+                )}
+
+                {/* 시대배경 — 실제 데이터 있을 때만 표시 */}
+                {eraLoading && (
+                  <div className="card" style={{ padding: '20px 22px', display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ display: 'flex', gap: 5 }}>
+                      {[0,1,2].map(i => (
+                        <div key={i} style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--gold)', animation: `pulse 1.4s ${i*0.46}s infinite` }} />
+                      ))}
+                    </div>
+                    <p style={{ fontSize: 12, color: 'var(--sub)' }}>시대 배경을 불러오는 중…</p>
+                  </div>
+                )}
+                {eraData && !eraLoading && !eraData._no_era && !eraData._not_in_db && (
+                  <div className="card" style={{ padding: '22px 20px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+                      <span style={{ fontSize: 14, color: 'var(--gold2)', lineHeight: 1 }}>◈</span>
+                      <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', letterSpacing: 0.3 }}>작품의 시대와 이야기</span>
+                    </div>
+                    <p style={{ fontSize: 9, color: 'var(--gold)', fontStyle: 'italic', letterSpacing: 1.5, marginLeft: 22, marginBottom: 10 }}>Story & Era</p>
+                    <GoldDivider />
+                    <div style={{ marginTop: 16, display: 'flex', flexDirection: 'column', gap: 18 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 }}>
+                        {eraData.confidence_label && (
+                          <div style={{ display: 'inline-flex', padding: '4px 10px', borderRadius: 2, border: '1px solid rgba(154,120,80,0.25)', background: 'rgba(154,120,80,0.08)' }}>
+                            <span style={{ fontSize: 9, color: 'var(--gold)', letterSpacing: 1.5, fontWeight: 700 }}>{eraData.confidence_label.toUpperCase()}</span>
+                          </div>
+                        )}
+                        {eraData.art_movement && (
+                          <div style={{ textAlign: 'right' }}>
+                            <p style={{ fontSize: 8, color: 'var(--gold)', letterSpacing: 2, fontWeight: 700, marginBottom: 3 }}>미술  사조</p>
+                            <p style={{ fontSize: 13, color: 'var(--gold2)', fontWeight: 700, letterSpacing: 0.3, fontFamily: "'Noto Serif KR', serif" }}>{eraData.art_movement}</p>
+                          </div>
+                        )}
+                      </div>
+                      {eraData.creation_period && (
+                        <div>
+                          <p style={{ fontSize: 9, color: 'var(--gold)', letterSpacing: 2, fontWeight: 700, marginBottom: 6 }}>제작  시기</p>
+                          <p style={{ fontSize: 12, color: 'var(--text)', lineHeight: 1.8, fontFamily: "'Noto Serif KR', serif" }}>{eraData.creation_period}</p>
+                        </div>
+                      )}
+                      {eraData.historical_context && (
+                        <div style={{ borderLeft: '2px solid rgba(154,120,80,0.25)', paddingLeft: 14 }}>
+                          <p style={{ fontSize: 9, color: 'var(--gold)', letterSpacing: 2, fontWeight: 700, marginBottom: 6 }}>당시 시대상</p>
+                          <p style={{ fontSize: 12, color: 'var(--sub)', lineHeight: 1.9, fontFamily: "'Noto Serif KR', serif" }}>{eraData.historical_context}</p>
+                        </div>
+                      )}
+                      {eraData.artist_context && (
+                        <div style={{ borderLeft: '2px solid rgba(154,120,80,0.25)', paddingLeft: 14 }}>
+                          <p style={{ fontSize: 9, color: 'var(--gold)', letterSpacing: 2, fontWeight: 700, marginBottom: 6 }}>화가의 상황</p>
+                          <p style={{ fontSize: 12, color: 'var(--sub)', lineHeight: 1.9, fontFamily: "'Noto Serif KR', serif" }}>{eraData.artist_context}</p>
+                        </div>
+                      )}
+                      {eraData.visual_connection && (
+                        <div style={{ background: 'rgba(154,120,80,0.06)', border: '1px solid rgba(154,120,80,0.18)', borderLeft: '3px solid var(--gold3)', borderRadius: 6, padding: '16px 18px' }}>
+                          <p style={{ fontSize: 9, color: 'var(--gold3)', letterSpacing: 2, fontWeight: 700, marginBottom: 10 }}>작품과 연결해 보기</p>
+                          <p style={{ fontSize: 12, color: 'var(--text)', lineHeight: 1.9, fontFamily: "'Noto Serif KR', serif" }}>{eraData.visual_connection}</p>
+                        </div>
+                      )}
+                      <p style={{ fontSize: 9, color: 'rgba(154,120,80,0.35)', letterSpacing: 0.3, lineHeight: 1.7, textAlign: 'right', fontStyle: 'italic' }}>
+                        {eraData._source === 'verified_db' ? '검증된 미술사 정보 기반' : 'AI 생성 내용 · 일반적으로 알려진 미술사 정보 기반 · 사실 확인 필요'}
+                      </p>
                     </div>
                   </div>
                 )}

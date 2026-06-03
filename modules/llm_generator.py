@@ -90,7 +90,10 @@ _BASE_RULES = """
 - color_moods는 감성 분위기 참고용이다. 직접 나열하지 말고 서술에 자연스럽게 녹인다.
 
 [작품 식별 가이드라인]:
-1. identification_status가 'confirmed'이거나 'web_confirmed' 또는 'internal_match' 이면 작품명·화가를 자연스럽게 인용하고 그 작품의 시대적·개인적 맥락을 정서적 작용과 연결한다.
+0. user_provided_name이 true이면 사용자가 직접 입력하거나 후보에서 선택한 확정 작품명·화가명이다.
+   이 정보를 해설의 첫 문단부터 자연스럽게 사용하고, 이후 문단에서도 작품명·화가명을 반복적으로 인용하여 감상의 중심 축으로 삼아라.
+   별도의 DB 맥락 정보가 없더라도 작품명·화가명 자체를 감상의 출발점으로 삼아 해설을 구성하라.
+1. identification_status가 'confirmed', 'ocr_confirmed', 'web_confirmed' 또는 'internal_match'이면 작품명·화가를 자연스럽게 인용하고 그 작품의 시대적·개인적 맥락을 정서적 작용과 연결한다.
 2. identification_status가 'partial'이면 "이 작품은 ~를 떠올리게 합니다"처럼 추정 표현을 쓴다. 단정 금지.
 3. identification_status가 'unknown'이면 작품명·화가를 억지로 지어내지 않는다.
    첫 문장을 반드시 다음 문구로 시작하며, 어떠한 미술사적 생애나 지식도 언급해서는 안 됩니다:
@@ -704,7 +707,20 @@ def generate_interpretation(analysis_data: Dict[str, Any], api_key: str,
         f"\n[작품 배경 정보]\n{artwork_description.strip()}\n"
         "위 배경 정보를 감상 해설에 자연스럽게 녹여주세요. 사실 나열이 아니라 감상자가 이 작품을 더 깊이 느낄 수 있도록 이야기처럼 풀어주세요.\n"
     ) if artwork_description.strip() else ""
+    user_name_prefix = ""
+    if analysis_data.get("user_provided_name"):
+        artwork_info = analysis_data.get("artwork_info", {})
+        _title  = artwork_info.get("title",  "")
+        _artist = artwork_info.get("artist", "")
+        if _title or _artist:
+            user_name_prefix = (
+                f"[사용자 직접 확인 작품 — 해설 전반에 반드시 활용]\n"
+                f"작품명: {_title or '미정'}  /  화가: {_artist or '미정'}\n"
+                "위 작품명과 화가명은 사용자가 직접 입력하거나 후보에서 선택한 확정 정보입니다. "
+                "해설 첫 문단부터 이 작품명을 자연스럽게 언급하고, 이후 문단에서도 반복적으로 인용하여 감상의 중심 축으로 삼으세요.\n\n"
+            )
     prompt = (
+        user_name_prefix +
         "다음은 그림에 대한 시각 분석 결과입니다. "
         "이 결과를 바탕으로 감성적인 미술 감상 해설을 작성해주세요.\n\n"
         f"[색채 요약 — 이 수치 기반으로 색채를 기술하세요]\n{color_summary}\n\n"
