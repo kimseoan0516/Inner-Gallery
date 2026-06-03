@@ -11,7 +11,12 @@ import sqlite3, json
 from pathlib import Path
 
 _BASE   = Path(__file__).resolve().parent.parent
-DB_PATH = str(_BASE / "solace.db")
+# HF Spaces의 /data 폴더는 재빌드 후에도 유지됨
+_HF_DATA = Path("/data")
+if _HF_DATA.exists() and _HF_DATA.is_dir():
+    DB_PATH = str(_HF_DATA / "solace.db")
+else:
+    DB_PATH = str(_BASE / "solace.db")
 
 
 def conn() -> sqlite3.Connection:

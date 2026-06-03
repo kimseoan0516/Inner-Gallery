@@ -13,7 +13,8 @@ ALGORITHM   = "HS256"
 EXPIRE_DAYS = 30
 
 # SECRET_KEY 로드 순서: 환경변수 → 파일 → 신규 생성 (재시작해도 토큰 유지)
-_KEY_FILE = os.path.join(os.path.dirname(__file__), ".secret_key")
+_HF_DATA  = "/data"
+_KEY_FILE = os.path.join(_HF_DATA, ".secret_key") if os.path.isdir(_HF_DATA) else os.path.join(os.path.dirname(__file__), ".secret_key")
 
 def _load_secret_key() -> str:
     env = os.environ.get("SECRET_KEY")
