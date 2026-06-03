@@ -455,13 +455,13 @@ export default function Drawing() {
       </div>
 
       {/* Canvas */}
-      <div style={{ flex: 1, position: 'relative', overflow: 'hidden', margin: '0 10px 8px', borderRadius: 10, border: '1px solid var(--line)', boxShadow: '0 4px 20px rgba(0,0,0,0.12)', minHeight: 0 }}>
+      <div style={{ flex: 1, position: 'relative', overflow: 'hidden', margin: '0 10px 8px', borderRadius: 10, border: '1px solid var(--line)', boxShadow: '0 4px 20px rgba(0,0,0,0.12)', minHeight: 0, background: canvasBg }}>
         {bgMode === 'overlay' && overlayImg && (
           <img src={`data:image/jpeg;base64,${overlayImg}`} alt="" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', opacity: 0.45, pointerEvents: 'none', zIndex: 0 }} />
         )}
         <canvas
           ref={canvasRef}
-          style={{ width: '100%', height: '100%', display: 'block', touchAction: 'none', cursor: tool === 'eraser' ? 'none' : toolCursor, background: canvasBg, position: 'relative', zIndex: 1 }}
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', display: 'block', touchAction: 'none', cursor: tool === 'eraser' ? 'none' : toolCursor, background: 'transparent', zIndex: 1 }}
           onMouseDown={startDraw}
           onMouseMove={e => {
             draw(e)
