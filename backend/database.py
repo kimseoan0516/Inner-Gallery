@@ -208,6 +208,28 @@ def delete_journal_entry(user_id: int, date: str) -> int:
         )
         return cur.rowcount
 
+def update_journal_sketch(user_id: int, date: str, sketch: dict):
+    """기존 감상 기록에 스케치 데이터를 추가/업데이트."""
+    with conn() as c:
+        c.execute(
+            """UPDATE journal_entries
+               SET sketch_image = ?, sketch_title = ?, sketch_note = ?,
+                   sketch_guide = ?, sketch_reflection = ?, mood_color = ?,
+                   mood_color_name = ?, moods = ?
+               WHERE user_id = ? AND date = ?""",
+            (
+                sketch.get("sketch_image", ""),
+                sketch.get("sketch_title", ""),
+                sketch.get("sketch_note", ""),
+                sketch.get("sketch_guide", ""),
+                sketch.get("sketch_reflection", ""),
+                sketch.get("mood_color", ""),
+                sketch.get("mood_color_name", ""),
+                _dumps(sketch.get("moods", [])),
+                user_id, date,
+            ),
+        )
+
 def update_journal_note(user_id: int, date: str, note: str):
     with conn() as c:
         c.execute(

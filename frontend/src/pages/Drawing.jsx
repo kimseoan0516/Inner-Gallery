@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
-import { saveJournal, sketchReflection } from '../api.js'
+import { saveJournal, updateJournalSketch, sketchReflection } from '../api.js'
 import { useAuth } from '../context/AuthContext.jsx'
 import LoginModal from '../components/LoginModal.jsx'
 import GoldDivider from '../components/GoldDivider.jsx'
@@ -42,13 +42,14 @@ export default function Drawing() {
   const { user } = useAuth()
   const state    = location.state || {}
   const {
-    thumbnail    = '',
-    artworkImage = '',
-    palette      = [],
-    title        = '',
-    artist       = '',
-    moodColor    = '#F4F1EB',
-    moods        = [],
+    thumbnail          = '',
+    artworkImage       = '',
+    palette            = [],
+    title              = '',
+    artist             = '',
+    moodColor          = '#F4F1EB',
+    moods              = [],
+    existingEntryDate  = '',
   } = state
 
   const overlayImg = artworkImage || thumbnail
@@ -279,21 +280,27 @@ export default function Drawing() {
     if (!user) { setShowLoginModal(true); return }
     setSaving(true); setSaveError('')
     if (!withReflection) setReflectionText('')
+    const sketchData = {
+      sketch_image:      currentB64,
+      sketch_title:      saveTitle || '마음 스케치',
+      sketch_note:       saveNote,
+      sketch_guide:      MODE_CONFIG[sketchMode].question,
+      moods:             saveKeywords,
+      mood_color:        effectiveBgColor,
+      mood_color_name:   bgModeName,
+      sketch_reflection: withReflection ? reflectionText : '',
+    }
     try {
-      const now = new Date()
-      const date = [now.getFullYear(), String(now.getMonth()+1).padStart(2,'0'), String(now.getDate()).padStart(2,'0')].join('-')
-        + 'T' + [String(now.getHours()).padStart(2,'0'), String(now.getMinutes()).padStart(2,'0')].join(':')
-      await saveJournal({
-        date, entry_type: 'sketch',
-        artwork_title: title, artwork_artist: artist,
-        sketch_image: currentB64,
-        sketch_title: saveTitle || '마음 스케치',
-        sketch_note: saveNote,
-        sketch_guide: MODE_CONFIG[sketchMode].question,
-        moods: saveKeywords, mood_color: effectiveBgColor,
-        mood_color_name: bgModeName,
-        sketch_reflection: withReflection ? reflectionText : '',
-      })
+      if (existingEntryDate) {
+        // 기존 감상 기록에 스케치 추가
+        await updateJournalSketch(existingEntryDate, sketchData)
+      } else {
+        // 독립적인 스케치 기록 생성
+        const now = new Date()
+        const date = [now.getFullYear(), String(now.getMonth()+1).padStart(2,'0'), String(now.getDate()).padStart(2,'0')].join('-')
+          + 'T' + [String(now.getHours()).padStart(2,'0'), String(now.getMinutes()).padStart(2,'0')].join(':')
+        await saveJournal({ date, entry_type: 'sketch', artwork_title: title, artwork_artist: artist, ...sketchData })
+      }
       setShowSave(false); setSavedOk(true)
     } catch { setSaveError('저장 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.') }
     finally { setSaving(false) }
@@ -321,7 +328,9 @@ export default function Drawing() {
                 <polyline points="20 6 9 17 4 12"/>
               </svg>
             </div>
-            <p style={{ fontSize: 17, fontWeight: 700, color: 'var(--text)', fontFamily: "'Noto Serif KR', serif", letterSpacing: 0.5, marginBottom: 6 }}>오늘의 마음 스케치가 저장되었어요</p>
+            <p style={{ fontSize: 17, fontWeight: 700, color: 'var(--text)', fontFamily: "'Noto Serif KR', serif", letterSpacing: 0.5, marginBottom: 6 }}>
+              {existingEntryDate ? '감상 기록에 스케치가 추가됐어요' : '마음 스케치가 저장되었어요'}
+            </p>
             <p style={{ fontSize: 10, color: 'var(--sub)', letterSpacing: 1 }}>{dateStr}</p>
           </div>
 

@@ -180,6 +180,7 @@ export default function Results() {
   const { user } = useAuth()
   const [reflection,   setReflection]   = useState('')
   const [saved,        setSaved]        = useState(false)
+  const [savedDate,    setSavedDate]    = useState('')
   const [saving,       setSaving]       = useState(false)
   const [showToast,    setShowToast]    = useState('')
   const [showLoginModal, setShowLoginModal] = useState(false)
@@ -339,6 +340,7 @@ export default function Results() {
     try {
       await saveJournal(entry)
       setSaved(true)
+      setSavedDate(entry.date)
       setShowToast('감상이 저장되었어요')
       setTimeout(() => setShowToast(''), 2500)
     } catch {
@@ -1274,13 +1276,14 @@ export default function Results() {
             <button
               onClick={() => nav('/drawing', {
                 state: {
-                  thumbnail:    thumbnail     || '',
-                  artworkImage: artwork_image || '',
-                  palette:      (color.dominant_colors || []).slice(0, 5).map(c => c.rgb),
-                  title:        safeInfo.title  || '',
-                  artist:       safeInfo.artist || '',
-                  moodColor:    moodColor?.hex || 'var(--card2)',
-                  moods:        moodTags.slice(0, 5),
+                  thumbnail:         thumbnail     || '',
+                  artworkImage:      artwork_image || '',
+                  palette:           (color.dominant_colors || []).slice(0, 5).map(c => c.rgb),
+                  title:             safeInfo.title  || '',
+                  artist:            safeInfo.artist || '',
+                  moodColor:         moodColor?.hex || 'var(--card2)',
+                  moods:             moodTags.slice(0, 5),
+                  existingEntryDate: savedDate || '',
                 }
               })}
               className="btn-outline"
