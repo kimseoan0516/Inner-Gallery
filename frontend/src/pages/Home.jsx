@@ -199,14 +199,15 @@ export default function Home() {
         {/* Main title */}
         <div style={{ textAlign: 'center', marginBottom: 26 }}>
           <h1 style={{
-            fontFamily: "'Georgia', 'Noto Serif KR', serif",
-            fontSize: 38, fontWeight: 700,
-            color: 'var(--text)', letterSpacing: 1,
-            lineHeight: 1.2, marginBottom: 10,
+            fontFamily: "'Cinzel', serif",
+            fontSize: 34, fontWeight: 600,
+            color: 'var(--text)', letterSpacing: 3,
+            lineHeight: 1.3, marginBottom: 10,
           }}>Inner Gallery</h1>
           <p style={{
-            fontSize: 12, color: 'var(--sub)',
-            fontStyle: 'italic', letterSpacing: 1, opacity: 0.9,
+            fontFamily: "'Cormorant Garamond', serif",
+            fontSize: 14, color: 'var(--sub)',
+            fontStyle: 'italic', letterSpacing: 2, opacity: 0.85,
           }}>마음미술관</p>
         </div>
 
