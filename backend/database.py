@@ -107,9 +107,15 @@ def init_db():
                 sketch_reflection TEXT DEFAULT '',
 
                 ticket_memo TEXT DEFAULT '',
+                era_data    TEXT DEFAULT '',
                 created_at  TEXT DEFAULT CURRENT_TIMESTAMP
             )
         """)
+        # 기존 DB 마이그레이션: era_data 컬럼 없으면 추가
+        try:
+            c.execute("ALTER TABLE journal_entries ADD COLUMN era_data TEXT DEFAULT ''")
+        except Exception:
+            pass  # 이미 있으면 무시
         c.execute("""
             CREATE INDEX IF NOT EXISTS idx_journal_user_date
             ON journal_entries(user_id, date DESC)
@@ -191,6 +197,7 @@ def save_journal_entry(user_id: int, entry: dict) -> int:
         "mood_color", "mood_color_name", "mood_note",
         "sketch_image", "sketch_title", "sketch_note",
         "sketch_guide", "sketch_reflection", "ticket_memo",
+        "era_data",
     ]
     vals = [user_id] + [row.get(c, "") for c in cols[1:]]
     with conn() as c:

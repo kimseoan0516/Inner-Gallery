@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext.jsx'
-import { deleteJournal, getArtworkEra } from '../api.js'
+import { deleteJournal } from '../api.js'
 import GoldDivider from '../components/GoldDivider.jsx'
 
 function SecLabel({ icon, title, en }) {
@@ -21,27 +21,10 @@ export default function JournalDetail() {
   const nav = useNavigate()
   const { selectedEntry: rec } = useApp()
   const [reportOpen, setReportOpen] = useState(false)
-  const [eraData,    setEraData]    = useState(null)
-  const [eraLoading, setEraLoading] = useState(false)
 
   if (!rec) { nav('/journal'); return null }
 
-  const hasIdentity = !!(rec.artwork_title && rec.artwork_artist)
-  const extractEn = t => { const m = t?.match(/\(([^)]+)\)/); return m ? m[1].trim() : (t || '') }
-
-  useEffect(() => {
-    if (!hasIdentity) return
-    setEraLoading(true)
-    getArtworkEra({
-      title:  extractEn(rec.artwork_title),
-      artist: extractEn(rec.artwork_artist),
-      year:   rec.artwork_year || '',
-      identificationStatus: 'confirmed',
-      visualContext: '',
-    }).then(data => setEraData(data))
-      .catch(() => setEraData({ _error: true }))
-      .finally(() => setEraLoading(false))
-  }, [])
+  const eraData = rec.era_data ? (() => { try { return JSON.parse(rec.era_data) } catch { return null } })() : null
 
   const isSketch = rec.entry_type === 'sketch'
   const title = isSketch
@@ -437,18 +420,8 @@ export default function JournalDetail() {
                   </div>
                 )}
 
-                {/* 시대배경 — 실제 데이터 있을 때만 표시 */}
-                {eraLoading && (
-                  <div className="card" style={{ padding: '20px 22px', display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <div style={{ display: 'flex', gap: 5 }}>
-                      {[0,1,2].map(i => (
-                        <div key={i} style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--gold)', animation: `pulse 1.4s ${i*0.46}s infinite` }} />
-                      ))}
-                    </div>
-                    <p style={{ fontSize: 12, color: 'var(--sub)' }}>시대 배경을 불러오는 중…</p>
-                  </div>
-                )}
-                {eraData && !eraLoading && !eraData._no_era && !eraData._not_in_db && !eraData._error && (
+                {/* 시대배경 — 저장된 데이터 있을 때만 표시 */}
+                {eraData && !eraData._no_era && !eraData._not_in_db && !eraData._error && (
                   <div className="card" style={{ padding: '22px 20px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
                       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--gold2)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>

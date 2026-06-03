@@ -332,6 +332,8 @@ export default function Results() {
         : `${moodColor.name}${moodColor.mood ? ' · ' + moodColor.mood : ''}`
       : '',
     mood_note:        moodNote,
+    era_data:         (eraData && !eraData._no_era && !eraData._not_in_db && !eraData._error)
+                        ? JSON.stringify(eraData) : '',
   }
   }
 
