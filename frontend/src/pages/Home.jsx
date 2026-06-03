@@ -200,14 +200,14 @@ export default function Home() {
         <div style={{ textAlign: 'center', marginBottom: 26 }}>
           <h1 style={{
             fontFamily: "'Cinzel', serif",
-            fontSize: 34, fontWeight: 600,
-            color: 'var(--text)', letterSpacing: 3,
-            lineHeight: 1.3, marginBottom: 10,
+            fontSize: 46, fontWeight: 600,
+            color: 'var(--text)', letterSpacing: 2,
+            lineHeight: 1.2, marginBottom: 12,
           }}>Inner Gallery</h1>
           <p style={{
             fontFamily: "'Cormorant Garamond', serif",
-            fontSize: 14, color: 'var(--sub)',
-            fontStyle: 'italic', letterSpacing: 2, opacity: 0.85,
+            fontSize: 13, color: 'var(--sub)',
+            fontStyle: 'italic', letterSpacing: 4, opacity: 0.7,
           }}>마음미술관</p>
         </div>
 
