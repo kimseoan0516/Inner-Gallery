@@ -198,24 +198,15 @@ export default function Home() {
 
         {/* Main title */}
         <div style={{ textAlign: 'center', marginBottom: 26 }}>
-          <h1 style={{ margin: 0, lineHeight: 1.1 }}>
-            <span style={{
-              display: 'block',
-              fontFamily: "'Georgia', serif",
-              fontSize: 15, fontWeight: 400,
-              color: 'var(--sub)', letterSpacing: 8,
-              textTransform: 'uppercase', marginBottom: 4,
-            }}>Inner</span>
-            <span style={{
-              display: 'block',
-              fontFamily: "'Georgia', 'Noto Serif KR', serif",
-              fontSize: 44, fontWeight: 700,
-              color: 'var(--text)', letterSpacing: 2,
-            }}>Gallery</span>
-          </h1>
+          <h1 style={{
+            fontFamily: "'Georgia', 'Noto Serif KR', serif",
+            fontSize: 38, fontWeight: 700,
+            color: 'var(--text)', letterSpacing: 1,
+            lineHeight: 1.2, marginBottom: 10,
+          }}>Inner Gallery</h1>
           <p style={{
-            fontSize: 11, color: 'var(--gold)',
-            fontStyle: 'italic', letterSpacing: 3, opacity: 0.8, marginTop: 8,
+            fontSize: 12, color: 'var(--sub)',
+            fontStyle: 'italic', letterSpacing: 1, opacity: 0.9,
           }}>마음미술관</p>
         </div>
 
