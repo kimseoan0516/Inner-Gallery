@@ -571,7 +571,7 @@ export default function Drawing() {
                   <button key={i} onClick={() => setArtworkPaletteIdx(i)} style={{
                     width: 18, height: 18, borderRadius: 4, background: c, flexShrink: 0,
                     border: artworkPaletteIdx === i ? '2px solid var(--gold2)' : '1px solid var(--line)',
-                    cursor: 'pointer', transform: artworkPaletteIdx === i ? 'scale(1.2)' : 'scale(1)', transition: 'transform 0.1s',
+                    cursor: 'pointer', boxShadow: artworkPaletteIdx === i ? '0 0 0 2px var(--gold2)' : 'none', transition: 'box-shadow 0.1s',
                   }} />
                 ))}
               </>
@@ -588,12 +588,12 @@ export default function Drawing() {
         </div>
 
         {/* Color palette */}
-        <div className="hide-scroll" style={{ display: 'flex', gap: 6, alignItems: 'center', overflowX: 'auto', paddingBottom: 2 }}>
+        <div className="hide-scroll" style={{ display: 'flex', gap: 6, alignItems: 'center', overflowX: 'auto', padding: '4px 2px 4px' }}>
           {BASE_COLORS.map((c, i) => (
             <button key={`b${i}`} onClick={() => { setColor(c); if (tool === 'eraser') setTool('pen'); if (sketchMode === 'color') fillWithColor(c) }} style={{
               width: 24, height: 24, borderRadius: 6, background: c, flexShrink: 0,
               border: color === c && tool !== 'eraser' ? '2px solid var(--gold2)' : '1px solid var(--line)',
-              cursor: 'pointer', transform: color === c && tool !== 'eraser' ? 'scale(1.2)' : 'scale(1)', transition: 'transform 0.1s',
+              cursor: 'pointer', boxShadow: color === c && tool !== 'eraser' ? '0 0 0 2px var(--gold2)' : 'none', transition: 'box-shadow 0.1s',
             }} />
           ))}
           <label style={{ position: 'relative', width: 24, height: 24, flexShrink: 0, cursor: 'pointer' }}>
