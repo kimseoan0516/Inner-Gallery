@@ -323,10 +323,12 @@ export default function JournalDetail() {
                   setReportOpen(next)
                   if (next && hasIdentity && !eraData && !eraLoading) {
                     setEraLoading(true)
+                    // "한국어명 (English Name)" 형식에서 영어명 추출
+                    const extractEn = t => { const m = t?.match(/\(([^)]+)\)/); return m ? m[1].trim() : (t || '') }
                     getArtworkEra({
-                      title: rec.artwork_title,
-                      artist: rec.artwork_artist,
-                      year: rec.artwork_year || '',
+                      title:  extractEn(rec.artwork_title),
+                      artist: extractEn(rec.artwork_artist),
+                      year:   rec.artwork_year || '',
                       identificationStatus: 'confirmed',
                       visualContext: '',
                     }).then(data => setEraData(data)).catch(() => setEraData(null)).finally(() => setEraLoading(false))
