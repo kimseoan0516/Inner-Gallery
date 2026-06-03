@@ -84,16 +84,13 @@ const QUOTE_RE  = /([「『「'"'][^「』""'\n]{1,60}?[」』""'"])/g
 
 function renderHighlightedParagraph(text, idx) {
   if (!text) return '';
-  const combined = /(\*\*(.*?)\*\*)|([「『][^「』\n]{1,100}?[」』])/g;
+  const combined = /(\*\*(.*?)\*\*)|([「『][^「』\n]{1,100}?[」』])|(==(.*?)==)/g;
   const result = [];
   let last = 0;
   let m;
   while ((m = combined.exec(text)) !== null) {
-    if (m.index > last) {
-      result.push(text.slice(last, m.index));
-    }
+    if (m.index > last) result.push(text.slice(last, m.index));
     if (m[1]) {
-      // Markdown bold phrase — underline highlight (most important sentences)
       result.push(
         <span key={`b-${m.index}`} style={{
           color: 'var(--text)', fontWeight: 700,
@@ -102,28 +99,31 @@ function renderHighlightedParagraph(text, idx) {
           textDecorationColor: 'rgba(154,120,50,0.45)',
           textUnderlineOffset: '3px',
           textDecorationThickness: '1.5px',
-        }}>
-          {m[2]}
-        </span>
+        }}>{m[2]}</span>
       );
     } else if (m[3]) {
-      // Quoted/bracketed core sentence — warm highlight
+      // 「」 — 작품 제목 표기 (기존 유지)
       result.push(
         <span key={`q-${m.index}`} style={{
-          color: 'var(--gold2)', fontWeight: 600, fontStyle: 'normal',
+          color: 'var(--gold2)', fontWeight: 600,
           background: 'rgba(184,145,42,0.09)',
-          padding: '1px 3px',
-          borderRadius: 3,
-        }}>
-          {m[3]}
-        </span>
+          padding: '1px 3px', borderRadius: 3,
+        }}>{m[3]}</span>
+      );
+    } else if (m[4]) {
+      // ==text== — 핵심 감상 문구 강조
+      result.push(
+        <span key={`h-${m.index}`} style={{
+          color: 'var(--gold2)', fontWeight: 600,
+          background: 'rgba(184,145,42,0.12)',
+          padding: '1px 5px', borderRadius: 3,
+          borderBottom: '1.5px solid rgba(184,145,42,0.4)',
+        }}>{m[5]}</span>
       );
     }
     last = combined.lastIndex;
   }
-  if (last < text.length) {
-    result.push(text.slice(last));
-  }
+  if (last < text.length) result.push(text.slice(last));
   return result;
 }
 
