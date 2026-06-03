@@ -6,7 +6,7 @@ import GoldDivider from '../components/GoldDivider.jsx'
 const BRZ  = 'rgba(122,92,56,'
 const BRZ2 = 'rgba(154,120,80,'
 
-function Field({ label, type = 'text', value, onChange, placeholder }) {
+function Field({ label, type = 'text', value, onChange, placeholder, onEnter }) {
   const [focused, setFocused] = useState(false)
   const [visible, setVisible] = useState(false)
   const isPassword = type === 'password'
@@ -19,6 +19,7 @@ function Field({ label, type = 'text', value, onChange, placeholder }) {
           value={value}
           onChange={e => onChange(e.target.value)}
           placeholder={placeholder}
+          onKeyDown={e => e.key === 'Enter' && onEnter?.()}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           style={{
@@ -143,10 +144,10 @@ export default function Login() {
           ))}
         </div>
 
-        <Field label="이름" value={username} onChange={setUsername} placeholder="홍길동" />
-        {tab === 'register' && <Field label="이메일" type="email" value={email} onChange={setEmail} placeholder="example@email.com" />}
-        <Field label="비밀번호" type="password" value={password} onChange={setPassword} placeholder="6자 이상" />
-        {tab === 'register' && <Field label="비밀번호 확인" type="password" value={confirm} onChange={setConfirm} placeholder="비밀번호를 다시 입력" />}
+        <Field label="이름" value={username} onChange={setUsername} placeholder="홍길동" onEnter={submit} />
+        {tab === 'register' && <Field label="이메일" type="email" value={email} onChange={setEmail} placeholder="example@email.com" onEnter={submit} />}
+        <Field label="비밀번호" type="password" value={password} onChange={setPassword} placeholder="6자 이상" onEnter={submit} />
+        {tab === 'register' && <Field label="비밀번호 확인" type="password" value={confirm} onChange={setConfirm} placeholder="비밀번호를 다시 입력" onEnter={submit} />}
 
         {error   && <p style={{ color: '#D47070', fontSize: 12, marginBottom: 12, lineHeight: 1.6 }}>{error}</p>}
         {success && <p style={{ color: 'var(--gold)', fontSize: 12, marginBottom: 12, lineHeight: 1.6 }}>{success}</p>}
