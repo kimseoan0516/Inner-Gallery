@@ -205,10 +205,10 @@ export default function Home() {
             lineHeight: 1.2, marginBottom: 12,
           }}>Inner Gallery</h1>
           <p style={{
-            fontFamily: "'Cormorant Garamond', serif",
-            fontSize: 13, color: 'var(--sub)',
-            fontStyle: 'italic', letterSpacing: 4, opacity: 0.7,
-          }}>마음미술관</p>
+            fontFamily: "'Noto Serif KR', serif",
+            fontSize: 12, color: 'var(--sub)',
+            fontStyle: 'normal', letterSpacing: 8, opacity: 0.75,
+          }}>마 음 　미 술 관</p>
         </div>
 
         <GoldDivider triple />
