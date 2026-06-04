@@ -105,13 +105,26 @@ function TicketCard({ rec, onClick, onUpdateNote }) {
   const captureTicket = async () => {
     const el = ticketRef.current
     if (!el) return null
+
+    // 폰트 로드 완료 대기
+    await document.fonts.ready
+
+    // 모든 이미지 로드 완료 대기
+    const imgs = [...el.querySelectorAll('img')]
+    await Promise.all(imgs.map(img => {
+      if (img.complete && img.naturalHeight !== 0) return Promise.resolve()
+      return new Promise(resolve => {
+        img.addEventListener('load', resolve, { once: true })
+        img.addEventListener('error', resolve, { once: true })
+      })
+    }))
+
     const capture = toPng(el, {
       pixelRatio: 2,
-      skipFonts: true,
       filter: node => !node.dataset?.noCapture,
     })
     const timeout = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('캡처 시간 초과')), 8000)
+      setTimeout(() => reject(new Error('캡처 시간 초과')), 12000)
     )
     return Promise.race([capture, timeout])
   }
@@ -193,8 +206,13 @@ function TicketCard({ rec, onClick, onUpdateNote }) {
         minHeight: isSketch ? 160 : 420,
       }}>
         {imgSrc
-          ? <img src={imgSrc} alt={title} style={{ width: '100%', height: isSketch ? 'auto' : '100%', objectFit: isSketch ? 'contain' : 'cover', display: 'block' }} />
-          : <div style={{ width:'100%', height:'100%', display:'flex', alignItems:'center', justifyContent:'center', fontSize:24, opacity:0.3, color:'var(--gold2)' }}>◇</div>
+          ? <img src={imgSrc} alt={title} style={{ width: '100%', height: isSketch ? 'auto' : '100%', objectFit: isSketch ? 'contain' : 'cover', display: 'block' }} crossOrigin="anonymous" />
+          : (
+            <div style={{ width:'100%', height:'100%', display:'flex', flexDirection:'column', alignItems:'center', justifyContent:'center', gap: 12, background: 'linear-gradient(135deg, #2a1e14 0%, #1a0e08 100%)' }}>
+              <div style={{ fontSize: 32, opacity: 0.25, color: '#C9A84C', letterSpacing: 6, fontFamily: 'serif' }}>◇</div>
+              <p style={{ fontSize: 11, color: 'rgba(201,168,76,0.4)', letterSpacing: 3, fontFamily: 'monospace' }}>INNER GALLERY</p>
+            </div>
+          )
         }
         
         {/* Scalloped dot pattern for the ticket feel */}
@@ -266,7 +284,7 @@ function TicketCard({ rec, onClick, onUpdateNote }) {
         <div style={{ marginBottom: 24 }} onClick={e => e.stopPropagation()}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#887E75" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-            <span style={{ fontSize: 9, color: '#887E75', letterSpacing: 1, fontWeight: 600 }}>PERSONAL NOTES</span>
+            <span style={{ fontSize: 9, color: '#887E75', letterSpacing: 1, fontWeight: 600, whiteSpace: 'nowrap' }}>PERSONAL NOTES</span>
           </div>
           {isEditing ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
