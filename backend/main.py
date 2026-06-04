@@ -1668,15 +1668,19 @@ def _parse_kcisa_items(data: dict) -> list:
 
 
 def _is_active_period(period_str: str) -> bool:
-    """PERIOD 필드 ('YYYY-MM-DD~YYYY-MM-DD') 파싱해 현재 진행 중인지 확인."""
+    """PERIOD 필드 파싱해 현재 진행 중인지 확인. 날짜 형식이 다양하므로 숫자만 추출해서 비교."""
     if not period_str:
         return True  # 기간 정보 없으면 일단 포함
+    import datetime, re
     today = datetime.date.today()
     try:
-        parts = period_str.replace(" ", "").split("~")
-        if len(parts) == 2:
-            end = datetime.date.fromisoformat(parts[1][:10])
-            return end >= today
+        parts = period_str.split("~")
+        end_str = parts[-1].strip()
+        # 숫자만 추출 (예: 2024. 05. 31 -> 20240531)
+        digits = re.sub(r'[^0-9]', '', end_str)
+        if len(digits) >= 8:
+            end_date = datetime.date(int(digits[:4]), int(digits[4:6]), int(digits[6:8]))
+            return end_date >= today
         return True
     except Exception:
         return True
@@ -1729,7 +1733,7 @@ async def get_exhibitions():
         try:
             resp = requests.get(
                 "https://api.kcisa.kr/openapi/API_CCA_145/request",
-                params={"serviceKey": integ_key, "numOfRows": "20", "pageNo": "1"},
+                params={"serviceKey": integ_key, "numOfRows": "200", "pageNo": "1"},
                 headers=headers,
                 timeout=12,
             )
@@ -1740,7 +1744,7 @@ async def get_exhibitions():
                 parsed = _parse_integ_item(item)
                 if parsed:
                     results.append(parsed)
-                if len(results) >= 6:
+                if len(results) >= 24:
                     break
         except Exception as e:
             print(f"[exhibitions] INTEG error: {e}", flush=True)
@@ -1801,7 +1805,7 @@ async def get_exhibitions():
         except Exception as e:
             print(f"[exhibitions] SAC error: {e}", flush=True)
 
-    return {"items": results[:6], "fallback": len(results) == 0}
+    return {"items": results[:20], "fallback": len(results) == 0}
 
 
 # ── 프론트엔드 정적 파일 서빙 (Docker 빌드 후) ──────────────────────────────

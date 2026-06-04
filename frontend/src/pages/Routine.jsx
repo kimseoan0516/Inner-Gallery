@@ -86,7 +86,16 @@ function DailyArtworkSection() {
   const handleTranslate = async () => {
     if (!art?.description || translating) return
     setTranslating(true)
-    try { setTranslated(await translateText(_stripHtml(art.description))) } catch {}
+    try {
+      const res = await translateText(_stripHtml(art.description))
+      if (res) {
+        setTranslated(res)
+      } else {
+        alert("번역을 불러올 수 없습니다. 서버 또는 API 키 설정을 확인해주세요.")
+      }
+    } catch (e) {
+      alert("번역 중 오류가 발생했습니다: " + (e.response?.data?.detail || e.message))
+    }
     setTranslating(false)
   }
 
@@ -398,19 +407,38 @@ function ArtistWords() {
       {/* 상단 골드 라인 */}
       <div style={{ height: 2, background: 'linear-gradient(to right, transparent, rgba(184,145,42,0.35), transparent)' }} />
 
-      <div style={{ padding: '32px 28px 24px' }}>
-        {/* 오픈 쿼트 — 텍스트 왼쪽 위에 작게 */}
-        <div style={{ fontSize: 40, color: 'rgba(184,145,42,0.18)', fontFamily: 'Georgia, serif', lineHeight: 1, marginBottom: 8, userSelect: 'none' }}>“</div>
+      <div style={{ padding: '24px 20px', position: 'relative' }}>
+        {/* 거대한 배경 따옴표 */}
+        <div style={{ 
+          position: 'absolute', top: 12, left: 16, 
+          fontSize: 80, color: 'rgba(184,145,42,0.08)', 
+          fontFamily: 'Georgia, serif', lineHeight: 1, userSelect: 'none',
+          pointerEvents: 'none'
+        }}>
+          “
+        </div>
+        <div style={{ 
+          position: 'absolute', bottom: 32, right: 24, 
+          fontSize: 80, color: 'rgba(184,145,42,0.08)', 
+          fontFamily: 'Georgia, serif', lineHeight: 1, userSelect: 'none',
+          pointerEvents: 'none'
+        }}>
+          ”
+        </div>
 
         {/* 명언 텍스트 */}
         <p style={{
-          margin: '0 0 28px',
-          fontSize: 15,
-          color: '#3A332E',
+          position: 'relative',
+          margin: '20px 8px 24px',
+          fontSize: 16,
+          fontWeight: 500,
+          color: '#2A231E',
           fontFamily: "'Noto Serif KR', serif",
-          lineHeight: 1.95,
-          letterSpacing: 0.2,
+          lineHeight: 1.85,
+          letterSpacing: 0.3,
           wordBreak: 'keep-all',
+          textAlign: 'center',
+          textShadow: '0 1px 1px rgba(255,255,255,0.8)'
         }}>
           {quote.quote}
         </p>
@@ -459,6 +487,8 @@ export default function Routine() {
   const [exhibitions, setExhibitions] = useState([])
   const [exLoading, setExLoading] = useState(true)
   const [exFallback, setExFallback] = useState(false)
+  const [exPage, setExPage] = useState(1)
+  const exPerPage = 6
 
   useEffect(() => {
     // 한국 API + AIC 전시 병렬 fetch 후 병합
@@ -502,15 +532,40 @@ export default function Routine() {
           ) : (exFallback || exhibitions.length === 0) ? (
             <ExhibitionFallback />
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {exhibitions.map((item, i) => (
-                <ExhibitionCard
-                  key={i}
-                  item={item}
-                  onClick={() => item.url && window.open(item.url, '_blank', 'noopener,noreferrer')}
-                />
-              ))}
-            </div>
+            <>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {exhibitions.slice((exPage - 1) * exPerPage, exPage * exPerPage).map((item, i) => (
+                  <ExhibitionCard
+                    key={i}
+                    item={item}
+                    onClick={() => item.url && window.open(item.url, '_blank', 'noopener,noreferrer')}
+                  />
+                ))}
+              </div>
+              
+              {/* 페이지네이션 컨덕터 */}
+              {exhibitions.length > exPerPage && (
+                <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16 }}>
+                  <button 
+                    onClick={() => setExPage(p => Math.max(1, p - 1))}
+                    disabled={exPage === 1}
+                    style={{ background: 'transparent', border: '1px solid var(--line)', padding: '4px 12px', borderRadius: 4, color: exPage === 1 ? 'rgba(0,0,0,0.1)' : 'var(--text)', cursor: exPage === 1 ? 'default' : 'pointer' }}
+                  >
+                    이전
+                  </button>
+                  <span style={{ fontSize: 12, color: 'var(--sub)', alignSelf: 'center', margin: '0 8px' }}>
+                    {exPage} / {Math.ceil(exhibitions.length / exPerPage)}
+                  </span>
+                  <button 
+                    onClick={() => setExPage(p => Math.min(Math.ceil(exhibitions.length / exPerPage), p + 1))}
+                    disabled={exPage === Math.ceil(exhibitions.length / exPerPage)}
+                    style={{ background: 'transparent', border: '1px solid var(--line)', padding: '4px 12px', borderRadius: 4, color: exPage === Math.ceil(exhibitions.length / exPerPage) ? 'rgba(0,0,0,0.1)' : 'var(--text)', cursor: exPage === Math.ceil(exhibitions.length / exPerPage) ? 'default' : 'pointer' }}
+                  >
+                    다음
+                  </button>
+                </div>
+              )}
+            </>
           )}
         </section>
 

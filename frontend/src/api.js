@@ -236,13 +236,37 @@ async function _fetchAICPainting(esFrom, questionIdx) {
 }
 
 export async function getDailyArtworkAIC() {
-  const ordinal = Math.floor((new Date() - new Date(2000, 0, 1)) / 86400000)
-  return _fetchAICPainting(ordinal % 9000, ordinal)
+  const now = new Date()
+  const todayStr = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}`
+  
+  const savedDate = localStorage.getItem('dailyArtworkDate')
+  if (savedDate === todayStr) {
+    const savedFrom = parseInt(localStorage.getItem('dailyArtworkFrom') || '0', 10)
+    const savedQ = parseInt(localStorage.getItem('dailyArtworkQIdx') || '0', 10)
+    return _fetchAICPainting(savedFrom, savedQ)
+  }
+
+  const ordinal = now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate()
+  const esFrom = ordinal % 5000
+  
+  localStorage.setItem('dailyArtworkDate', todayStr)
+  localStorage.setItem('dailyArtworkFrom', esFrom.toString())
+  localStorage.setItem('dailyArtworkQIdx', ordinal.toString())
+  
+  return _fetchAICPainting(esFrom, ordinal)
 }
 
 export async function getRandomArtworkAIC() {
-  const esFrom = Math.floor(Math.random() * 9000)
+  const esFrom = Math.floor(Math.random() * 5000)
   const qIdx   = Math.floor(Math.random() * _AIC_QUESTIONS.length)
+  
+  const now = new Date()
+  const todayStr = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}`
+  
+  localStorage.setItem('dailyArtworkDate', todayStr)
+  localStorage.setItem('dailyArtworkFrom', esFrom.toString())
+  localStorage.setItem('dailyArtworkQIdx', qIdx.toString())
+  
   return _fetchAICPainting(esFrom, qIdx)
 }
 
