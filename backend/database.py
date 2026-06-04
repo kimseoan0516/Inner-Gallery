@@ -159,6 +159,17 @@ def init_db():
             ON journal_entries(user_id, date DESC)
         """)
 
+        c.execute(_ddl("""
+            CREATE TABLE IF NOT EXISTS password_reset_tokens (
+                id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id    INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                token      TEXT NOT NULL UNIQUE,
+                expires_at TEXT NOT NULL,
+                used       INTEGER DEFAULT 0,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        """))
+
         # era_data 마이그레이션
         if _USE_PG:
             c.execute("ALTER TABLE journal_entries ADD COLUMN IF NOT EXISTS era_data TEXT DEFAULT ''")

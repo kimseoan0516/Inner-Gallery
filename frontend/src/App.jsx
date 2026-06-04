@@ -8,7 +8,8 @@ import Journal       from './pages/Journal.jsx'
 import JournalDetail from './pages/JournalDetail.jsx'
 import Login         from './pages/Login.jsx'
 import Routine       from './pages/Routine.jsx'
-import Drawing       from './pages/Drawing.jsx'
+import Drawing        from './pages/Drawing.jsx'
+import ResetPassword  from './pages/ResetPassword.jsx'
 
 // PrivateRoute는 저장된 기록(journal/routine) 등 로그인 필수 페이지에만 사용
 function PrivateRoute({ children }) {
@@ -23,6 +24,7 @@ function AppRoutes() {
     <div className="app-shell">
       <Routes>
         <Route path="/login"          element={<Login />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         {/* 로그인 없이도 접근 가능 — 저장 시에만 로그인 모달 표시 */}
         <Route path="/"               element={<Home />} />
         <Route path="/upload"         element={<Upload mode="upload" />} />
