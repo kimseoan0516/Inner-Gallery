@@ -302,7 +302,13 @@ export default function Drawing() {
     const ctx = tc.getContext('2d')
     if (!fillBgColor && bgMode === 'overlay' && bgImgRef.current) {
       ctx.fillStyle = '#1C1008'; ctx.fillRect(0, 0, tc.width, tc.height)
-      ctx.globalAlpha = 0.45; ctx.drawImage(bgImgRef.current, 0, 0, tc.width, tc.height); ctx.globalAlpha = 1
+      // objectFit: contain 방식으로 비율 유지하며 이미지 그리기
+      const img = bgImgRef.current
+      const ir = img.width / img.height, cr = tc.width / tc.height
+      let dw, dh, dx, dy
+      if (ir > cr) { dw = tc.width; dh = tc.width / ir; dx = 0; dy = (tc.height - dh) / 2 }
+      else         { dh = tc.height; dw = tc.height * ir; dy = 0; dx = (tc.width - dw) / 2 }
+      ctx.globalAlpha = 0.45; ctx.drawImage(img, dx, dy, dw, dh); ctx.globalAlpha = 1
     } else {
       ctx.fillStyle = effectiveBgColor; ctx.fillRect(0, 0, tc.width, tc.height)
     }

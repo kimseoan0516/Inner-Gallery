@@ -453,9 +453,6 @@ export default function JournalDetail() {
               </>
             )}
 
-            <button className="btn-primary" style={{ width: '100%', height: 48 }} onClick={() => nav('/drawing', { state: { existingEntryDate: rec.date, title, artist: rec.artwork_artist, palette: rec.dominant_colors, moodColorHex: rec.mood_color } })}>
-              마음 스케치 그리기
-            </button>
           </>
         )}
 
