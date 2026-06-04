@@ -75,7 +75,7 @@ export default function Drawing() {
 
   const [sketchMode,     setSketchMode]     = useState('line')
   const [tool,           setTool]           = useState('pen')
-  const [color,          setColor]          = useState('#C9A84C')
+  const [color,          setColor]          = useState('#F4F0E8')
   const [size,           setSize]           = useState(6)
   const [bgMode,         setBgMode]         = useState('white')
   const [showSave,       setShowSave]       = useState(false)
@@ -92,8 +92,8 @@ export default function Drawing() {
   const [reflectionText, setReflectionText] = useState('')
   const [textPos,        setTextPos]        = useState(null)
   const [textVal,        setTextVal]        = useState('')
-  const [customColor,      setCustomColor]      = useState('#C9A84C')
-  const [fillColor,        setFillColor]        = useState('#C9A84C')
+  const [customColor,      setCustomColor]      = useState('#F4F0E8')
+  const [fillColor,        setFillColor]        = useState('#F4F0E8')
   const [fillBgColor,      setFillBgColor]      = useState(null)   // CSS 배경으로만 처리 (캔버스 픽셀 X)
   const [eraserPos,        setEraserPos]        = useState(null)
   const [artworkPaletteIdx, setArtworkPaletteIdx] = useState(0)
@@ -576,7 +576,7 @@ export default function Drawing() {
             <>
               {[
                 { key: 'pen',    svg: <><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></> },
-                { key: 'brush',  svg: <path d="M12 2Q20 4 22 12Q20 20 12 22Q4 20 2 12Q4 4 12 2z"/> },
+                { key: 'brush',  svg: <><path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"/><line x1="16" y1="8" x2="2" y2="22"/><line x1="17.5" y1="15" x2="9" y2="15"/></> },
                 { key: 'eraser', svg: <><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></> },
                 { key: 'text',   svg: <><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></> },
               ].map(({ key, svg }) => (
