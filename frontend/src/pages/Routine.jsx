@@ -62,7 +62,7 @@ function DailyArtworkSection() {
           src={art.image_url}
           alt={art.title}
           onLoad={() => setImgLoaded(true)}
-          crossOrigin="anonymous"
+          onError={() => setImgLoaded(true)}
           style={{
             width: '100%', display: imgLoaded ? 'block' : 'none',
             maxHeight: 320, objectFit: 'cover',
