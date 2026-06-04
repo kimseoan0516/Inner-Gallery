@@ -357,7 +357,7 @@ function TicketCard({ rec, onClick, onUpdateNote, onUpdateExhibition }) {
         </div>
 
         {/* Inner Gallery 워터마크 — 캡처 시 하단 여백의 끝 */}
-        <div style={{ textAlign: 'center', padding: '2px 0 14px' }}>
+        <div style={{ textAlign: 'center', padding: '2px 0 0' }}>
           <span style={{ fontSize: 8, color: 'rgba(184,145,42,0.35)', letterSpacing: 2.5, fontFamily: 'monospace', fontWeight: 600 }}>INNER GALLERY</span>
         </div>
 

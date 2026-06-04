@@ -51,8 +51,8 @@ const MENU = [
   },
   {
     num: '03', icon: <IconDaily />,
-    title: '오늘의 감상',    sub: 'Daily Routine',
-    en: '오늘의 감상 코스 시작하기',
+    title: '오늘의 감상',    sub: 'Daily Curation',
+    en: '오늘의 작품과 전시를 만나보기',
     to: '/routine',
   },
   {

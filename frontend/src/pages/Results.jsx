@@ -207,6 +207,8 @@ export default function Results() {
   const [correctedEssay, setCorrectedEssay] = useState(null)
   const [essayLoading, setEssayLoading] = useState(false)
   const [showAllPost, setShowAllPost] = useState(false)
+  const [questionAnswers, setQuestionAnswers] = useState({})
+  const [openQuestion, setOpenQuestion] = useState(null)
   // Docent chat
   const [chatOpen,  setChatOpen]  = useState(false)
   const [chatMsg,   setChatMsg]   = useState('')
@@ -345,6 +347,7 @@ export default function Results() {
     mood_note:        moodNote,
     era_data:         (eraData && !eraData._no_era && !eraData._not_in_db && !eraData._error)
                         ? JSON.stringify(eraData) : '',
+    question_answers: JSON.stringify(questionAnswers),
   }
   }
 
@@ -831,17 +834,74 @@ export default function Results() {
           </EssayCard>
         )}
 
-        {/* Questions — numbered */}
+        {/* Questions — 클릭하면 바로 아래 답변 입력 */}
         {activeEssay.questions?.length > 0 && (
           <div className="card" style={{ padding: '18px 18px' }}>
             <SectionHead icon="○" title="감상 질문" en="Reflection Questions" />
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14, marginTop: 8 }}>
+            <p style={{ fontSize: 11, color: 'var(--sub)', marginTop: 6, marginBottom: 14, lineHeight: 1.6 }}>
+              질문을 눌러 나의 대답을 남겨보세요
+            </p>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
               {activeEssay.questions.map((q, i) => (
-                <div key={i} style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: 'var(--gold3)', letterSpacing: 1, flexShrink: 0, marginTop: 1 }}>
-                    {String(i + 1).padStart(2, '0')}
-                  </span>
-                  <p style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.7 }}>{q}</p>
+                <div key={i} style={{
+                  paddingBottom: 14, marginBottom: 14,
+                  borderBottom: i < activeEssay.questions.length - 1 ? '1px dashed rgba(184,145,42,0.15)' : 'none',
+                }}>
+                  {/* 질문 행 — 클릭 토글 */}
+                  <div
+                    onClick={() => setOpenQuestion(openQuestion === i ? null : i)}
+                    style={{ display: 'flex', gap: 12, alignItems: 'flex-start', cursor: 'pointer' }}
+                  >
+                    <span style={{
+                      fontSize: 11, fontWeight: 700, letterSpacing: 1, flexShrink: 0, marginTop: 2,
+                      color: questionAnswers[i] ? 'var(--gold2)' : 'var(--gold3)',
+                      minWidth: 24,
+                    }}>
+                      {String(i + 1).padStart(2, '0')}
+                    </span>
+                    <p style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.7, flex: 1, userSelect: 'none' }}>{q}</p>
+                    <span style={{
+                      color: 'rgba(184,145,42,0.35)', fontSize: 13, flexShrink: 0, marginTop: 2,
+                      transform: openQuestion === i ? 'rotate(90deg)' : 'none',
+                      transition: 'transform 0.2s',
+                    }}>›</span>
+                  </div>
+
+                  {/* 이미 쓴 답변 (접혔을 때) */}
+                  {openQuestion !== i && questionAnswers[i] && (
+                    <div style={{
+                      marginLeft: 36, marginTop: 8,
+                      paddingLeft: 10, borderLeft: '2px solid rgba(184,145,42,0.22)',
+                    }}>
+                      <p style={{
+                        fontSize: 12, color: 'var(--sub)', lineHeight: 1.8,
+                        fontStyle: 'italic', fontFamily: "'Noto Serif KR', serif",
+                      }}>
+                        {questionAnswers[i]}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* 열린 답변 입력창 */}
+                  {openQuestion === i && (
+                    <div style={{ marginLeft: 36, marginTop: 10 }}>
+                      <textarea
+                        autoFocus
+                        value={questionAnswers[i] || ''}
+                        onChange={e => setQuestionAnswers(prev => ({ ...prev, [i]: e.target.value }))}
+                        placeholder="나의 생각을 적어보세요…"
+                        rows={3}
+                        style={{
+                          width: '100%', padding: '10px 12px',
+                          fontSize: 12, fontFamily: "'Noto Serif KR', serif",
+                          background: 'var(--bg)', color: 'var(--text)',
+                          border: '1px solid rgba(184,145,42,0.45)', borderRadius: 6,
+                          resize: 'none', outline: 'none', lineHeight: 1.8,
+                          boxSizing: 'border-box',
+                        }}
+                      />
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

@@ -152,3 +152,17 @@ export async function updateJournalSketch(date, sketchData) {
   const { data } = await api.patch(`/api/journal/${encodeURIComponent(date)}/sketch`, sketchData)
   return data
 }
+
+// ── exhibitions ────────────────────────────────────────────────────────────
+
+export async function getExhibitions() {
+  const { data } = await api.get('/api/exhibitions')
+  return data
+}
+
+// ── daily artwork (AIC) ────────────────────────────────────────────────────
+
+export async function getDailyArtworkAIC() {
+  const { data } = await api.get('/api/daily-artwork-aic')
+  return data
+}

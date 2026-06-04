@@ -149,8 +149,9 @@ def init_db():
                 sketch_guide      TEXT DEFAULT '',
                 sketch_reflection TEXT DEFAULT '',
 
-                ticket_memo TEXT DEFAULT '',
-                era_data    TEXT DEFAULT '',
+                ticket_memo      TEXT DEFAULT '',
+                era_data         TEXT DEFAULT '',
+                question_answers TEXT DEFAULT '{}',
                 created_at  TEXT DEFAULT CURRENT_TIMESTAMP
             )
         """))
@@ -174,10 +175,11 @@ def init_db():
         if _USE_PG:
             c.execute("ALTER TABLE journal_entries ADD COLUMN IF NOT EXISTS era_data TEXT DEFAULT ''")
             c.execute("ALTER TABLE journal_entries ADD COLUMN IF NOT EXISTS ticket_exhibition TEXT DEFAULT ''")
+            c.execute("ALTER TABLE journal_entries ADD COLUMN IF NOT EXISTS question_answers TEXT DEFAULT '{}'")
         else:
-            for col in ["era_data", "ticket_exhibition"]:
+            for col, default in [("era_data", "''"), ("ticket_exhibition", "''"), ("question_answers", "'{}'")]:
                 try:
-                    c.execute(f"ALTER TABLE journal_entries ADD COLUMN {col} TEXT DEFAULT ''")
+                    c.execute(f"ALTER TABLE journal_entries ADD COLUMN {col} TEXT DEFAULT {default}")
                 except Exception:
                     pass
 
@@ -275,7 +277,7 @@ def save_journal_entry(user_id: int, entry: dict) -> int:
         "mood_color", "mood_color_name", "mood_note",
         "sketch_image", "sketch_title", "sketch_note",
         "sketch_guide", "sketch_reflection", "ticket_memo",
-        "era_data",
+        "era_data", "question_answers",
     ]
     vals = [user_id] + [row.get(c, "") for c in cols[1:]]
     ph   = ','.join(['?'] * len(cols))

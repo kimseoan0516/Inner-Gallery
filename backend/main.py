@@ -1205,6 +1205,107 @@ def journal_update_sketch(date: str, req: SketchUpdateRequest, user=Depends(get_
 
 
 _daily_cache: dict = {}
+_aic_daily_cache: dict = {}
+
+_DAILY_QUESTIONS = [
+    "이 작품에서 가장 먼저 눈길이 가는 부분은 어디인가요?",
+    "이 색감이 지금 내 기분과 어떻게 맞닿아 있나요?",
+    "이 장면 속에 내가 있다면 어떤 감정을 느낄 것 같나요?",
+    "작가는 무엇을 말하고 싶었을까요?",
+    "이 작품이 떠올리게 하는 기억이나 장소가 있나요?",
+    "빛과 그림자가 어디에서 시작되고 어디에서 끝나나요?",
+    "이 작품을 한 단어로 표현한다면 무엇인가요?",
+    "그림 속 인물 혹은 사물이 지금 어떤 소리를 내고 있을까요?",
+    "오늘 하루와 이 작품 사이에 어떤 닮은 점이 있나요?",
+    "만약 이 그림 속으로 들어갈 수 있다면, 어디에 서 있을 건가요?",
+    "작가가 이 순간을 포착하기 위해 무엇을 내려놓았을까요?",
+    "이 그림 앞에서 얼마나 오래 머물 수 있을 것 같나요?",
+    "작품의 어느 부분이 가장 조용하게 느껴지나요?",
+    "이 작품이 걸린 공간은 어떤 분위기일까요?",
+    "그림 속 시간은 몇 시쯤일 것 같나요?",
+    "이 작품을 보며 어떤 계절이 떠오르나요?",
+    "구도에서 어떤 균형 또는 불균형이 느껴지나요?",
+    "이 색 중 지금의 내 감정과 가장 가까운 색은 무엇인가요?",
+    "이 장면이 끝나면 무슨 일이 일어날 것 같나요?",
+    "작품이 나에게 조용히 건네는 말이 있다면 무엇일까요?",
+    "붓터치 혹은 선 하나하나에서 어떤 감각이 느껴지나요?",
+    "이 작품을 떠올릴 때 들릴 것 같은 음악이 있나요?",
+    "작가는 이 작품을 그리면서 무엇을 느꼈을까요?",
+    "지금 이 그림을 선물받는다면 어디에 걸고 싶나요?",
+    "이 작품이 내 삶의 어떤 순간과 겹쳐 보이나요?",
+    "가장 따뜻한 부분과 가장 차가운 부분은 어디인가요?",
+    "이 그림을 처음 본 사람은 어떤 반응을 보였을까요?",
+    "화면에서 눈에 보이지 않는 것은 무엇일까요?",
+    "이 작품은 나에게 무엇을 허락해주는 것 같나요?",
+    "오늘 하루를 이 그림의 제목으로 붙인다면?",
+]
+
+
+@app.get("/api/daily-artwork-aic")
+async def daily_artwork_aic():
+    """AIC GET + URL-encoded params (공식 권장) 방식으로 날짜 기반 퍼블릭 도메인 작품 추천."""
+    today = datetime.date.today()
+    cache_key = str(today)
+    if cache_key in _aic_daily_cache:
+        return _aic_daily_cache[cache_key]
+
+    ordinal = today.toordinal()
+    # ES from 오프셋으로 날짜마다 다른 작품 선택 (0~8999 순환)
+    es_from = ordinal % 9000
+
+    aic_query = {
+        "query": {
+            "bool": {
+                "must": [
+                    {"term": {"is_public_domain": True}},
+                    {"exists": {"field": "image_id"}},
+                ]
+            }
+        },
+        "from": es_from,
+        "size": 10,
+    }
+
+    try:
+        resp = requests.get(
+            "https://api.artic.edu/api/v1/artworks/search",
+            params={
+                "params": json.dumps(aic_query, separators=(',', ':')),
+                "fields": "id,title,artist_display,date_display,medium_display,image_id,description",
+            },
+            headers={"AIC-User-Agent": "inner-gallery (sakim9018@gmail.com)"},
+            timeout=10,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+    except Exception as e:
+        return {"fallback": True, "error": str(e)}
+
+    artworks = data.get("data", [])
+    artwork = next((a for a in artworks if a.get("image_id")), None)
+    if not artwork:
+        return {"fallback": True, "error": "image_id 없음"}
+
+    iiif_base = data.get("config", {}).get("iiif_url", "https://www.artic.edu/iiif/2")
+    img_id = artwork["image_id"]
+
+    result = {
+        "fallback":      False,
+        "id":            artwork.get("id"),
+        "title":         artwork.get("title", ""),
+        "artist":        artwork.get("artist_display", ""),
+        "date":          artwork.get("date_display", ""),
+        "medium":        artwork.get("medium_display", ""),
+        "description":   artwork.get("description") or "",
+        "image_url":     f"{iiif_base}/{img_id}/full/843,/0/default.jpg",
+        "thumbnail_url": f"{iiif_base}/{img_id}/full/400,/0/default.jpg",
+        "artic_url":     f"https://www.artic.edu/artworks/{artwork.get('id')}",
+        "question":      _DAILY_QUESTIONS[ordinal % len(_DAILY_QUESTIONS)],
+    }
+
+    _aic_daily_cache.clear()
+    _aic_daily_cache[cache_key] = result
+    return result
 
 
 @app.get("/api/daily-artwork")
@@ -1513,6 +1614,91 @@ async def docent_chat(req: ChatRequest):
         return {"reply": text.strip()}
     except Exception as e:
         raise HTTPException(500, str(e))
+
+
+# ── 전시 정보 ────────────────────────────────────────────────────────────────
+
+def _parse_kcisa_items(data: dict) -> list:
+    """kcisa.kr 공통 응답에서 item 배열을 추출 (다양한 응답 구조 대응)."""
+    body = data.get("response", {}).get("body", {})
+    items = body.get("items", {})
+    if not items:
+        # 일부 API는 body에 items 없이 data 바로 반환
+        items = body.get("data", {})
+    if isinstance(items, list):
+        return items
+    if not items:
+        return []
+    item_list = items.get("item", items.get("data", []))
+    if isinstance(item_list, dict):
+        item_list = [item_list]
+    return item_list if isinstance(item_list, list) else []
+
+
+@app.get("/api/exhibitions")
+async def get_exhibitions():
+    """국립현대미술관(MOCA_API_KEY) + 예술의전당(SAC_API_KEY) 전시정보 통합."""
+    moca_key = os.getenv("MOCA_API_KEY", "").strip()
+    sac_key  = os.getenv("SAC_API_KEY",  "").strip()
+
+    if not moca_key and not sac_key:
+        return {"items": [], "fallback": True}
+
+    results = []
+
+    # ① 국립현대미술관
+    if moca_key:
+        try:
+            resp = requests.get(
+                "https://api.kcisa.kr/openapi/service/rest/moca/docMeta",
+                params={"serviceKey": moca_key, "numOfRows": "5", "pageNo": "1"},
+                timeout=8,
+            )
+            resp.raise_for_status()
+            for item in _parse_kcisa_items(resp.json())[:3]:
+                title = item.get("title", "").strip()
+                if not title:
+                    continue
+                results.append({
+                    "source":    "국립현대미술관",
+                    "title":     title,
+                    "place":     item.get("venue", ""),
+                    "period":    item.get("eventPeriod", ""),
+                    "fee":       item.get("charge", ""),
+                    "thumbnail": "",
+                    "url":       "",
+                    "author":    item.get("creator", ""),
+                })
+        except Exception as e:
+            print(f"[exhibitions] MOCA error: {e}", flush=True)
+
+    # ② 예술의전당
+    if sac_key:
+        try:
+            resp = requests.get(
+                "https://api.kcisa.kr/openapi/API_CCA_149/request",
+                params={"serviceKey": sac_key, "numOfRows": "5", "pageNo": "1"},
+                timeout=8,
+            )
+            resp.raise_for_status()
+            for item in _parse_kcisa_items(resp.json())[:3]:
+                title = item.get("TITLE", "").strip()
+                if not title:
+                    continue
+                results.append({
+                    "source":    "예술의전당",
+                    "title":     title,
+                    "place":     item.get("EVENT_SITE", ""),
+                    "period":    item.get("PERIOD", ""),
+                    "fee":       item.get("CHARGE", ""),
+                    "thumbnail": item.get("IMAGE_OBJECT", ""),
+                    "url":       item.get("URL", ""),
+                    "author":    item.get("AUTHOR", ""),
+                })
+        except Exception as e:
+            print(f"[exhibitions] SAC error: {e}", flush=True)
+
+    return {"items": results, "fallback": len(results) == 0}
 
 
 # ── 프론트엔드 정적 파일 서빙 (Docker 빌드 후) ──────────────────────────────
