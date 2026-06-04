@@ -536,18 +536,17 @@ def generate_sketch_reflection(
     api_key: str,
     mode: str = "short",
 ) -> str:
-    genai.configure(api_key=api_key)
-    model = genai.GenerativeModel(
-        "gemini-2.0-flash",
-        system_instruction=(
-            "너는 미술 감상 보조 AI다. 사용자가 명화 감상 후 그린 마음 스케치를 함께 읽어주는 회고 안내자다.\n"
-            "규칙:\n"
-            "- 감정을 진단하거나 심리 상태를 단정하지 않는다. '당신은 우울합니다', '불안 상태입니다' 같은 표현 절대 금지.\n"
-            "- 색, 선의 방향과 강약, 여백, 형태의 반복을 묘사하고, 어떤 분위기를 만들 수 있는지 부드럽게 이야기한다.\n"
-            "- '~처럼 느껴질 수 있어요', '~한 인상을 줍니다', '~일지도 모릅니다' 같은 표현을 사용한다.\n"
-            "- 관람객 옆에서 조용히 속삭이듯 따뜻하게 쓴다.\n"
-            "- 한국어로만 답변한다."
-        ),
+    from google import genai as _new_genai
+    from google.genai import types as _gtypes
+
+    system_instruction = (
+        "너는 미술 감상 보조 AI다. 사용자가 명화 감상 후 그린 마음 스케치를 함께 읽어주는 회고 안내자다.\n"
+        "규칙:\n"
+        "- 감정을 진단하거나 심리 상태를 단정하지 않는다. '당신은 우울합니다', '불안 상태입니다' 같은 표현 절대 금지.\n"
+        "- 색, 선의 방향과 강약, 여백, 형태의 반복을 묘사하고, 어떤 분위기를 만들 수 있는지 부드럽게 이야기한다.\n"
+        "- '~처럼 느껴질 수 있어요', '~한 인상을 줍니다', '~일지도 모릅니다' 같은 표현을 사용한다.\n"
+        "- 관람객 옆에서 조용히 속삭이듯 따뜻하게 쓴다.\n"
+        "- 한국어로만 답변한다."
     )
 
     palette_str = "·".join(
@@ -572,12 +571,20 @@ def generate_sketch_reflection(
         f"{instruction}"
     )
 
+    client = _new_genai.Client(api_key=api_key)
+
     for attempt in range(2):
         try:
-            resp = model.generate_content([
-                {"mime_type": "image/jpeg", "data": sketch_bytes},
-                prompt,
-            ])
+            resp = client.models.generate_content(
+                model="gemini-2.0-flash",
+                contents=[
+                    _gtypes.Part.from_bytes(data=sketch_bytes, mime_type="image/jpeg"),
+                    prompt,
+                ],
+                config=_gtypes.GenerateContentConfig(
+                    system_instruction=system_instruction,
+                ),
+            )
             return resp.text.strip()
         except ValueError:
             return "마음 스케치를 자세히 살펴보기 어렵습니다. 하지만 당신만의 색깔과 선이 담긴 멋진 스케치네요. 어떤 마음으로 선을 그었는지 스스로 되돌아보는 것도 좋은 감상이 될 거예요."
