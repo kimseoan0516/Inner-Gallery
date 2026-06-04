@@ -1643,24 +1643,85 @@ def _parse_kcisa_items(data: dict) -> list:
     return item_list if isinstance(item_list, list) else []
 
 
+def _is_active_period(period_str: str) -> bool:
+    """PERIOD 필드 ('YYYY-MM-DD~YYYY-MM-DD') 파싱해 현재 진행 중인지 확인."""
+    if not period_str:
+        return True  # 기간 정보 없으면 일단 포함
+    today = datetime.date.today()
+    try:
+        parts = period_str.replace(" ", "").split("~")
+        if len(parts) == 2:
+            end = datetime.date.fromisoformat(parts[1][:10])
+            return end >= today
+        return True
+    except Exception:
+        return True
+
+
+def _parse_integ_item(item: dict) -> dict | None:
+    """통합 API 아이템 → 공통 포맷 변환 (기간 지난 전시 제외)."""
+    title = item.get("TITLE", "").strip()
+    if not title:
+        return None
+    period = item.get("PERIOD", "")
+    if not _is_active_period(period):
+        return None
+    return {
+        "source":    item.get("CNTC_INSTT_NM", "기관").strip(),
+        "title":     title,
+        "place":     item.get("EVENT_SITE", ""),
+        "period":    period,
+        "fee":       item.get("CHARGE", ""),
+        "thumbnail": item.get("IMAGE_OBJECT", ""),
+        "url":       item.get("URL", ""),
+        "author":    item.get("AUTHOR", ""),
+    }
+
+
 @app.get("/api/exhibitions")
 async def get_exhibitions():
-    """국립현대미술관(MOCA_API_KEY) + 예술의전당(SAC_API_KEY) 전시정보 통합."""
-    moca_key = os.getenv("MOCA_API_KEY", "").strip()
-    sac_key  = os.getenv("SAC_API_KEY",  "").strip()
+    """
+    ① 통합 전시정보 API (INTEG_API_KEY) — 27개 기관 통합, 현재 전시 필터링
+    ② 국립현대미술관 개별 API (MOCA_API_KEY) — 보조
+    ③ 예술의전당 개별 API  (SAC_API_KEY)  — 보조
+    키가 하나도 없으면 fallback 반환.
+    """
+    integ_key = os.getenv("INTEG_API_KEY", "").strip()
+    moca_key  = os.getenv("MOCA_API_KEY",  "").strip()
+    sac_key   = os.getenv("SAC_API_KEY",   "").strip()
 
-    if not moca_key and not sac_key:
+    if not any([integ_key, moca_key, sac_key]):
         return {"items": [], "fallback": True}
 
     results = []
-
     headers = {
         "Accept": "application/json",
         "User-Agent": "Mozilla/5.0 (compatible; InnerGallery/1.0)",
     }
 
-    # ① 국립현대미술관
-    if moca_key:
+    # ① 통합 전시정보 (27개 기관) — 최우선
+    if integ_key:
+        try:
+            resp = requests.get(
+                "https://api.kcisa.kr/openapi/API_CCA_145/request",
+                params={"serviceKey": integ_key, "numOfRows": "20", "pageNo": "1"},
+                headers=headers,
+                timeout=12,
+            )
+            resp.raise_for_status()
+            raw = resp.json()
+            print(f"[exhibitions] INTEG status: {resp.status_code}, keys: {list(raw.keys())}", flush=True)
+            for item in _parse_kcisa_items(raw):
+                parsed = _parse_integ_item(item)
+                if parsed:
+                    results.append(parsed)
+                if len(results) >= 6:
+                    break
+        except Exception as e:
+            print(f"[exhibitions] INTEG error: {e}", flush=True)
+
+    # ② 국립현대미술관 개별 (보조 — 통합에 없는 경우 대비)
+    if moca_key and len(results) < 3:
         try:
             resp = requests.get(
                 "https://api.kcisa.kr/openapi/service/rest/moca/docMeta",
@@ -1669,9 +1730,7 @@ async def get_exhibitions():
                 timeout=12,
             )
             resp.raise_for_status()
-            raw = resp.json()
-            print(f"[exhibitions] MOCA raw keys: {list(raw.keys())}", flush=True)
-            for item in _parse_kcisa_items(raw)[:3]:
+            for item in _parse_kcisa_items(resp.json())[:3]:
                 title = item.get("title", "").strip()
                 if not title:
                     continue
@@ -1688,8 +1747,8 @@ async def get_exhibitions():
         except Exception as e:
             print(f"[exhibitions] MOCA error: {e}", flush=True)
 
-    # ② 예술의전당
-    if sac_key:
+    # ③ 예술의전당 개별 (보조)
+    if sac_key and len(results) < 3:
         try:
             resp = requests.get(
                 "https://api.kcisa.kr/openapi/API_CCA_149/request",
@@ -1698,9 +1757,7 @@ async def get_exhibitions():
                 timeout=12,
             )
             resp.raise_for_status()
-            raw = resp.json()
-            print(f"[exhibitions] SAC raw keys: {list(raw.keys())}", flush=True)
-            for item in _parse_kcisa_items(raw)[:3]:
+            for item in _parse_kcisa_items(resp.json())[:3]:
                 title = item.get("TITLE", "").strip()
                 if not title:
                     continue
@@ -1717,7 +1774,7 @@ async def get_exhibitions():
         except Exception as e:
             print(f"[exhibitions] SAC error: {e}", flush=True)
 
-    return {"items": results, "fallback": len(results) == 0}
+    return {"items": results[:6], "fallback": len(results) == 0}
 
 
 # ── 프론트엔드 정적 파일 서빙 (Docker 빌드 후) ──────────────────────────────
