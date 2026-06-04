@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
-import { forgotPassword } from '../api.js'
+import { resetPassword } from '../api.js'
 import GoldDivider from '../components/GoldDivider.jsx'
 
 const BRZ  = 'rgba(122,92,56,'
@@ -75,17 +75,24 @@ export default function Login() {
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState('')
   const [success,  setSuccess]  = useState('')
-  const [showForgot,   setShowForgot]   = useState(false)
-  const [forgotEmail,  setForgotEmail]  = useState('')
+  const [showForgot,    setShowForgot]    = useState(false)
+  const [forgotEmail,   setForgotEmail]   = useState('')
+  const [forgotPw,      setForgotPw]      = useState('')
+  const [forgotConfirm, setForgotConfirm] = useState('')
   const [forgotLoading, setForgotLoading] = useState(false)
-  const [forgotMsg,    setForgotMsg]    = useState('')
+  const [forgotMsg,     setForgotMsg]     = useState('')
+  const [forgotDone,    setForgotDone]    = useState(false)
 
   const handleForgot = async () => {
-    if (!forgotEmail.trim()) { setForgotMsg('이메일을 입력해주세요'); return }
-    setForgotLoading(true); setForgotMsg('')
+    setForgotMsg('')
+    if (!forgotEmail.trim())           { setForgotMsg('이메일을 입력해주세요'); return }
+    if (!forgotPw)                     { setForgotMsg('새 비밀번호를 입력해주세요'); return }
+    if (forgotPw.length < 6)           { setForgotMsg('비밀번호는 6자 이상이어야 합니다'); return }
+    if (forgotPw !== forgotConfirm)    { setForgotMsg('비밀번호가 일치하지 않습니다'); return }
+    setForgotLoading(true)
     try {
-      await forgotPassword(forgotEmail.trim())
-      setForgotMsg('이메일이 존재하면 재설정 링크를 보내드렸어요.')
+      await resetPassword(forgotEmail.trim(), forgotPw)
+      setForgotDone(true)
     } catch (e) {
       setForgotMsg(e.response?.data?.detail || '오류가 발생했습니다')
     } finally {
@@ -134,10 +141,10 @@ export default function Login() {
         </div>
         <div style={{ textAlign: 'center', marginBottom: 22 }}>
           <h1 style={{
-            fontFamily: "'Georgia', 'Noto Serif KR', serif",
-            fontSize: 40, fontWeight: 700,
-            color: 'var(--text)', letterSpacing: 4,
-            lineHeight: 1.2, marginBottom: 10,
+            fontFamily: "'Cinzel', serif",
+            fontSize: 38, fontWeight: 600,
+            color: 'var(--text)', letterSpacing: 2,
+            lineHeight: 1.2, marginBottom: 12,
           }}>Inner Gallery</h1>
           <p style={{ fontFamily: "'Noto Serif KR', serif", fontSize: 12, color: 'var(--sub)', fontStyle: 'normal', letterSpacing: 6, opacity: 0.75 }}>마음미술관</p>
         </div>
@@ -183,32 +190,57 @@ export default function Login() {
         )}
       </div>
 
-      {/* 비밀번호 찾기 모달 */}
+      {/* 비밀번호 재설정 모달 */}
       {showForgot && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 300, background: 'rgba(0,0,0,0.45)', display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}
-          onClick={() => setShowForgot(false)}>
+          onClick={() => { setShowForgot(false); setForgotDone(false); setForgotMsg(''); setForgotEmail(''); setForgotPw(''); setForgotConfirm('') }}>
           <div style={{ background: 'var(--card)', width: '100%', maxWidth: 480, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: '24px 24px 44px' }}
             onClick={e => e.stopPropagation()}>
             <div style={{ width: 36, height: 4, borderRadius: 2, background: 'var(--line)', margin: '0 auto 20px' }} />
-            <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', fontFamily: "'Noto Serif KR', serif", marginBottom: 6 }}>비밀번호 찾기</p>
-            <p style={{ fontSize: 12, color: 'var(--sub)', marginBottom: 18, lineHeight: 1.7 }}>가입 시 사용한 이메일로 재설정 링크를 보내드려요.</p>
-            <input
-              type="email"
-              value={forgotEmail}
-              onChange={e => setForgotEmail(e.target.value)}
-              placeholder="이메일 주소"
-              onKeyDown={e => e.key === 'Enter' && !forgotLoading && handleForgot()}
-              style={{ width: '100%', height: 46, boxSizing: 'border-box', padding: '0 14px', borderRadius: 2, border: '1px solid var(--line)', background: 'var(--bg)', color: 'var(--text)', fontSize: 13, fontFamily: 'inherit', outline: 'none', marginBottom: 12 }}
-            />
-            {forgotMsg && <p style={{ fontSize: 12, color: forgotMsg.includes('보내') ? 'var(--gold)' : '#D47070', marginBottom: 12, lineHeight: 1.6 }}>{forgotMsg}</p>}
-            <button className="btn-primary" onClick={handleForgot} disabled={forgotLoading}
-              style={{ width: '100%', height: 48, fontSize: 13, letterSpacing: 1 }}>
-              {forgotLoading ? '발송 중…' : '재설정 링크 보내기'}
-            </button>
-            <button onClick={() => setShowForgot(false)}
-              style={{ background: 'none', border: 'none', color: 'var(--sub)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', marginTop: 12, width: '100%', textAlign: 'center' }}>
-              취소
-            </button>
+
+            {forgotDone ? (
+              <div style={{ textAlign: 'center', padding: '8px 0' }}>
+                <div style={{ width: 48, height: 48, borderRadius: '50%', border: '1px solid rgba(184,145,42,0.3)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--gold2)" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                </div>
+                <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', fontFamily: "'Noto Serif KR', serif", marginBottom: 6 }}>비밀번호가 변경됐어요</p>
+                <p style={{ fontSize: 12, color: 'var(--sub)', lineHeight: 1.7, marginBottom: 20 }}>새 비밀번호로 로그인해주세요.</p>
+                <button className="btn-primary" onClick={() => { setShowForgot(false); setForgotDone(false); switchTab('login') }}
+                  style={{ width: '100%', height: 48 }}>확인</button>
+              </div>
+            ) : (
+              <>
+                <p style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)', fontFamily: "'Noto Serif KR', serif", marginBottom: 6 }}>비밀번호 재설정</p>
+                <p style={{ fontSize: 12, color: 'var(--sub)', marginBottom: 18, lineHeight: 1.7 }}>가입 시 사용한 이메일과 새 비밀번호를 입력해주세요.</p>
+
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ fontSize: 9, color: 'var(--gold)', fontWeight: 700, letterSpacing: 2, marginBottom: 6 }}>이메일</div>
+                  <input type="email" value={forgotEmail} onChange={e => setForgotEmail(e.target.value)} placeholder="가입 시 사용한 이메일"
+                    style={{ width: '100%', height: 46, boxSizing: 'border-box', padding: '0 14px', borderRadius: 2, border: '1px solid var(--line)', background: 'var(--bg)', color: 'var(--text)', fontSize: 13, fontFamily: 'inherit', outline: 'none' }} />
+                </div>
+                <div style={{ marginBottom: 12 }}>
+                  <div style={{ fontSize: 9, color: 'var(--gold)', fontWeight: 700, letterSpacing: 2, marginBottom: 6 }}>새 비밀번호</div>
+                  <input type="password" value={forgotPw} onChange={e => setForgotPw(e.target.value)} placeholder="6자 이상"
+                    style={{ width: '100%', height: 46, boxSizing: 'border-box', padding: '0 14px', borderRadius: 2, border: '1px solid var(--line)', background: 'var(--bg)', color: 'var(--text)', fontSize: 13, fontFamily: 'inherit', outline: 'none' }} />
+                </div>
+                <div style={{ marginBottom: 16 }}>
+                  <div style={{ fontSize: 9, color: 'var(--gold)', fontWeight: 700, letterSpacing: 2, marginBottom: 6 }}>새 비밀번호 확인</div>
+                  <input type="password" value={forgotConfirm} onChange={e => setForgotConfirm(e.target.value)} placeholder="비밀번호를 다시 입력"
+                    onKeyDown={e => e.key === 'Enter' && !forgotLoading && handleForgot()}
+                    style={{ width: '100%', height: 46, boxSizing: 'border-box', padding: '0 14px', borderRadius: 2, border: '1px solid var(--line)', background: 'var(--bg)', color: 'var(--text)', fontSize: 13, fontFamily: 'inherit', outline: 'none' }} />
+                </div>
+
+                {forgotMsg && <p style={{ fontSize: 12, color: '#D47070', marginBottom: 12, lineHeight: 1.6 }}>{forgotMsg}</p>}
+                <button className="btn-primary" onClick={handleForgot} disabled={forgotLoading}
+                  style={{ width: '100%', height: 48, fontSize: 13, letterSpacing: 1 }}>
+                  {forgotLoading ? '변경 중…' : '비밀번호 변경하기'}
+                </button>
+                <button onClick={() => { setShowForgot(false); setForgotMsg(''); setForgotEmail(''); setForgotPw(''); setForgotConfirm('') }}
+                  style={{ background: 'none', border: 'none', color: 'var(--sub)', fontSize: 12, cursor: 'pointer', fontFamily: 'inherit', marginTop: 12, width: '100%', textAlign: 'center' }}>
+                  취소
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}

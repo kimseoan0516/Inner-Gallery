@@ -1,6 +1,4 @@
-import os, datetime, secrets, smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
+import os, datetime, secrets
 from typing import Optional
 
 import bcrypt
@@ -120,107 +118,21 @@ def delete_account(user=Depends(get_current_user)):
 
 # ── 비밀번호 재설정 ────────────────────────────────────────────────────────────
 
-def _send_reset_email(to_email: str, reset_url: str):
-    smtp_host = os.environ.get("SMTP_HOST", "smtp.gmail.com")
-    smtp_port = int(os.environ.get("SMTP_PORT", "587"))
-    smtp_user = os.environ.get("SMTP_USER", "")
-    smtp_pass = os.environ.get("SMTP_PASS", "")
-    if not smtp_user or not smtp_pass:
-        raise ValueError("SMTP_USER / SMTP_PASS 환경변수가 설정되지 않았습니다")
-
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = "[Inner Gallery] 비밀번호 재설정"
-    msg["From"]    = f"Inner Gallery <{smtp_user}>"
-    msg["To"]      = to_email
-
-    html = f"""
-    <div style="font-family:sans-serif;max-width:480px;margin:0 auto;padding:32px;background:#FAF7F2;border-radius:12px">
-      <h2 style="font-size:20px;color:#1A0800;margin-bottom:8px">비밀번호 재설정</h2>
-      <p style="color:#6B5E52;font-size:14px;line-height:1.8">
-        아래 버튼을 클릭해 새 비밀번호를 설정하세요.<br>링크는 <strong>1시간</strong> 후 만료됩니다.
-      </p>
-      <a href="{reset_url}" style="display:inline-block;margin:24px 0;padding:14px 28px;background:#1A0800;color:#C9A84C;text-decoration:none;border-radius:6px;font-size:14px;letter-spacing:1px">
-        비밀번호 재설정하기
-      </a>
-      <p style="color:#9C8E84;font-size:11px">본인이 요청하지 않은 경우 이 메일을 무시하세요.</p>
-      <p style="color:#C9A84C;font-size:10px;letter-spacing:2px;margin-top:24px">INNER GALLERY</p>
-    </div>
-    """
-    msg.attach(MIMEText(html, "html"))
-
-    with smtplib.SMTP(smtp_host, smtp_port) as s:
-        s.ehlo()
-        s.starttls()
-        s.login(smtp_user, smtp_pass)
-        s.sendmail(smtp_user, to_email, msg.as_string())
-
-
-class ForgotPasswordForm(BaseModel):
-    email: str
-
 class ResetPasswordForm(BaseModel):
-    token:        str
+    email:        str
     new_password: str
-
-
-@router.post("/forgot-password")
-def forgot_password(form: ForgotPasswordForm):
-    init_db()
-    with conn() as c:
-        row = c.execute("SELECT * FROM users WHERE email = ?", (form.email.strip(),)).fetchone()
-    if not row:
-        return {"ok": True}  # 이메일 존재 여부 노출 방지
-
-    token   = secrets.token_urlsafe(32)
-    expires = (datetime.datetime.utcnow() + datetime.timedelta(hours=1)).isoformat()
-
-    with conn() as c:
-        c.execute("DELETE FROM password_reset_tokens WHERE user_id = ?", (row["id"],))
-        c.execute(
-            "INSERT INTO password_reset_tokens (user_id, token, expires_at) VALUES (?,?,?)",
-            (row["id"], token, expires),
-        )
-
-    frontend_url = os.environ.get("FRONTEND_URL", "").rstrip("/")
-    reset_url    = f"{frontend_url}/reset-password?token={token}"
-
-    try:
-        _send_reset_email(form.email.strip(), reset_url)
-    except Exception as e:
-        raise HTTPException(500, f"이메일 발송 실패: {e}")
-
-    return {"ok": True}
 
 
 @router.post("/reset-password")
 def reset_password(form: ResetPasswordForm):
     init_db()
-    now = datetime.datetime.utcnow().isoformat()
     with conn() as c:
-        row = c.execute(
-            "SELECT * FROM password_reset_tokens WHERE token = ? AND used = 0 AND expires_at > ?",
-            (form.token, now),
-        ).fetchone()
+        row = c.execute("SELECT * FROM users WHERE email = ?", (form.email.strip(),)).fetchone()
     if not row:
-        raise HTTPException(400, "링크가 유효하지 않거나 만료되었습니다.")
+        raise HTTPException(404, "해당 이메일로 가입된 계정을 찾을 수 없습니다.")
     if len(form.new_password) < 6:
         raise HTTPException(400, "비밀번호는 6자 이상이어야 합니다")
-
     with conn() as c:
         c.execute("UPDATE users SET hashed_password = ? WHERE id = ?",
-                  (_hash_pw(form.new_password), row["user_id"]))
-        c.execute("UPDATE password_reset_tokens SET used = 1 WHERE token = ?", (form.token,))
-
+                  (_hash_pw(form.new_password), row["id"]))
     return {"ok": True}
-
-
-@router.get("/verify-reset-token")
-def verify_reset_token(token: str):
-    init_db()
-    now = datetime.datetime.utcnow().isoformat()
-    with conn() as c:
-        row = c.execute(
-            "SELECT id FROM password_reset_tokens WHERE token = ? AND used = 0 AND expires_at > ?",
-            (token, now),
-        ).fetchone()
-    return {"valid": bool(row)}

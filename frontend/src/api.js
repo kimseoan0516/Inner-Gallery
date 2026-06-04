@@ -44,18 +44,8 @@ export async function deleteAccount() {
   return data
 }
 
-export async function forgotPassword(email) {
-  const { data } = await api.post('/api/auth/forgot-password', { email })
-  return data
-}
-
-export async function resetPassword(token, new_password) {
-  const { data } = await api.post('/api/auth/reset-password', { token, new_password })
-  return data
-}
-
-export async function verifyResetToken(token) {
-  const { data } = await api.get(`/api/auth/verify-reset-token?token=${token}`)
+export async function resetPassword(email, new_password) {
+  const { data } = await api.post('/api/auth/reset-password', { email, new_password })
   return data
 }
 
