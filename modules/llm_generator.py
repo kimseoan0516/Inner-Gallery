@@ -579,7 +579,7 @@ def generate_sketch_reflection(
                 model="gemini-2.0-flash",
                 contents=[
                     _gtypes.Part.from_bytes(data=sketch_bytes, mime_type="image/jpeg"),
-                    prompt,
+                    _gtypes.Part.from_text(prompt),
                 ],
                 config=_gtypes.GenerateContentConfig(
                     system_instruction=system_instruction,
