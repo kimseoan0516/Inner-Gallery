@@ -1,3 +1,4 @@
+<img width="2304" height="1536" alt="inner_gallery_logo_horizontal" src="https://github.com/user-attachments/assets/99b73bb2-0221-4605-bb21-9f3a0dc32f06" />
 ---
 title: Inner Gallery Api
 emoji: 🖼️
