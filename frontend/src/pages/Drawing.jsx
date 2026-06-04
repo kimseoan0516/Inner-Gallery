@@ -491,11 +491,12 @@ export default function Drawing() {
       )}
 
       {/* Mode selector */}
-      <div style={{ padding: '10px 14px 0', background: 'var(--bg)', flexShrink: 0 }}>
-        <div style={{ display: 'flex', gap: 6, justifyContent: 'center', marginBottom: 8 }}>
+      <div style={{ padding: '8px 14px 0', background: 'var(--bg)', flexShrink: 0 }}>
+        <div style={{ display: 'flex', gap: 5, justifyContent: 'center', marginBottom: 8 }}>
           {Object.entries(MODE_CONFIG).map(([key, cfg]) => (
             <button key={key} onClick={() => handleModeChange(key)} style={{
-              padding: '6px 14px', borderRadius: 20, fontSize: 11, fontFamily: 'inherit', cursor: 'pointer',
+              padding: '6px 12px', borderRadius: 20, fontSize: 11, fontFamily: 'inherit', cursor: 'pointer',
+              flex: 1, maxWidth: 120, whiteSpace: 'nowrap',
               border: sketchMode === key ? '1px solid rgba(184,145,42,0.6)' : '1px solid var(--line)',
               background: sketchMode === key ? 'rgba(184,145,42,0.1)' : 'var(--card)',
               color: sketchMode === key ? 'var(--gold2)' : 'var(--sub)',
@@ -510,7 +511,7 @@ export default function Drawing() {
       </div>
 
       {/* Canvas */}
-      <div style={{ position: 'relative', overflow: 'hidden', margin: '0 10px 8px', borderRadius: 10, border: '1px solid var(--line)', boxShadow: '0 4px 20px rgba(0,0,0,0.12)', height: '55vw', minHeight: 280, maxHeight: 480, background: canvasBg }}>
+      <div style={{ position: 'relative', overflow: 'hidden', margin: '0 10px 8px', borderRadius: 10, border: '1px solid var(--line)', boxShadow: '0 4px 20px rgba(0,0,0,0.12)', height: 'min(55vw, 45vh)', minHeight: 220, maxHeight: 400, background: canvasBg }}>
         {/* Overlay Image (behind canvas) */}
         {bgMode === 'overlay' && bgImgRef.current && (
           <img src={`data:image/jpeg;base64,${overlayImg}`} alt="" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', opacity: 0.45, objectFit: 'contain', pointerEvents: 'none' }} />
@@ -567,10 +568,10 @@ export default function Drawing() {
       </div>
 
       {/* Bottom controls */}
-      <div style={{ padding: '6px 10px 20px', background: 'var(--card)', borderTop: '1px solid var(--line)' }}>
+      <div style={{ padding: '6px 10px 16px', background: 'var(--card)', borderTop: '1px solid var(--line)' }}>
 
-        {/* Row 1: tools + size + bg + clear + save */}
-        <div style={{ display: 'flex', gap: 5, alignItems: 'center', marginBottom: 8 }}>
+        {/* Row 1: tools + sizes + clear + save */}
+        <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginBottom: 8 }}>
           {sketchMode !== 'color' && (
             <>
               {[
@@ -578,24 +579,24 @@ export default function Drawing() {
                 { key: 'brush',  svg: <path d="M12 2Q20 4 22 12Q20 20 12 22Q4 20 2 12Q4 4 12 2z"/> },
                 { key: 'eraser', svg: <><path d="m7 21-4.3-4.3c-1-1-1-2.5 0-3.4l9.6-9.6c1-1 2.5-1 3.4 0l5.6 5.6c1 1 1 2.5 0 3.4L13 21"/><path d="M22 21H7"/><path d="m5 11 9 9"/></> },
                 { key: 'text',   svg: <><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></> },
-              ].map(({ key, svg, extra }) => (
+              ].map(({ key, svg }) => (
                 <button key={key} onClick={() => { setTool(key); setEraserPos(null) }} style={{
-                  width: 34, height: 34, borderRadius: 8, flexShrink: 0,
+                  width: 32, height: 32, borderRadius: 8, flexShrink: 0,
                   background: tool === key ? 'rgba(184,145,42,0.12)' : 'transparent',
                   border: tool === key ? '1px solid rgba(184,145,42,0.5)' : '1px solid transparent',
                   color: tool === key ? 'var(--gold2)' : 'var(--sub)',
                   cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                 }}>
-                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{svg}{extra}</svg>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">{svg}</svg>
                 </button>
               ))}
-              <div style={{ width: 0, height: 20, borderLeft: '1px solid var(--line)', flexShrink: 0 }} />
+              <div style={{ width: 0, height: 20, borderLeft: '1px solid var(--line)', flexShrink: 0, margin: '0 2px' }} />
               {SIZE_PRESETS.map(({ size: s }) => {
-                const dotPx = s === 2 ? 4 : s === 8 ? 10 : 18
+                const dotPx = s === 2 ? 4 : s === 8 ? 9 : 16
                 const on = size === s
                 return (
                   <button key={s} onClick={() => setSize(s)} style={{
-                    width: 30, height: 30, borderRadius: 8, flexShrink: 0,
+                    width: 28, height: 28, borderRadius: 8, flexShrink: 0,
                     background: on ? 'rgba(184,145,42,0.12)' : 'transparent',
                     border: on ? '1px solid rgba(184,145,42,0.5)' : '1px solid transparent',
                     cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
@@ -604,56 +605,9 @@ export default function Drawing() {
                   </button>
                 )
               })}
-              <div style={{ width: 0, height: 20, borderLeft: '1px solid var(--line)', flexShrink: 0 }} />
-
-              {/* Background selector */}
-              <span style={{ fontSize: 9, color: 'var(--sub)', fontWeight: 700, flexShrink: 0, letterSpacing: 0.5 }}>배경</span>
-              <div className="hide-scroll" style={{ display: 'flex', gap: 4, alignItems: 'center', flex: 1, overflowX: 'auto' }}>
-                {bgModeOptions.map(({ key, label, swatch }) => (
-                  <button key={key} onClick={() => { 
-                    setBgMode(key)
-                    setFillBgColor(null)
-                    setFillColor(null)
-                    fillColorRef.current = null
-                  }} style={{
-                    display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0,
-                    padding: '4px 8px', borderRadius: 12, fontSize: 9, fontFamily: 'inherit', cursor: 'pointer',
-                    border: (bgMode === key && !fillBgColor) ? '1px solid rgba(184,145,42,0.6)' : '1px solid var(--line)',
-                    background: (bgMode === key && !fillBgColor) ? 'rgba(184,145,42,0.1)' : 'transparent',
-                    color: (bgMode === key && !fillBgColor) ? 'var(--gold2)' : 'var(--sub)',
-                    fontWeight: (bgMode === key && !fillBgColor) ? 700 : 400,
-                  }}>
-                    {swatch !== null
-                      ? <div style={{ width: 10, height: 10, borderRadius: 2, background: swatch, border: '1px solid rgba(0,0,0,0.1)', flexShrink: 0 }} />
-                      : <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
-                    }
-                    {label}
-                  </button>
-                ))}
-                {/* 작품색 선택 시 팔레트 스와치 인라인 표시 */}
-                {bgMode === 'artwork' && paletteRgbColors.length > 0 && (
-                  <>
-                    <div style={{ width: 1, height: 14, background: 'var(--line)', flexShrink: 0 }} />
-                    {paletteRgbColors.map((c, i) => (
-                      <button key={i} onClick={() => { 
-                        setArtworkPaletteIdx(i)
-                        setBgMode('artwork')
-                        setFillBgColor(null)
-                        setFillColor(null)
-                        fillColorRef.current = null
-                      }} style={{
-                        width: 18, height: 18, borderRadius: 4, background: c, flexShrink: 0,
-                        border: (artworkPaletteIdx === i && !fillBgColor) ? '2px solid var(--gold2)' : '1px solid var(--line)',
-                        cursor: 'pointer', boxShadow: (artworkPaletteIdx === i && !fillBgColor) ? '0 0 0 2px var(--gold2)' : 'none', transition: 'box-shadow 0.1s',
-                      }} />
-                    ))}
-                  </>
-                )}
-              </div>
-              <div style={{ width: 0, height: 20, borderLeft: '1px solid var(--line)', flexShrink: 0 }} />
             </>
           )}
-          {sketchMode === 'color' && <div style={{ flex: 1 }} />}
+          <div style={{ flex: 1 }} />
           <button onClick={clear} style={{ padding: '0 8px', height: 30, borderRadius: 8, fontSize: 10, fontFamily: 'inherit', background: 'transparent', border: '1px solid var(--line)', color: 'var(--sub)', cursor: 'pointer', flexShrink: 0, whiteSpace: 'nowrap' }}>초기화</button>
           <button onClick={() => { setShowSave(true); setSaveStep('form') }} style={{
             padding: '0 12px', height: 30, borderRadius: 8, fontSize: 11, fontFamily: 'inherit', flexShrink: 0,
@@ -662,7 +616,55 @@ export default function Drawing() {
           }}>저장</button>
         </div>
 
-        {/* Color palette */}
+        {/* Row 2: background selector */}
+        {sketchMode !== 'color' && (
+          <div style={{ display: 'flex', gap: 4, alignItems: 'center', marginBottom: 8 }}>
+            <span style={{ fontSize: 9, color: 'var(--sub)', fontWeight: 700, flexShrink: 0, letterSpacing: 0.5 }}>배경</span>
+            <div className="hide-scroll" style={{ display: 'flex', gap: 4, alignItems: 'center', flex: 1, overflowX: 'auto' }}>
+              {bgModeOptions.map(({ key, label, swatch }) => (
+                <button key={key} onClick={() => {
+                  setBgMode(key)
+                  setFillBgColor(null)
+                  setFillColor(null)
+                  fillColorRef.current = null
+                }} style={{
+                  display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0,
+                  padding: '4px 8px', borderRadius: 12, fontSize: 9, fontFamily: 'inherit', cursor: 'pointer',
+                  border: (bgMode === key && !fillBgColor) ? '1px solid rgba(184,145,42,0.6)' : '1px solid var(--line)',
+                  background: (bgMode === key && !fillBgColor) ? 'rgba(184,145,42,0.1)' : 'transparent',
+                  color: (bgMode === key && !fillBgColor) ? 'var(--gold2)' : 'var(--sub)',
+                  fontWeight: (bgMode === key && !fillBgColor) ? 700 : 400,
+                }}>
+                  {swatch !== null
+                    ? <div style={{ width: 10, height: 10, borderRadius: 2, background: swatch, border: '1px solid rgba(0,0,0,0.1)', flexShrink: 0 }} />
+                    : <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+                  }
+                  {label}
+                </button>
+              ))}
+              {bgMode === 'artwork' && paletteRgbColors.length > 0 && (
+                <>
+                  <div style={{ width: 1, height: 14, background: 'var(--line)', flexShrink: 0 }} />
+                  {paletteRgbColors.map((c, i) => (
+                    <button key={i} onClick={() => {
+                      setArtworkPaletteIdx(i)
+                      setBgMode('artwork')
+                      setFillBgColor(null)
+                      setFillColor(null)
+                      fillColorRef.current = null
+                    }} style={{
+                      width: 18, height: 18, borderRadius: 4, background: c, flexShrink: 0,
+                      border: (artworkPaletteIdx === i && !fillBgColor) ? '2px solid var(--gold2)' : '1px solid var(--line)',
+                      cursor: 'pointer', boxShadow: (artworkPaletteIdx === i && !fillBgColor) ? '0 0 0 2px var(--gold2)' : 'none', transition: 'box-shadow 0.1s',
+                    }} />
+                  ))}
+                </>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Row 3: color palette */}
         <div className="hide-scroll" style={{ display: 'flex', gap: 6, alignItems: 'center', overflowX: 'auto', padding: '4px 2px 4px' }}>
           {BASE_COLORS.map((c, i) => {
             const isFillSelected = sketchMode === 'color' ? fillColor === c : color === c && tool !== 'eraser'
@@ -682,7 +684,7 @@ export default function Drawing() {
           })}
           <label style={{ position: 'relative', width: 24, height: 24, flexShrink: 0, cursor: 'pointer' }}>
             <div style={{ width: 24, height: 24, borderRadius: 6, background: 'conic-gradient(red, yellow, lime, aqua, blue, magenta, red)', border: '1px solid var(--line)' }} />
-            <input type="color" value={sketchMode === 'color' ? fillColor : customColor}
+            <input type="color" value={sketchMode === 'color' ? (fillColor || '#C9A84C') : customColor}
               onChange={e => {
                 const v = e.target.value
                 if (sketchMode === 'color') {
