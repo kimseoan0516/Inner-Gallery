@@ -1741,7 +1741,7 @@ async def get_exhibitions():
         try:
             resp = requests.get(
                 "https://api.kcisa.kr/openapi/API_CCA_145/request",
-                params={"serviceKey": integ_key, "numOfRows": "200", "pageNo": "1"},
+                params={"serviceKey": integ_key, "numOfRows": "1000", "pageNo": "1"},
                 headers=headers,
                 timeout=12,
             )
@@ -1750,7 +1750,7 @@ async def get_exhibitions():
             print(f"[exhibitions] INTEG status: {resp.status_code}, keys: {list(raw.keys())}", flush=True)
             for item in _parse_kcisa_items(raw):
                 add_result(_parse_integ_item(item))
-                if len(results) >= 24:
+                if len(results) >= 30:
                     break
         except Exception as e:
             print(f"[exhibitions] INTEG error: {e}", flush=True)
@@ -1811,7 +1811,7 @@ async def get_exhibitions():
         except Exception as e:
             print(f"[exhibitions] SAC error: {e}", flush=True)
 
-    return {"items": results[:20], "fallback": len(results) == 0}
+    return {"items": results[:30], "fallback": len(results) == 0}
 
 
 # ── 프론트엔드 정적 파일 서빙 (Docker 빌드 후) ──────────────────────────────
