@@ -106,10 +106,9 @@ function TicketCard({ rec, onClick, onUpdateNote }) {
     const el = ticketRef.current
     if (!el) return null
 
-    // 폰트 로드 완료 대기
     await document.fonts.ready
 
-    // 모든 이미지 로드 완료 대기
+    // 이미지 로드 대기
     const imgs = [...el.querySelectorAll('img')]
     await Promise.all(imgs.map(img => {
       if (img.complete && img.naturalHeight !== 0) return Promise.resolve()
@@ -119,14 +118,18 @@ function TicketCard({ rec, onClick, onUpdateNote }) {
       })
     }))
 
-    const capture = toPng(el, {
+    const opts = {
       pixelRatio: 2,
-      filter: node => !node.dataset?.noCapture,
-    })
-    const timeout = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('캡처 시간 초과')), 12000)
-    )
-    return Promise.race([capture, timeout])
+      // element 노드가 아닌 경우(텍스트 노드 등)도 안전하게 처리
+      filter: node => node.nodeType !== 1 || !node.dataset?.noCapture,
+      cacheBust: true,
+    }
+
+    // html-to-image의 외부 폰트(Google Fonts) CORS 문제 워크어라운드:
+    // 첫 렌더로 폰트를 캐시에 올린 뒤 실제 캡처
+    try { await toPng(el, { ...opts, pixelRatio: 1 }) } catch { /* 무시 */ }
+
+    return toPng(el, opts)
   }
 
   const handleSave = async (e) => {
@@ -139,7 +142,8 @@ function TicketCard({ rec, onClick, onUpdateNote }) {
       a.href = dataUrl
       a.download = `inner-gallery-${dateStr}.png`
       a.click()
-    } catch {
+    } catch (err) {
+      console.error('이미지 저장 실패:', err)
       alert('이미지 저장에 실패했습니다. 다시 시도해주세요.')
     } finally {
       setCapturing(false)
