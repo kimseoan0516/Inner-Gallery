@@ -282,22 +282,31 @@ function ExhibitionFallback() {
 function ArtistWords() {
   const [quote, setQuote] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [fading, setFading] = useState(false)
 
   const fetchQuote = () => {
-    setLoading(true)
+    setFading(true)
+    setTimeout(() => {
+      setLoading(true)
+      getArtistQuote()
+        .then(res => setQuote(res))
+        .catch(() => setQuote(null))
+        .finally(() => { setLoading(false); setFading(false) })
+    }, 200)
+  }
+
+  useEffect(() => {
     getArtistQuote()
       .then(res => setQuote(res))
       .catch(() => setQuote(null))
       .finally(() => setLoading(false))
-  }
-
-  useEffect(() => { fetchQuote() }, [])
+  }, [])
 
   if (loading) {
     return (
-      <div style={{ borderRadius: 12, background: 'var(--card)', border: '1px solid var(--line)', padding: '48px 28px', textAlign: 'center' }}>
-        <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
-          {[0,1,2].map(i => <div key={i} style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--gold)', opacity: 0.4, animation: `pulse 1.4s ${i*0.46}s infinite` }} />)}
+      <div style={{ height: 180, borderRadius: 10, background: 'var(--card)', border: '1px solid var(--line)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ display: 'flex', gap: 5 }}>
+          {[0,1,2].map(i => <div key={i} style={{ width: 5, height: 5, borderRadius: '50%', background: 'rgba(184,145,42,0.4)', animation: `pulse 1.4s ${i*0.46}s infinite` }} />)}
         </div>
       </div>
     )
@@ -307,57 +316,66 @@ function ArtistWords() {
 
   return (
     <div style={{
-      borderRadius: 12, background: 'var(--card)', border: '1px solid var(--line)',
-      padding: '36px 28px 28px', textAlign: 'center', position: 'relative',
+      borderRadius: 10,
+      background: 'var(--card)',
+      border: '1px solid var(--line)',
+      overflow: 'hidden',
+      opacity: fading ? 0 : 1,
+      transition: 'opacity 0.2s',
     }}>
-      {/* 장식 코너 */}
-      {[
-        { top: 12, left: 12, borderTop: '1px solid rgba(184,145,42,0.18)', borderLeft: '1px solid rgba(184,145,42,0.18)' },
-        { top: 12, right: 12, borderTop: '1px solid rgba(184,145,42,0.18)', borderRight: '1px solid rgba(184,145,42,0.18)' },
-        { bottom: 12, left: 12, borderBottom: '1px solid rgba(184,145,42,0.18)', borderLeft: '1px solid rgba(184,145,42,0.18)' },
-        { bottom: 12, right: 12, borderBottom: '1px solid rgba(184,145,42,0.18)', borderRight: '1px solid rgba(184,145,42,0.18)' },
-      ].map((s, i) => <div key={i} style={{ position: 'absolute', width: 16, height: 16, pointerEvents: 'none', ...s }} />)}
+      {/* 상단 골드 라인 */}
+      <div style={{ height: 2, background: 'linear-gradient(to right, transparent, rgba(184,145,42,0.35), transparent)' }} />
 
-      {/* 여는 따옴표 */}
-      <p style={{
-        fontSize: 68, color: 'rgba(184,145,42,0.11)', fontFamily: 'Georgia, serif',
-        lineHeight: 0.7, margin: '0 0 20px', userSelect: 'none', letterSpacing: -4,
-      }}>"</p>
+      <div style={{ padding: '32px 28px 24px' }}>
+        {/* 오픈 쿼트 — 텍스트 왼쪽 위에 작게 */}
+        <div style={{ fontSize: 40, color: 'rgba(184,145,42,0.18)', fontFamily: 'Georgia, serif', lineHeight: 1, marginBottom: 8, userSelect: 'none' }}>"</div>
 
-      {/* 명언 */}
-      <p style={{
-        fontSize: 15, color: 'var(--text)', fontFamily: "'Noto Serif KR', serif",
-        lineHeight: 2, letterSpacing: 0.3, margin: '0 0 26px', wordBreak: 'keep-all',
-      }}>
-        {quote.quote}
-      </p>
+        {/* 명언 텍스트 */}
+        <p style={{
+          margin: '0 0 28px',
+          fontSize: 15,
+          color: '#3A332E',
+          fontFamily: "'Noto Serif KR', serif",
+          lineHeight: 1.95,
+          letterSpacing: 0.2,
+          wordBreak: 'keep-all',
+        }}>
+          {quote.quote}
+        </p>
 
-      {/* 구분 */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 16 }}>
-        <div style={{ height: 1, width: 32, background: 'rgba(184,145,42,0.15)' }} />
-        <span style={{ fontSize: 7, color: 'rgba(184,145,42,0.35)', letterSpacing: 3, fontFamily: 'monospace' }}>◆</span>
-        <div style={{ height: 1, width: 32, background: 'rgba(184,145,42,0.15)' }} />
+        {/* 하단 — 구분선 + 예술가 + 버튼 */}
+        <div style={{ borderTop: '1px solid rgba(184,145,42,0.12)', paddingTop: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <p style={{
+            margin: 0,
+            fontSize: 12,
+            fontWeight: 600,
+            color: 'rgba(122,80,48,0.7)',
+            fontFamily: "'Noto Serif KR', serif",
+            letterSpacing: 0.5,
+          }}>
+            — {quote.artist}
+          </p>
+
+          <button
+            onClick={fetchQuote}
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: '4px 0',
+              fontSize: 10,
+              color: 'rgba(184,145,42,0.45)',
+              cursor: 'pointer',
+              letterSpacing: 1.5,
+              fontFamily: 'monospace',
+              transition: 'color 0.15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.color = 'rgba(184,145,42,0.9)'}
+            onMouseLeave={e => e.currentTarget.style.color = 'rgba(184,145,42,0.45)'}
+          >
+            다른 문장 ›
+          </button>
+        </div>
       </div>
-
-      {/* 예술가 */}
-      <p style={{ margin: '0 0 16px', fontSize: 13, fontWeight: 700, color: 'var(--gold2)', fontFamily: "'Noto Serif KR', serif", letterSpacing: 0.8 }}>
-        {quote.artist}
-      </p>
-
-      {/* 다른 명언 버튼 */}
-      <button
-        onClick={fetchQuote}
-        style={{
-          background: 'none', border: '1px solid rgba(184,145,42,0.18)',
-          borderRadius: 20, padding: '5px 14px',
-          fontSize: 10, color: 'rgba(184,145,42,0.55)', cursor: 'pointer',
-          letterSpacing: 1, fontFamily: 'monospace', transition: 'all 0.15s',
-        }}
-        onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(184,145,42,0.4)'; e.currentTarget.style.color = 'rgba(184,145,42,0.85)' }}
-        onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(184,145,42,0.18)'; e.currentTarget.style.color = 'rgba(184,145,42,0.55)' }}
-      >
-        다른 문장 ›
-      </button>
     </div>
   )
 }
