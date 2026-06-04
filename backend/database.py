@@ -181,10 +181,6 @@ def init_db():
             )
         """))
 
-        # 명언 초기 데이터 (기존 데이터 삭제 후 갱신)
-        c.execute("DELETE FROM artist_quotes")
-        _seed_quotes(c)
-
         # 컬럼 마이그레이션
         if _USE_PG:
             c.execute("ALTER TABLE artist_quotes ADD COLUMN IF NOT EXISTS quote_en TEXT DEFAULT ''")
@@ -201,6 +197,10 @@ def init_db():
                     c.execute(f"ALTER TABLE journal_entries ADD COLUMN {col} TEXT DEFAULT {default}")
                 except Exception:
                     pass
+
+        # 명언 초기 데이터 (기존 데이터 삭제 후 갱신)
+        c.execute("DELETE FROM artist_quotes")
+        _seed_quotes(c)
 
 
 # ── 직렬화 헬퍼 ───────────────────────────────────────────────────────────────
