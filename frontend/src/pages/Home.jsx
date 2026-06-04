@@ -122,33 +122,33 @@ function AiExplainCard() {
       {open && (
         <div style={{ background: 'rgba(0,0,0,0.02)', padding: '16px 14px', display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-          <Step num="1" title="로컬 CLIP + FAISS — 초고속 화풍 매칭">
+          <Step num="1" title="Gemini 2.0 Flash Vision — 정밀 이미지 분석">
             <p style={{ fontSize: 10.5, color: 'var(--sub)', lineHeight: 1.8 }}>
-              OpenAI의 <span style={{ color: 'var(--body)', fontWeight: 600 }}>CLIP 모델</span>을 거쳐 이미지를 512차원 벡터로 변환합니다. 구축해 둔 18,455장의 명화 인덱스를 <span style={{ color: 'var(--body)', fontWeight: 600 }}>FAISS</span>로 1ms 안에 초고속 대조하여 가장 닮은 <span style={{ color: 'var(--body)', fontWeight: 600 }}>화가(Artist)의 화풍</span>을 검색합니다.
+              최신 멀티모달 AI 인 <span style={{ color: 'var(--body)', fontWeight: 600 }}>Gemini 2.0 Flash</span> 모델을 통해 업로드된 작품 이미지를 정밀 분석합니다. 그림 안의 구체적인 형태와 화풍을 읽어 <span style={{ color: 'var(--body)', fontWeight: 600 }}>작품명, 작가, 제작 연도</span> 등의 기본 정보를 즉각적으로 도출합니다.
             </p>
             <Code lines={[
-              '별이 빛나는 밤  →  [0.23, -0.87 ...]  →  Vincent van Gogh (유사도 92%)',
-              '모네의 수련    →  [0.91,  0.12 ...]  →  Claude Monet (유사도 91%)',
+              '업로드된 이미지 전송  →  Gemini Vision 멀티모달 분석',
+              '출력  →  "Vincent van Gogh, The Starry Night, 1889"',
             ]} />
           </Step>
 
           <div style={{ height: '0.5px', background: `${BRZ}0.12)` }} />
 
-          <Step num="2" title="Gemini Vision + Google Web — 작품명 및 교차 검증">
+          <Step num="2" title="색채 및 구도, 감정 메타데이터 추출">
             <p style={{ fontSize: 10.5, color: 'var(--sub)', lineHeight: 1.8 }}>
-              시각 모델(Gemini)로 그림의 디테일을 읽어 구체적인 <span style={{ color: 'var(--body)', fontWeight: 600 }}>작품명(Title)</span>을 파악합니다. 여기에 구글 웹 이미지 검색(Web Detection)을 결합하여 AI의 오인식(환각)을 방지합니다.
+              단순한 정보 인식을 넘어 작품의 전반적인 분위기를 결정하는 <span style={{ color: 'var(--body)', fontWeight: 600 }}>핵심 색상(Dominant Colors)</span>과 <span style={{ color: 'var(--body)', fontWeight: 600 }}>감정(Moods)</span> 키워드를 구조화된 데이터(JSON) 형태로 동시에 추출합니다.
             </p>
             <Code lines={[
-              'Gemini Vision  →  "Starry Night" (작품명 식별)',
-              'Google Web     →  Wikipedia, MoMA 소장처 등 신뢰 도메인 교차 확증',
+              'Dominant Colors  →  #2a3b5c, #d4a373',
+              'Moods            →  몽환적인, 우울한, 역동적인',
             ]} />
           </Step>
 
           <div style={{ height: '0.5px', background: `${BRZ}0.12)` }} />
 
-          <Step num="3" title="하이브리드 다각 검증 — 완벽한 매칭 확정">
+          <Step num="3" title="개인화된 맞춤형 미술 심리 분석">
             <p style={{ fontSize: 10.5, color: 'var(--sub)', lineHeight: 1.8 }}>
-              로컬에서 찾은 화풍 데이터와 외부 AI/웹에서 검증된 작품명이 완벽히 일치할 때, <span style={{ color: 'var(--body)', fontWeight: 600 }}>'완벽 확정(Confirmed)'</span> 상태로 도출하고 풍부한 감정 분석 및 품격 있는 명화 도슨트를 시작합니다.
+              분석된 작품의 감정선과 사용자가 직접 기록한 현재의 감정 상태를 연결하여, <span style={{ color: 'var(--body)', fontWeight: 600 }}>사용자 맞춤형 위로와 통찰</span>을 담은 도슨트 에세이를 실시간으로 생성합니다.
             </p>
           </Step>
 
@@ -156,18 +156,18 @@ function AiExplainCard() {
 
           <Step num="→" title="실제 작품 인식 흐름">
             <Code lines={[
-              '사용자 업로드  →  CLIP/FAISS 18,455장 벡터 대조  →  화가(고흐) 도출',
+              '사용자 이미지 업로드 + 현재 감정 입력',
               '                  ↓',
-              '   Gemini Vision + Google Web 교차 검색  →  작품명(별이 빛나는 밤) 식별',
+              '   Gemini 2.0 Flash Vision 복합 분석 (작품 정보 + 색채 + 무드)',
               '                  ↓',
-              '   [하이브리드 다각 검증]  →  일치 시 \'Confirmed(완벽 확정)\'',
+              '   [심층 AI 도슨트 시스템]',
               '                  ↓',
-              '   풍부한 감정 분석 및 깊이 있는 맞춤 해설 생성',
+              '   맞춤형 에세이 및 치유의 감상 결과 제공',
             ]} />
           </Step>
 
           <p style={{ fontSize: 9, color: `${BRZ}0.35)`, textAlign: 'center', letterSpacing: 0.5, lineHeight: 1.7 }}>
-            18,455장의 화풍 지문과 멀티모달 AI의 유기적인 하이브리드 교차 검증 시스템
+            Gemini 2.0 Flash 기반의 정밀 멀티모달 분석 및 개인화 도슨트 시스템
           </p>
         </div>
       )}

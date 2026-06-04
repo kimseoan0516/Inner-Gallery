@@ -407,77 +407,56 @@ function ArtistWords() {
       {/* 상단 골드 라인 */}
       <div style={{ height: 2, background: 'linear-gradient(to right, transparent, rgba(184,145,42,0.35), transparent)' }} />
 
-      <div style={{ padding: '36px 24px', position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-        {/* 거대한 배경 따옴표 */}
-        <div style={{ 
-          position: 'absolute', top: 16, left: 24, 
-          fontSize: 96, color: 'rgba(184,145,42,0.06)', 
-          fontFamily: 'Georgia, serif', lineHeight: 1, userSelect: 'none',
-          pointerEvents: 'none'
-        }}>
-          “
-        </div>
-        <div style={{ 
-          position: 'absolute', bottom: 40, right: 32, 
-          fontSize: 96, color: 'rgba(184,145,42,0.06)', 
-          fontFamily: 'Georgia, serif', lineHeight: 1, userSelect: 'none',
-          pointerEvents: 'none'
-        }}>
-          ”
-        </div>
+      <div style={{ padding: '32px 28px 24px' }}>
+        {/* 오픈 쿼트 — 텍스트 왼쪽 위에 작게 */}
+        <div style={{ fontSize: 40, color: 'rgba(184,145,42,0.18)', fontFamily: 'Georgia, serif', lineHeight: 1, marginBottom: 8, userSelect: 'none' }}>“</div>
 
         {/* 명언 텍스트 */}
         <p style={{
-          position: 'relative',
-          margin: '16px 0 6px',
-          fontSize: 18,
-          fontWeight: 600,
-          color: '#2A231E',
+          margin: '0 0 8px',
+          fontSize: 15,
+          color: '#3A332E',
           fontFamily: "'Noto Serif KR', serif",
-          lineHeight: 1.8,
+          lineHeight: 1.95,
           letterSpacing: 0.2,
           wordBreak: 'keep-all',
-          textAlign: 'center',
-          textShadow: '0 1px 2px rgba(255,255,255,0.9)'
         }}>
           {quote.quote}
         </p>
+        
         {quote.quote_en && (
           <p style={{
-            margin: '0 0 32px',
-            fontSize: 14,
+            margin: '0 0 28px',
+            fontSize: 13,
             color: '#8A7B66',
             fontFamily: "serif",
             fontStyle: 'italic',
             lineHeight: 1.6,
-            textAlign: 'center',
             letterSpacing: 0.5
           }}>
             {quote.quote_en}
           </p>
         )}
 
-        {/* 하단 — 작가명 + 둥근 버튼 (가운데 정렬) */}
-        <div style={{ 
-          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16,
-          width: '80%', borderTop: '1px solid rgba(184,145,42,0.15)', paddingTop: 20 
-        }}>
-          <p style={{
-            margin: 0,
-            fontSize: 14,
-            fontWeight: 700,
-            color: '#8C692A',
-            fontFamily: "'Noto Serif KR', serif",
-            letterSpacing: 1.5,
-            textAlign: 'center'
-          }}>
-            — {quote.artist}
+        {/* 하단 — 작가명 + 둥근 버튼 */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div>
+            <p style={{
+              margin: 0,
+              fontSize: 13,
+              fontWeight: 700,
+              color: '#8C692A',
+              fontFamily: "'Noto Serif KR', serif",
+              letterSpacing: 1.5,
+            }}>
+              — {quote.artist}
+            </p>
             {quote.artist_en && (
-              <span style={{ display: 'block', fontSize: 11, fontWeight: 500, marginTop: 4, letterSpacing: 0.5, color: 'rgba(140, 105, 42, 0.7)' }}>
+              <p style={{ margin: '4px 0 0', fontSize: 11, fontWeight: 500, color: 'rgba(140, 105, 42, 0.7)', letterSpacing: 0.5 }}>
                 ({quote.artist_en})
-              </span>
+              </p>
             )}
-          </p>
+          </div>
 
           <button
             onClick={fetchQuote}
