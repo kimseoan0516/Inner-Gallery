@@ -356,13 +356,13 @@ function TicketCard({ rec, onClick, onUpdateNote, onUpdateExhibition }) {
           )}
         </div>
 
-        {/* Inner Gallery 워터마크 — 캡처 시 하단 여백의 끝 */}
-        <div style={{ textAlign: 'center', padding: '2px 0 0' }}>
+        {/* Inner Gallery 워터마크 — 캡처 시 최하단 */}
+        <div style={{ textAlign: 'center', padding: '4px 0 0' }}>
           <span style={{ fontSize: 8, color: 'rgba(184,145,42,0.35)', letterSpacing: 2.5, fontFamily: 'monospace', fontWeight: 600 }}>INNER GALLERY</span>
         </div>
 
-        {/* 캡처 제외 버튼 영역 */}
-        <div data-no-capture="true" style={{ display: 'flex', gap: 12, paddingBottom: 24 }}>
+        {/* 캡처 제외 버튼 영역 — paddingTop으로 워터마크와 간격 확보, 캡처시 자동 제외 */}
+        <div data-no-capture="true" style={{ display: 'flex', gap: 12, paddingTop: 16, paddingBottom: 24 }}>
           <button
             disabled={capturing}
             style={{ flex: 1, background: 'transparent', border: '1px solid #D4C9BD', borderRadius: 6, padding: '10px 0', fontSize: 12, color: '#3A332E', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: capturing ? 'wait' : 'pointer', outline: 'none', opacity: capturing ? 0.5 : 1 }}

@@ -250,7 +250,7 @@ def search_artists(query: str, limit: int = 10) -> list[dict]:
 
 # ── 저널 헬퍼 ─────────────────────────────────────────────────────────────────
 
-_LIST_COLS = """
+_SELECT_COLS = """
     id, user_id, date, entry_type,
     artwork_title, artwork_artist, artwork_year,
     essay_title,
@@ -265,7 +265,7 @@ def get_journal(user_id: int) -> list[dict]:
     """목록용 — 대용량 텍스트 필드 제외해 응답 크기 최소화."""
     with conn() as c:
         rows = c.execute(
-            f"SELECT {_LIST_COLS} FROM journal_entries WHERE user_id = ? ORDER BY date DESC",
+            f"SELECT {_SELECT_COLS} FROM journal_entries WHERE user_id = ? ORDER BY date DESC",
             (user_id,),
         ).fetchall()
     return [row_to_entry(r) for r in rows]

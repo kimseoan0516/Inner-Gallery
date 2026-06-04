@@ -4,6 +4,55 @@ import { useApp } from '../context/AppContext.jsx'
 import { deleteJournal, getJournalEntry } from '../api.js'
 import GoldDivider from '../components/GoldDivider.jsx'
 
+function parseList(val) {
+  if (Array.isArray(val)) return val
+  if (!val) return []
+  try { const p = JSON.parse(val); return Array.isArray(p) ? p : [] } catch { return [] }
+}
+
+function parseObj(val) {
+  if (val && typeof val === 'object' && !Array.isArray(val)) return val
+  try { return JSON.parse(val || '{}') } catch { return {} }
+}
+
+function QuestionSection(rec) {
+  const questions = parseList(rec.questions)
+  if (questions.length === 0) return null
+  const answers = parseObj(rec.question_answers)
+  return (
+    <div className="card" style={{ padding: '22px 20px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--gold2)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.85 }}>
+          <circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
+        </svg>
+        <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', letterSpacing: 0.3 }}>감상 질문</span>
+      </div>
+      <p style={{ fontSize: 9, color: 'var(--sub)', fontStyle: 'italic', letterSpacing: 2, marginLeft: 20, marginBottom: 10 }}>Reflection Prompts</p>
+      <GoldDivider />
+      <div style={{ display: 'flex', flexDirection: 'column', marginTop: 14 }}>
+        {questions.map((q, i) => {
+          const answer = answers[i] ?? answers[String(i)]
+          return (
+            <div key={i} style={{ padding: '14px 0', borderBottom: i < questions.length - 1 ? '1px dashed rgba(184,145,42,0.18)' : 'none' }}>
+              <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 1, flexShrink: 0, marginTop: 3, fontFamily: 'monospace', color: answer ? 'var(--gold2)' : 'rgba(184,145,42,0.45)' }}>
+                  Q{String(i + 1).padStart(2, '0')}
+                </span>
+                <p style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.8, fontFamily: "'Noto Serif KR', serif" }}>{q}</p>
+              </div>
+              {answer && (
+                <div style={{ marginLeft: 36, marginTop: 8, paddingLeft: 10, borderLeft: '2px solid rgba(184,145,42,0.22)' }}>
+                  <p style={{ fontSize: 12, color: 'var(--sub)', lineHeight: 1.85, fontStyle: 'italic', fontFamily: "'Noto Serif KR', serif" }}>{answer}</p>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function SecLabel({ icon, title, en }) {
   return (
     <div style={{ marginBottom: 2 }}>
@@ -369,57 +418,7 @@ export default function JournalDetail() {
                 )}
 
                 {/* 감상 질문 + 내 답변 */}
-                {rec.questions?.length > 0 && (() => {
-                  const answers = (() => { try { return JSON.parse(rec.question_answers || '{}') } catch { return {} } })()
-                  return (
-                    <div className="card" style={{ padding: '22px 20px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--gold2)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0, opacity: 0.85 }}>
-                          <circle cx="12" cy="12" r="10"/>
-                          <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/>
-                        </svg>
-                        <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text)', letterSpacing: 0.3 }}>감상 질문</span>
-                      </div>
-                      <p style={{ fontSize: 9, color: 'var(--sub)', fontStyle: 'italic', letterSpacing: 2, marginLeft: 20, marginBottom: 10 }}>Reflection Prompts</p>
-                      <GoldDivider />
-                      <div style={{ display: 'flex', flexDirection: 'column', marginTop: 14 }}>
-                        {rec.questions.map((q, i) => {
-                          const answer = answers[i] ?? answers[String(i)]
-                          return (
-                            <div key={i} style={{
-                              padding: '14px 0',
-                              borderBottom: i < rec.questions.length - 1 ? '1px dashed rgba(184,145,42,0.18)' : 'none',
-                            }}>
-                              <div style={{ display: 'flex', gap: 14, alignItems: 'flex-start' }}>
-                                <span style={{
-                                  fontSize: 10, fontWeight: 700, letterSpacing: 1,
-                                  flexShrink: 0, marginTop: 3, fontFamily: 'monospace',
-                                  color: answer ? 'var(--gold2)' : 'rgba(184,145,42,0.45)',
-                                }}>
-                                  Q{String(i + 1).padStart(2, '0')}
-                                </span>
-                                <p style={{ fontSize: 13, color: 'var(--text)', lineHeight: 1.8, fontFamily: "'Noto Serif KR', serif" }}>{q}</p>
-                              </div>
-                              {answer && (
-                                <div style={{
-                                  marginLeft: 36, marginTop: 8,
-                                  paddingLeft: 10, borderLeft: '2px solid rgba(184,145,42,0.22)',
-                                }}>
-                                  <p style={{
-                                    fontSize: 12, color: 'var(--sub)', lineHeight: 1.85,
-                                    fontStyle: 'italic', fontFamily: "'Noto Serif KR', serif",
-                                  }}>
-                                    {answer}
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  )
-                })()}
+                {QuestionSection(rec)}
 
                 {/* 수집된 메시지 */}
                 {rec.comfort && (
