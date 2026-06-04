@@ -223,8 +223,13 @@ function ExhibitionCard({ item, onClick }) {
         display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
       }}>
         {item.thumbnail && !imgErr
-          ? <img src={item.thumbnail} alt={item.title} onError={() => setImgErr(true)}
-              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          ? <img
+              src={item.thumbnail}
+              alt={item.title}
+              referrerPolicy="no-referrer"
+              onError={() => setImgErr(true)}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            />
           : <span style={{ fontSize: 16, opacity: 0.15, color: s.dot, fontFamily: 'serif' }}>◇</span>
         }
       </div>
@@ -425,7 +430,7 @@ export default function Routine() {
 
         {/* ② EXHIBITION PICK */}
         <section>
-          <SectionLabel en="EXHIBITION PICK" ko="오늘의 전시 산책" sub="국립현대미술관 · 예술의전당 · Art Institute of Chicago" />
+          <SectionLabel en="EXHIBITION PICK" ko="오늘의 전시 산책" sub="국립현대미술관 · 예술의전당 · 국립박물관 외 27개 기관 · Art Institute of Chicago" />
           {exLoading ? (
             <ExhibitionSkeleton />
           ) : (exFallback || exhibitions.length === 0) ? (
