@@ -1654,16 +1654,24 @@ async def get_exhibitions():
 
     results = []
 
+    headers = {
+        "Accept": "application/json",
+        "User-Agent": "Mozilla/5.0 (compatible; InnerGallery/1.0)",
+    }
+
     # ① 국립현대미술관
     if moca_key:
         try:
             resp = requests.get(
                 "https://api.kcisa.kr/openapi/service/rest/moca/docMeta",
                 params={"serviceKey": moca_key, "numOfRows": "5", "pageNo": "1"},
-                timeout=8,
+                headers=headers,
+                timeout=12,
             )
             resp.raise_for_status()
-            for item in _parse_kcisa_items(resp.json())[:3]:
+            raw = resp.json()
+            print(f"[exhibitions] MOCA raw keys: {list(raw.keys())}", flush=True)
+            for item in _parse_kcisa_items(raw)[:3]:
                 title = item.get("title", "").strip()
                 if not title:
                     continue
@@ -1686,10 +1694,13 @@ async def get_exhibitions():
             resp = requests.get(
                 "https://api.kcisa.kr/openapi/API_CCA_149/request",
                 params={"serviceKey": sac_key, "numOfRows": "5", "pageNo": "1"},
-                timeout=8,
+                headers=headers,
+                timeout=12,
             )
             resp.raise_for_status()
-            for item in _parse_kcisa_items(resp.json())[:3]:
+            raw = resp.json()
+            print(f"[exhibitions] SAC raw keys: {list(raw.keys())}", flush=True)
+            for item in _parse_kcisa_items(raw)[:3]:
                 title = item.get("TITLE", "").strip()
                 if not title:
                     continue
