@@ -201,11 +201,12 @@ export async function getDailyArtworkAIC() {
   const esFrom = ordinal % 9000
 
   // 고전 회화(그림)으로 한정 — Painting 타입 + 퍼블릭 도메인
+  // artwork_type_id=1 이 회화(Painting) 타입 고정 ID
   const query = {
     query: { bool: { must: [
       { term: { is_public_domain: true } },
       { exists: { field: 'image_id' } },
-      { term: { artwork_type_title: 'Painting' } },
+      { term: { artwork_type_id: 1 } },
     ] } },
     from: esFrom,
     size: 10,
