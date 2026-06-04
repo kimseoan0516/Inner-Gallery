@@ -170,14 +170,16 @@ def init_db():
             )
         """))
 
-        # era_data 마이그레이션
+        # 컬럼 마이그레이션
         if _USE_PG:
             c.execute("ALTER TABLE journal_entries ADD COLUMN IF NOT EXISTS era_data TEXT DEFAULT ''")
+            c.execute("ALTER TABLE journal_entries ADD COLUMN IF NOT EXISTS ticket_exhibition TEXT DEFAULT ''")
         else:
-            try:
-                c.execute("ALTER TABLE journal_entries ADD COLUMN era_data TEXT DEFAULT ''")
-            except Exception:
-                pass
+            for col in ["era_data", "ticket_exhibition"]:
+                try:
+                    c.execute(f"ALTER TABLE journal_entries ADD COLUMN {col} TEXT DEFAULT ''")
+                except Exception:
+                    pass
 
 
 # ── 직렬화 헬퍼 ───────────────────────────────────────────────────────────────
@@ -240,7 +242,7 @@ _LIST_COLS = """
     moods, dominant_colors, thumbnail,
     pre_emotions, post_emotions,
     mood_color, mood_color_name, mood_note,
-    sketch_title, sketch_image, ticket_memo,
+    sketch_title, sketch_image, ticket_memo, ticket_exhibition,
     created_at
 """
 
@@ -327,6 +329,13 @@ def update_journal_note(user_id: int, date: str, note: str):
         c.execute(
             "UPDATE journal_entries SET ticket_memo = ? WHERE user_id = ? AND date = ?",
             (note, user_id, date),
+        )
+
+def update_journal_exhibition(user_id: int, date: str, exhibition: str):
+    with conn() as c:
+        c.execute(
+            "UPDATE journal_entries SET ticket_exhibition = ? WHERE user_id = ? AND date = ?",
+            (exhibition, user_id, date),
         )
 
 def delete_user_journal(user_id: int):

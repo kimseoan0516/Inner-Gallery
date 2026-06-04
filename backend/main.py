@@ -26,7 +26,7 @@ from modules.llm_generator        import generate_interpretation, analyze_artwor
 from modules.quality_checker      import check_image_quality
 from modules.artwork_matcher      import match_artwork, top_k_artists, is_available as matcher_available
 from modules.era_lookup           import lookup_artwork
-from backend.database             import init_db, get_journal, get_journal_entry, save_journal_entry, delete_journal_entry, update_journal_note, update_journal_sketch
+from backend.database             import init_db, get_journal, get_journal_entry, save_journal_entry, delete_journal_entry, update_journal_note, update_journal_sketch, update_journal_exhibition
 from backend.auth                 import router as auth_router, get_current_user
 
 app = FastAPI(title="Inner Gallery API")
@@ -1177,6 +1177,14 @@ class NoteUpdateRequest(BaseModel):
 @app.patch("/api/journal/{date:path}/note")
 def journal_update_note(date: str, req: NoteUpdateRequest, user=Depends(get_current_user)):
     update_journal_note(user["id"], date, req.note)
+    return {"ok": True}
+
+class ExhibitionUpdateRequest(BaseModel):
+    exhibition: str
+
+@app.patch("/api/journal/{date:path}/exhibition")
+def journal_update_exhibition(date: str, req: ExhibitionUpdateRequest, user=Depends(get_current_user)):
+    update_journal_exhibition(user["id"], date, req.exhibition)
     return {"ok": True}
 
 
