@@ -7,7 +7,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from jose import jwt, JWTError
 
-from backend.database import conn, init_db, delete_user_journal
+from backend.database import conn, init_db, delete_user_journal, IntegrityError
 
 ALGORITHM   = "HS256"
 EXPIRE_DAYS = 30
@@ -72,7 +72,6 @@ class LoginForm(BaseModel):
 
 @router.post("/register")
 def register(form: RegisterForm):
-    import sqlite3
     init_db()
     if len(form.username.strip()) < 2:
         raise HTTPException(400, "이름은 2자 이상이어야 합니다")
@@ -86,7 +85,7 @@ def register(form: RegisterForm):
                  _hash_pw(form.password), datetime.datetime.now().isoformat()),
             )
         return {"ok": True}
-    except sqlite3.IntegrityError:
+    except IntegrityError:
         raise HTTPException(400, "이미 사용 중인 이름 또는 이메일입니다")
 
 

@@ -1,45 +1,89 @@
 """
-Inner Gallery — SQLite 데이터베이스 계층.
-
-Tables:
-  users           — 계정 (auth.py 관리)
-  artists         — 화가 정보 (Kaggle CSV 임포트)
-  artworks        — 작품 메타데이터
-  journal_entries — 사용자 감상 + 스케치 기록
+Inner Gallery — DB layer.
+- DATABASE_URL 환경변수가 있으면 PostgreSQL (Supabase) 사용
+- 없으면 SQLite (로컬 개발용)
 """
-import sqlite3, json
+import os, json
 from pathlib import Path
+from contextlib import contextmanager
 
-_BASE   = Path(__file__).resolve().parent.parent
-# HF Spaces의 /data 폴더는 재빌드 후에도 유지됨
-_HF_DATA = Path("/data")
-if _HF_DATA.exists() and _HF_DATA.is_dir():
-    DB_PATH = str(_HF_DATA / "solace.db")
+DATABASE_URL = os.environ.get("DATABASE_URL", "")
+_USE_PG = bool(DATABASE_URL)
+
+if _USE_PG:
+    import psycopg2
+    import psycopg2.extras
+    IntegrityError = psycopg2.IntegrityError
 else:
-    DB_PATH = str(_BASE / "solace.db")
+    import sqlite3
+    _BASE    = Path(__file__).resolve().parent.parent
+    _HF_DATA = Path("/data")
+    _DB_PATH = str(_HF_DATA / "solace.db") if (_HF_DATA.exists() and _HF_DATA.is_dir()) else str(_BASE / "solace.db")
+    IntegrityError = sqlite3.IntegrityError
 
 
-def conn() -> sqlite3.Connection:
-    c = sqlite3.connect(DB_PATH)
-    c.row_factory = sqlite3.Row
-    c.execute("PRAGMA foreign_keys = ON")
-    return c
+# ── Connection ────────────────────────────────────────────────────────────────
 
+class _PgConn:
+    """psycopg2 connection wrapper: ? 플레이스홀더 자동 변환, dict 행 반환."""
+    def __init__(self, pg):
+        self._pg = pg
+
+    def execute(self, sql, params=()):
+        cur = self._pg.cursor()
+        cur.execute(sql.replace('?', '%s'), params)
+        return cur
+
+
+@contextmanager
+def conn():
+    if _USE_PG:
+        c = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
+        try:
+            yield _PgConn(c)
+            c.commit()
+        except Exception:
+            c.rollback()
+            raise
+        finally:
+            c.close()
+    else:
+        c = sqlite3.connect(_DB_PATH)
+        c.row_factory = sqlite3.Row
+        c.execute("PRAGMA foreign_keys = ON")
+        try:
+            yield c
+            c.commit()
+        except Exception:
+            c.rollback()
+            raise
+        finally:
+            c.close()
+
+
+def _ddl(sql: str) -> str:
+    """SQLite DDL → PostgreSQL DDL 변환 (CREATE TABLE 공통화)."""
+    if not _USE_PG:
+        return sql
+    return sql.replace("INTEGER PRIMARY KEY AUTOINCREMENT", "SERIAL PRIMARY KEY")
+
+
+# ── init_db ───────────────────────────────────────────────────────────────────
 
 def init_db():
-    """모든 테이블 생성 (idempotent — 매 시작 시 호출해도 안전)."""
+    """모든 테이블 생성 (idempotent)."""
     with conn() as c:
-        c.execute("""
+        c.execute(_ddl("""
             CREATE TABLE IF NOT EXISTS users (
                 id              INTEGER PRIMARY KEY AUTOINCREMENT,
-                username        TEXT    UNIQUE NOT NULL,
-                email           TEXT    UNIQUE NOT NULL,
-                hashed_password TEXT    NOT NULL,
-                created_at      TEXT    NOT NULL
+                username        TEXT UNIQUE NOT NULL,
+                email           TEXT UNIQUE NOT NULL,
+                hashed_password TEXT NOT NULL,
+                created_at      TEXT NOT NULL
             )
-        """)
+        """))
 
-        c.execute("""
+        c.execute(_ddl("""
             CREATE TABLE IF NOT EXISTS artists (
                 id             INTEGER PRIMARY KEY AUTOINCREMENT,
                 name           TEXT NOT NULL,
@@ -52,11 +96,11 @@ def init_db():
                 painting_count INTEGER DEFAULT 0,
                 created_at     TEXT DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+        """))
         c.execute("CREATE INDEX IF NOT EXISTS idx_artists_name       ON artists(name)")
         c.execute("CREATE INDEX IF NOT EXISTS idx_artists_name_lower ON artists(LOWER(name))")
 
-        c.execute("""
+        c.execute(_ddl("""
             CREATE TABLE IF NOT EXISTS artworks (
                 id          INTEGER PRIMARY KEY AUTOINCREMENT,
                 title       TEXT DEFAULT '',
@@ -69,12 +113,11 @@ def init_db():
                 description TEXT DEFAULT '',
                 created_at  TEXT DEFAULT CURRENT_TIMESTAMP
             )
-        """)
+        """))
         c.execute("CREATE INDEX IF NOT EXISTS idx_artworks_title  ON artworks(LOWER(title))")
         c.execute("CREATE INDEX IF NOT EXISTS idx_artworks_artist ON artworks(artist_id)")
 
-        # essay_body, questions, moods 등 리스트 컬럼은 JSON 텍스트로 직렬화 저장
-        c.execute("""
+        c.execute(_ddl("""
             CREATE TABLE IF NOT EXISTS journal_entries (
                 id            INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id       INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -110,16 +153,20 @@ def init_db():
                 era_data    TEXT DEFAULT '',
                 created_at  TEXT DEFAULT CURRENT_TIMESTAMP
             )
-        """)
-        # 기존 DB 마이그레이션: era_data 컬럼 없으면 추가
-        try:
-            c.execute("ALTER TABLE journal_entries ADD COLUMN era_data TEXT DEFAULT ''")
-        except Exception:
-            pass  # 이미 있으면 무시
+        """))
         c.execute("""
             CREATE INDEX IF NOT EXISTS idx_journal_user_date
             ON journal_entries(user_id, date DESC)
         """)
+
+        # era_data 마이그레이션
+        if _USE_PG:
+            c.execute("ALTER TABLE journal_entries ADD COLUMN IF NOT EXISTS era_data TEXT DEFAULT ''")
+        else:
+            try:
+                c.execute("ALTER TABLE journal_entries ADD COLUMN era_data TEXT DEFAULT ''")
+            except Exception:
+                pass
 
 
 # ── 직렬화 헬퍼 ───────────────────────────────────────────────────────────────
@@ -141,7 +188,6 @@ def _loads(v, default=None):
         return default
 
 def entry_to_row(entry: dict) -> dict:
-    """JournalEntry dict → INSERT용 dict (리스트 컬럼 JSON 직렬화)."""
     out = dict(entry)
     for col in _LIST_COLS:
         if col in out:
@@ -149,7 +195,6 @@ def entry_to_row(entry: dict) -> dict:
     return out
 
 def row_to_entry(row) -> dict:
-    """DB row → dict (리스트 컬럼 역직렬화)."""
     d = dict(row)
     for col in _LIST_COLS:
         if col in d:
@@ -186,7 +231,6 @@ def get_journal(user_id: int) -> list[dict]:
     return [row_to_entry(r) for r in rows]
 
 def save_journal_entry(user_id: int, entry: dict) -> int:
-    """저널 항목 저장. 새 row id 반환."""
     row  = entry_to_row(entry)
     cols = [
         "user_id", "date", "entry_type",
@@ -200,12 +244,20 @@ def save_journal_entry(user_id: int, entry: dict) -> int:
         "era_data",
     ]
     vals = [user_id] + [row.get(c, "") for c in cols[1:]]
+    ph   = ','.join(['?'] * len(cols))
     with conn() as c:
-        cur = c.execute(
-            f"INSERT INTO journal_entries ({','.join(cols)}) VALUES ({','.join(['?']*len(cols))})",
-            vals,
-        )
-        return cur.lastrowid
+        if _USE_PG:
+            cur = c.execute(
+                f"INSERT INTO journal_entries ({','.join(cols)}) VALUES ({ph}) RETURNING id",
+                vals,
+            )
+            return cur.fetchone()['id']
+        else:
+            cur = c.execute(
+                f"INSERT INTO journal_entries ({','.join(cols)}) VALUES ({ph})",
+                vals,
+            )
+            return cur.lastrowid
 
 def delete_journal_entry(user_id: int, date: str) -> int:
     with conn() as c:
@@ -216,12 +268,11 @@ def delete_journal_entry(user_id: int, date: str) -> int:
         return cur.rowcount
 
 def update_journal_sketch(user_id: int, date: str, sketch: dict):
-    """기존 감상 기록에 스케치 데이터를 추가/업데이트."""
     with conn() as c:
         c.execute(
             """UPDATE journal_entries
                SET sketch_image = ?, sketch_title = ?, sketch_note = ?,
-                   sketch_guide = ?, sketch_reflection = ?, 
+                   sketch_guide = ?, sketch_reflection = ?,
                    mood_color = CASE WHEN ? != '' THEN ? ELSE mood_color END,
                    mood_color_name = CASE WHEN ? != '' THEN ? ELSE mood_color_name END,
                    moods = ?
