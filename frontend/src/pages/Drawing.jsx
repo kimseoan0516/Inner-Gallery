@@ -407,15 +407,15 @@ export default function Drawing() {
             </div>
           )}
 
-          <div className="card" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div className="card" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 4 }}>
             <div>
               <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', fontFamily: "'Noto Serif KR', serif", letterSpacing: 0.5, marginBottom: 3 }}>{saveTitle || '마음 스케치'}</p>
               {(title || artist) && <p style={{ fontSize: 10, color: 'var(--sub)' }}>{[title, artist].filter(Boolean).join(' · ')} 감상 후</p>}
             </div>
             <GoldDivider />
             {saveKeywords.length > 0 && (
-              <div>
-                <p style={{ fontSize: 8, color: 'var(--gold)', letterSpacing: 2, marginBottom: 8 }}>감정 키워드</p>
+              <div style={{ marginTop: -2 }}>
+                <p style={{ fontSize: 8, color: 'var(--gold)', letterSpacing: 2, marginBottom: 6 }}>감정 키워드</p>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
                   {saveKeywords.map(kw => (
                     <span key={kw} style={{ padding: '4px 12px', borderRadius: 20, fontSize: 11, background: 'rgba(184,145,42,0.08)', border: '1px solid rgba(184,145,42,0.25)', color: 'var(--gold2)' }}>{kw}</span>
