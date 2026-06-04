@@ -407,7 +407,7 @@ export default function Drawing() {
             </div>
           )}
 
-          <div className="card" style={{ padding: '20px 20px', display: 'flex', flexDirection: 'column', gap: 14 }}>
+          <div className="card" style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 8 }}>
             <div>
               <p style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', fontFamily: "'Noto Serif KR', serif", letterSpacing: 0.5, marginBottom: 3 }}>{saveTitle || '마음 스케치'}</p>
               {(title || artist) && <p style={{ fontSize: 10, color: 'var(--sub)' }}>{[title, artist].filter(Boolean).join(' · ')} 감상 후</p>}

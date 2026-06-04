@@ -121,7 +121,7 @@ export default function Login() {
             color: 'var(--text)', letterSpacing: 4,
             lineHeight: 1.2, marginBottom: 10,
           }}>Inner Gallery</h1>
-          <p style={{ fontFamily: "'Noto Serif KR', serif", fontSize: 12, color: 'var(--sub)', fontStyle: 'normal', letterSpacing: 8, opacity: 0.75 }}>마 음 　미 술 관</p>
+          <p style={{ fontFamily: "'Noto Serif KR', serif", fontSize: 12, color: 'var(--sub)', fontStyle: 'normal', letterSpacing: 6, opacity: 0.75 }}>마음미술관</p>
         </div>
         <GoldDivider triple />
       </div>
