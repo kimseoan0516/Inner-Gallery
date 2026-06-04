@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useApp } from '../context/AppContext.jsx'
 import { toPng } from 'html-to-image'
 
-import { getJournal, updateJournalNote } from '../api.js'
+import { getJournal, updateJournalNote, updateJournalExhibition } from '../api.js'
 import GoldDivider from '../components/GoldDivider.jsx'
 
 export default function Journal() {
@@ -78,7 +78,10 @@ export default function Journal() {
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 32, padding: '10px 10px' }}>
-            {records.map((rec, i) => <TicketCard key={i} rec={rec} onClick={() => open(rec)} onUpdateNote={handleUpdateNote} />)}
+            {records.map((rec, i) => <TicketCard key={i} rec={rec} onClick={() => open(rec)} onUpdateNote={handleUpdateNote} onUpdateExhibition={(date, ex) => {
+              setRecords(prev => prev.map(r => r.date === date ? { ...r, ticket_exhibition: ex } : r))
+              updateJournalExhibition(date, ex).catch(console.error)
+            }} />)}
           </div>
         )}
       </div>
@@ -86,9 +89,11 @@ export default function Journal() {
   )
 }
 
-function TicketCard({ rec, onClick, onUpdateNote }) {
+function TicketCard({ rec, onClick, onUpdateNote, onUpdateExhibition }) {
   const [isEditing, setIsEditing] = useState(false)
   const [noteText, setNoteText] = useState(rec.ticket_memo || '')
+  const [isEditingExhibition, setIsEditingExhibition] = useState(false)
+  const [exhibitionText, setExhibitionText] = useState(rec.ticket_exhibition || '')
   const [capturing, setCapturing] = useState(false)
   const ticketRef = useRef(null)
 
@@ -131,18 +136,12 @@ function TicketCard({ rec, onClick, onUpdateNote }) {
       })
     }))
 
-    const opts = {
+    // skipFonts: true로 외부 폰트 CORS 문제 회피 → 빠르고 안정적
+    return toPng(el, {
       pixelRatio: 2,
-      // element 노드가 아닌 경우(텍스트 노드 등)도 안전하게 처리
+      skipFonts: true,
       filter: node => node.nodeType !== 1 || !node.dataset?.noCapture,
-      cacheBust: true,
-    }
-
-    // html-to-image의 외부 폰트(Google Fonts) CORS 문제 워크어라운드:
-    // 첫 렌더로 폰트를 캐시에 올린 뒤 실제 캡처
-    try { await toPng(el, { ...opts, pixelRatio: 1 }) } catch { /* 무시 */ }
-
-    return toPng(el, opts)
+    })
   }
 
   const handleSave = async (e) => {
@@ -262,11 +261,34 @@ function TicketCard({ rec, onClick, onUpdateNote }) {
       {/* Bottom half - Details */}
       <div style={{
         background: '#F4F1EB', borderBottomLeftRadius: 12, borderBottomRightRadius: 12,
-        padding: '6px 24px 24px', color: '#2A2522'
+        padding: '6px 24px 0', color: '#2A2522'
       }}>
-        <div style={{ borderLeft: '2px solid #C4B5A5', paddingLeft: 12, marginBottom: 20 }}>
+        <div style={{ borderLeft: '2px solid #C4B5A5', paddingLeft: 12, marginBottom: 20 }} onClick={e => e.stopPropagation()}>
           <p style={{ fontSize: 9, color: '#887E75', letterSpacing: 1.5, marginBottom: 4, fontWeight: 600 }}>EXHIBITION</p>
-          <p style={{ fontSize: 15, fontFamily: "'Georgia', 'Noto Serif KR', serif", fontWeight: 600, color: '#1A1614' }}>{title}</p>
+          {isEditingExhibition ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              <input
+                value={exhibitionText}
+                onChange={e => setExhibitionText(e.target.value)}
+                autoFocus
+                style={{ width: '100%', padding: '4px 8px', fontSize: 14, fontFamily: "'Georgia', serif", fontWeight: 600, color: '#1A1614', background: 'rgba(255,255,255,0.6)', border: '1px solid #C4B5A5', borderRadius: 4, outline: 'none', boxSizing: 'border-box' }}
+                onKeyDown={e => { if (e.key === 'Enter') { onUpdateExhibition(rec.date, exhibitionText); setIsEditingExhibition(false) } if (e.key === 'Escape') { setIsEditingExhibition(false); setExhibitionText(rec.ticket_exhibition || '') } }}
+              />
+              <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                <button onClick={() => { setIsEditingExhibition(false); setExhibitionText(rec.ticket_exhibition || '') }} style={{ background: 'transparent', border: '1px solid rgba(0,0,0,0.1)', borderRadius: 4, padding: '3px 8px', fontSize: 10, cursor: 'pointer', color: '#555' }}>취소</button>
+                <button onClick={() => { onUpdateExhibition(rec.date, exhibitionText); setIsEditingExhibition(false) }} style={{ background: '#3A332E', color: 'white', border: 'none', borderRadius: 4, padding: '3px 8px', fontSize: 10, cursor: 'pointer' }}>저장</button>
+              </div>
+            </div>
+          ) : (
+            <p
+              onClick={() => setIsEditingExhibition(true)}
+              style={{ fontSize: 15, fontFamily: "'Georgia', 'Noto Serif KR', serif", fontWeight: 600, color: '#1A1614', cursor: 'text', padding: '2px 4px', margin: '-2px -4px', borderRadius: 4, transition: 'background 0.2s' }}
+              onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,0,0,0.03)'}
+              onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+            >
+              {exhibitionText || title}
+            </p>
+          )}
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 18 }}>
@@ -334,13 +356,13 @@ function TicketCard({ rec, onClick, onUpdateNote }) {
           )}
         </div>
 
-        {/* Inner Gallery 워터마크 */}
-        <div style={{ textAlign: 'center', paddingBottom: 10, paddingTop: 2 }}>
+        {/* Inner Gallery 워터마크 — 캡처 시 하단 여백의 끝 */}
+        <div style={{ textAlign: 'center', padding: '2px 0 14px' }}>
           <span style={{ fontSize: 8, color: 'rgba(184,145,42,0.35)', letterSpacing: 2.5, fontFamily: 'monospace', fontWeight: 600 }}>INNER GALLERY</span>
         </div>
 
         {/* 캡처 제외 버튼 영역 */}
-        <div data-no-capture="true" style={{ display: 'flex', gap: 12, paddingTop: 4 }}>
+        <div data-no-capture="true" style={{ display: 'flex', gap: 12, paddingBottom: 24 }}>
           <button
             disabled={capturing}
             style={{ flex: 1, background: 'transparent', border: '1px solid #D4C9BD', borderRadius: 6, padding: '10px 0', fontSize: 12, color: '#3A332E', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, cursor: capturing ? 'wait' : 'pointer', outline: 'none', opacity: capturing ? 0.5 : 1 }}

@@ -143,6 +143,11 @@ export async function updateJournalNote(date, note) {
   return data
 }
 
+export async function updateJournalExhibition(date, exhibition) {
+  const { data } = await api.patch(`/api/journal/${encodeURIComponent(date)}/exhibition`, { exhibition })
+  return data
+}
+
 export async function updateJournalSketch(date, sketchData) {
   const { data } = await api.patch(`/api/journal/${encodeURIComponent(date)}/sketch`, sketchData)
   return data

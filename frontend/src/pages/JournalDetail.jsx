@@ -290,7 +290,7 @@ export default function JournalDetail() {
                       alt="마음 스케치"
                       style={{ width: '100%', display: 'block', borderRadius: 2, maxHeight: 280, objectFit: 'contain' }}
                     />
-                    <p style={{ fontSize: 8, color: 'rgba(184,145,42,0.40)', textAlign: 'center', marginTop: 14, letterSpacing: 0.5, fontFamily: 'monospace', fontStyle: 'italic' }}>
+                    <p style={{ fontSize: 10, color: 'rgba(184,145,42,0.45)', textAlign: 'center', marginTop: 14, letterSpacing: 0.5, fontFamily: "'Cormorant Garamond', serif", fontStyle: 'italic' }}>
                       작품을 마주한 마음의 흔적
                     </p>
                   </div>
