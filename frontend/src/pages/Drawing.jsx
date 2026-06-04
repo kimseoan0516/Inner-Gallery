@@ -320,7 +320,7 @@ export default function Drawing() {
     try {
       const res = await sketchReflection({ sketchBase64: currentB64, palette, keywords: saveKeywords, guideQ: MODE_CONFIG[sketchMode].question, mode })
       setReflectionText(res.reflection || ''); setSaveStep('done')
-    } catch { alert('회고를 가져오는 중 오류가 발생했습니다.'); setSaveStep('ask') }
+    } catch(e) { alert('오류: ' + (e.response?.data?.detail || e.message || '회고를 가져오는 중 오류가 발생했습니다.')); setSaveStep('ask') }
   }
 
   const doSave = async (withReflection = true) => {
