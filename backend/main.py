@@ -1684,21 +1684,22 @@ def _is_active_period(period_str: str) -> bool:
 
 def _parse_integ_item(item: dict) -> dict | None:
     """통합 API 아이템 → 공통 포맷 변환 (기간 지난 전시 제외)."""
-    title = item.get("TITLE", "").strip()
+    if not isinstance(item, dict): return None
+    title = str(item.get("TITLE") or "").strip()
     if not title:
         return None
-    period = item.get("PERIOD", "")
+    period = str(item.get("PERIOD") or "")
     if not _is_active_period(period):
         return None
     return {
-        "source":    item.get("CNTC_INSTT_NM", "기관").strip(),
+        "source":    str(item.get("CNTC_INSTT_NM") or "기관").strip(),
         "title":     title,
-        "place":     item.get("EVENT_SITE", ""),
+        "place":     str(item.get("EVENT_SITE") or ""),
         "period":    period,
-        "fee":       item.get("CHARGE", ""),
-        "thumbnail": item.get("IMAGE_OBJECT", ""),
-        "url":       item.get("URL", ""),
-        "author":    item.get("AUTHOR", ""),
+        "fee":       str(item.get("CHARGE") or ""),
+        "thumbnail": str(item.get("IMAGE_OBJECT") or ""),
+        "url":       str(item.get("URL") or ""),
+        "author":    str(item.get("AUTHOR") or ""),
     }
 
 
@@ -1755,18 +1756,19 @@ async def get_exhibitions():
             )
             resp.raise_for_status()
             for item in _parse_kcisa_items(resp.json())[:3]:
-                title = item.get("title", "").strip()
+                if not isinstance(item, dict): continue
+                title = str(item.get("title") or "").strip()
                 if not title:
                     continue
                 results.append({
                     "source":    "국립현대미술관",
                     "title":     title,
-                    "place":     item.get("venue", ""),
-                    "period":    item.get("eventPeriod", ""),
-                    "fee":       item.get("charge", ""),
+                    "place":     str(item.get("venue") or ""),
+                    "period":    str(item.get("eventPeriod") or ""),
+                    "fee":       str(item.get("charge") or ""),
                     "thumbnail": "",
                     "url":       "",
-                    "author":    item.get("creator", ""),
+                    "author":    str(item.get("creator") or ""),
                 })
         except Exception as e:
             print(f"[exhibitions] MOCA error: {e}", flush=True)
@@ -1782,18 +1784,19 @@ async def get_exhibitions():
             )
             resp.raise_for_status()
             for item in _parse_kcisa_items(resp.json())[:3]:
-                title = item.get("TITLE", "").strip()
+                if not isinstance(item, dict): continue
+                title = str(item.get("TITLE") or "").strip()
                 if not title:
                     continue
                 results.append({
                     "source":    "예술의전당",
                     "title":     title,
-                    "place":     item.get("EVENT_SITE", ""),
-                    "period":    item.get("PERIOD", ""),
-                    "fee":       item.get("CHARGE", ""),
-                    "thumbnail": item.get("IMAGE_OBJECT", ""),
-                    "url":       item.get("URL", ""),
-                    "author":    item.get("AUTHOR", ""),
+                    "place":     str(item.get("EVENT_SITE") or ""),
+                    "period":    str(item.get("PERIOD") or ""),
+                    "fee":       str(item.get("CHARGE") or ""),
+                    "thumbnail": str(item.get("IMAGE_OBJECT") or ""),
+                    "url":       str(item.get("URL") or ""),
+                    "author":    str(item.get("AUTHOR") or ""),
                 })
         except Exception as e:
             print(f"[exhibitions] SAC error: {e}", flush=True)

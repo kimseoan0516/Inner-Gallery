@@ -243,16 +243,35 @@ export default function Results() {
   const displayInfo = correctedInfo || info
   const activeEssay = correctedEssay || essay
 
-  // LLM이 essay.title을 body[0]에 **굵게** 넣는 경우를 처리
-  // body[0]이 **...**로만 이루어진 짧은 구절이면 제목으로 추출
-  const derivedEssayTitle = activeEssay.title || (() => {
-    const first = activeEssay.body?.[0] || ''
-    const m = first.match(/^\*\*(.*?)\*\*$/)
-    return (m && m[1].length <= 30) ? m[1] : ''
+  // 한줄 요약(제목)이 본문 첫 줄에 중복으로 들어오는 경우를 완벽히 분리
+  const { derivedEssayTitle, essayDisplayBody } = (() => {
+    let title = (activeEssay.title || '').trim()
+    let body = [...(activeEssay.body || [])]
+    
+    if (body.length > 0) {
+      let first = body[0].trim()
+      let m = first.match(/^\*\*(.*?)\*\*$/)
+      if (m) {
+        if (!title) title = m[1].trim()
+        body = body.slice(1)
+      } else if (/^\*\*?(한\s*줄\s*요\s*약|요\s*약|제\s*목)\s*:\s*\*\*?/i.test(first)) {
+        if (!title) title = first.replace(/^\*\*?(한\s*줄\s*요\s*약|요\s*약|제\s*목)\s*:\s*\*\*?/i, '').replace(/\*\*/g, '').trim()
+        body = body.slice(1)
+      } else if (/^(한\s*줄\s*요\s*약|요\s*약|제\s*목)\s*:/i.test(first)) {
+        if (!title) title = first.replace(/^(한\s*줄\s*요\s*약|요\s*약|제\s*목)\s*:/i, '').replace(/\*\*/g, '').trim()
+        body = body.slice(1)
+      }
+      
+      if (body.length > 0) {
+        let cleanFirst = body[0].replace(/\*\*/g, '').trim()
+        let cleanTitle = title.replace(/\*\*/g, '').trim()
+        if (cleanTitle && cleanFirst && (cleanFirst === cleanTitle || (cleanFirst.includes(cleanTitle) && cleanFirst.length < cleanTitle.length + 15))) {
+          body = body.slice(1)
+        }
+      }
+    }
+    return { derivedEssayTitle: title, essayDisplayBody: body }
   })()
-  const essayDisplayBody = (!activeEssay.title && derivedEssayTitle && activeEssay.body?.[0]?.match(/^\*\*.*\*\*$/))
-    ? (activeEssay.body || []).slice(1)
-    : (activeEssay.body || [])
   // 작품명/화가를 "확정"해서 보여주거나 저장/대화에 쓰지 않도록 안전장치
   // - LLM/후보가 추정한 신원을 사용자가 확인하지 않은 경우, 이름을 숨긴다.
   const identityConfirmed =

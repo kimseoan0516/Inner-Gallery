@@ -400,7 +400,7 @@ function ArtistWords() {
 
       <div style={{ padding: '32px 28px 24px' }}>
         {/* 오픈 쿼트 — 텍스트 왼쪽 위에 작게 */}
-        <div style={{ fontSize: 40, color: 'rgba(184,145,42,0.18)', fontFamily: 'Georgia, serif', lineHeight: 1, marginBottom: 8, userSelect: 'none' }}>"</div>
+        <div style={{ fontSize: 40, color: 'rgba(184,145,42,0.18)', fontFamily: 'Georgia, serif', lineHeight: 1, marginBottom: 8, userSelect: 'none' }}>“</div>
 
         {/* 명언 텍스트 */}
         <p style={{
@@ -438,7 +438,7 @@ function ArtistWords() {
               color: 'rgba(184,145,42,0.45)',
               cursor: 'pointer',
               letterSpacing: 1.5,
-              fontFamily: 'monospace',
+              fontFamily: "'Noto Serif KR', serif",
               transition: 'color 0.15s',
             }}
             onMouseEnter={e => e.currentTarget.style.color = 'rgba(184,145,42,0.9)'}

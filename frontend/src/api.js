@@ -261,8 +261,11 @@ function _fmtAICDate(iso) {
 }
 
 export async function getAICExhibitions() {
-  const url = `https://api.artic.edu/api/v1/exhibitions` +
-    `?limit=12&fields=id,title,short_description,image_id,aic_start_at,aic_end_at,gallery_title,status`
+  // /exhibitions/search 로 status=Confirmed 필터 — 현재 진행 중인 전시만
+  const query = { query: { term: { status: 'Confirmed' } }, size: 10 }
+  const url = `https://api.artic.edu/api/v1/exhibitions/search` +
+    `?params=${encodeURIComponent(JSON.stringify(query))}` +
+    `&fields=id,title,image_id,aic_start_at,aic_end_at,gallery_title`
 
   const res = await fetch(url, {
     headers: { 'AIC-User-Agent': 'inner-gallery (sakim9018@gmail.com)' },
@@ -271,21 +274,15 @@ export async function getAICExhibitions() {
 
   const payload = await res.json()
   const iiifBase = payload.config?.iiif_url || 'https://www.artic.edu/iiif/2'
-  const today = new Date()
 
   return (payload.data || [])
-    .filter(ex => {
-      if (!ex.title) return false
-      // 종료된 전시 제외
-      if (ex.aic_end_at && new Date(ex.aic_end_at) < today) return false
-      return true
-    })
+    .filter(ex => ex.title)
     .slice(0, 4)
     .map(ex => ({
       source:    'Art Institute of Chicago',
       title:     ex.title,
       place:     ex.gallery_title || 'Art Institute of Chicago',
-      period:    ex.aic_start_at || ex.aic_end_at
+      period:    (ex.aic_start_at || ex.aic_end_at)
         ? `${_fmtAICDate(ex.aic_start_at)} ~ ${_fmtAICDate(ex.aic_end_at)}`
         : '',
       fee:       '유료',
