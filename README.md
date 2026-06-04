@@ -1,4 +1,3 @@
-
 ---
 title: Inner Gallery Api
 emoji: 🖼️
