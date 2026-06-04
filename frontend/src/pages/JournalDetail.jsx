@@ -271,13 +271,18 @@ export default function JournalDetail() {
                       alt="마음 스케치"
                       style={{ width: '100%', display: 'block', borderRadius: 2, maxHeight: 280, objectFit: 'contain' }}
                     />
-                    <p style={{ fontSize: 8, color: 'rgba(184,145,42,0.40)', textAlign: 'center', marginTop: 14, letterSpacing: 2, fontFamily: 'monospace', fontStyle: 'italic' }}>
-                      이 작품을 본 뒤 남긴 감정의 선
+                    <p style={{ fontSize: 8, color: 'rgba(184,145,42,0.40)', textAlign: 'center', marginTop: 14, letterSpacing: 0.5, fontFamily: 'monospace', fontStyle: 'italic' }}>
+                      작품을 마주한 마음의 흔적
                     </p>
                   </div>
                   {rec.sketch_title && rec.sketch_title !== '마음 스케치' && (
-                    <p style={{ fontSize: 12, color: 'var(--sub)', fontFamily: "'Noto Serif KR', serif", textAlign: 'center', marginTop: 14, fontStyle: 'italic' }}>
-                      "{rec.sketch_title}"
+                    <p style={{ fontSize: 13, fontWeight: 700, color: 'var(--text)', fontFamily: "'Noto Serif KR', serif", textAlign: 'center', marginTop: 16 }}>
+                      {rec.sketch_title}
+                    </p>
+                  )}
+                  {rec.sketch_note && (
+                    <p style={{ fontSize: 12, color: 'var(--sub)', fontFamily: "'Noto Serif KR', serif", textAlign: 'center', marginTop: 6, fontStyle: 'italic', lineHeight: 1.7 }}>
+                      "{rec.sketch_note}"
                     </p>
                   )}
                 </div>
