@@ -210,7 +210,7 @@ export default function JournalDetail() {
 
             {rec.thumbnail && (
               <div style={{ borderRadius: 8, overflow: 'hidden', border: '1px solid rgba(184,145,42,0.15)', marginBottom: 24, boxShadow: '0 8px 24px rgba(0,0,0,0.15)' }}>
-                <img src={`data:image/jpeg;base64,${rec.thumbnail}`} alt={title}
+                <img src={rec.thumbnail.startsWith('http') ? rec.thumbnail : `data:image/jpeg;base64,${rec.thumbnail}`} alt={title}
                   style={{ width: '100%', height: 'auto', display: 'block' }} />
               </div>
             )}
@@ -231,6 +231,11 @@ export default function JournalDetail() {
 
             {rec.reflection && (
               <div style={{ borderLeft: '2px solid rgba(184,145,42,0.4)', paddingLeft: 14, marginTop: 12 }}>
+                {rec.entry_type === 'routine' && rec.questions && parseList(rec.questions).length > 0 && (
+                  <p style={{ fontSize: 11, color: 'var(--gold)', fontWeight: 700, marginBottom: 8, letterSpacing: 0.5 }}>
+                    Q. {parseList(rec.questions)[0]}
+                  </p>
+                )}
                 <p style={{ fontSize: 13, color: 'var(--body)', lineHeight: 1.9, fontStyle: 'italic', fontFamily: "'Noto Serif KR', serif" }}>
                   "{rec.reflection}"
                 </p>

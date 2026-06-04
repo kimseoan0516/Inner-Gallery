@@ -1723,6 +1723,14 @@ async def get_exhibitions():
         return {"items": [], "fallback": True}
 
     results = []
+    seen_titles = set()
+    
+    def add_result(parsed_item):
+        if not parsed_item: return
+        title_norm = parsed_item["title"].replace(" ", "").lower()
+        if title_norm not in seen_titles:
+            seen_titles.add(title_norm)
+            results.append(parsed_item)
     headers = {
         "Accept": "application/json",
         "User-Agent": "Mozilla/5.0 (compatible; InnerGallery/1.0)",
@@ -1741,9 +1749,7 @@ async def get_exhibitions():
             raw = resp.json()
             print(f"[exhibitions] INTEG status: {resp.status_code}, keys: {list(raw.keys())}", flush=True)
             for item in _parse_kcisa_items(raw):
-                parsed = _parse_integ_item(item)
-                if parsed:
-                    results.append(parsed)
+                add_result(_parse_integ_item(item))
                 if len(results) >= 24:
                     break
         except Exception as e:
@@ -1759,12 +1765,12 @@ async def get_exhibitions():
                 timeout=12,
             )
             resp.raise_for_status()
-            for item in _parse_kcisa_items(resp.json())[:3]:
+            for item in _parse_kcisa_items(resp.json())[:5]:
                 if not isinstance(item, dict): continue
                 title = str(item.get("title") or "").strip()
                 if not title:
                     continue
-                results.append({
+                add_result({
                     "source":    "국립현대미술관",
                     "title":     title,
                     "place":     str(item.get("venue") or ""),
@@ -1787,12 +1793,12 @@ async def get_exhibitions():
                 timeout=12,
             )
             resp.raise_for_status()
-            for item in _parse_kcisa_items(resp.json())[:3]:
+            for item in _parse_kcisa_items(resp.json())[:5]:
                 if not isinstance(item, dict): continue
                 title = str(item.get("TITLE") or "").strip()
                 if not title:
                     continue
-                results.append({
+                add_result({
                     "source":    "예술의전당",
                     "title":     title,
                     "place":     str(item.get("EVENT_SITE") or ""),

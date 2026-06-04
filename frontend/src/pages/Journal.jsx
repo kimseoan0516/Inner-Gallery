@@ -107,7 +107,7 @@ function TicketCard({ rec, onClick, onUpdateNote, onUpdateExhibition }) {
   const artist   = isSketch ? '나의 기록' : (rec.artwork_artist || '')
   const imgSrc   = isSketch
     ? (rec.sketch_image  ? `data:image/jpeg;base64,${rec.sketch_image}` : null)
-    : (rec.thumbnail     ? `data:image/jpeg;base64,${rec.thumbnail}` : null)
+    : (rec.thumbnail     ? (rec.thumbnail.startsWith('http') ? rec.thumbnail : `data:image/jpeg;base64,${rec.thumbnail}`) : null)
   const imgBg    = isSketch ? (rec.mood_color || '#333') : '#333'
   
   const dateObj  = new Date(rec.date.replace(' ', 'T'))

@@ -111,12 +111,13 @@ function DailyArtworkSection() {
         artwork_title:  art.title,
         artwork_artist: art.artist,
         artwork_year:   art.date,
+        entry_type:     'routine',
         essay_title:    '오늘의 명화 감상',
         essay_body:     [],
         questions:      [art.question],
         question_answers: JSON.stringify({ '0': qAnswer }),
         reflection:     qAnswer,
-        thumbnail:      '',
+        thumbnail:      art.image_url || '',
         pre_emotions: [], post_emotions: [],
         mood_color: '', mood_color_name: '', mood_note: '',
         moods: [], dominant_colors: [],
@@ -191,17 +192,16 @@ function DailyArtworkSection() {
                     style={{ width: '100%', padding: '10px 12px', fontSize: 12, fontFamily: "'Noto Serif KR', serif", background: 'var(--bg)', color: 'var(--text)', border: '1px solid rgba(184,145,42,0.35)', borderRadius: 6, resize: 'none', outline: 'none', lineHeight: 1.8, boxSizing: 'border-box' }}
                   />
                   <button
+                    className="btn-primary"
                     onClick={handleSave}
                     disabled={saving || saved || !qAnswer.trim()}
                     style={{
                       alignSelf: 'flex-end', padding: '7px 16px', borderRadius: 5,
-                      background: saved ? 'rgba(60,120,70,0.15)' : '#3A332E',
-                      border: saved ? '1px solid rgba(60,120,70,0.4)' : 'none',
-                      color: saved ? '#3C7850' : '#fff', fontSize: 11, cursor: saving || saved ? 'default' : 'pointer',
+                      fontSize: 11,
                       opacity: !qAnswer.trim() && !saved ? 0.5 : 1,
                     }}
                   >
-                    {saved ? '✓ 감상 기록에 저장됨' : saving ? '저장 중…' : '내 미술관에 저장하기'}
+                    {saved ? '✓  저장되었습니다' : (saving ? '저장 중...' : '감상 저장하기')}
                   </button>
                 </div>
               )}
@@ -407,19 +407,19 @@ function ArtistWords() {
       {/* 상단 골드 라인 */}
       <div style={{ height: 2, background: 'linear-gradient(to right, transparent, rgba(184,145,42,0.35), transparent)' }} />
 
-      <div style={{ padding: '24px 20px', position: 'relative' }}>
+      <div style={{ padding: '36px 24px', position: 'relative', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
         {/* 거대한 배경 따옴표 */}
         <div style={{ 
-          position: 'absolute', top: 12, left: 16, 
-          fontSize: 80, color: 'rgba(184,145,42,0.08)', 
+          position: 'absolute', top: 16, left: 24, 
+          fontSize: 96, color: 'rgba(184,145,42,0.06)', 
           fontFamily: 'Georgia, serif', lineHeight: 1, userSelect: 'none',
           pointerEvents: 'none'
         }}>
           “
         </div>
         <div style={{ 
-          position: 'absolute', bottom: 32, right: 24, 
-          fontSize: 80, color: 'rgba(184,145,42,0.08)', 
+          position: 'absolute', bottom: 40, right: 32, 
+          fontSize: 96, color: 'rgba(184,145,42,0.06)', 
           fontFamily: 'Georgia, serif', lineHeight: 1, userSelect: 'none',
           pointerEvents: 'none'
         }}>
@@ -429,50 +429,84 @@ function ArtistWords() {
         {/* 명언 텍스트 */}
         <p style={{
           position: 'relative',
-          margin: '20px 8px 24px',
-          fontSize: 16,
-          fontWeight: 500,
+          margin: '16px 0 6px',
+          fontSize: 18,
+          fontWeight: 600,
           color: '#2A231E',
           fontFamily: "'Noto Serif KR', serif",
-          lineHeight: 1.85,
-          letterSpacing: 0.3,
+          lineHeight: 1.8,
+          letterSpacing: 0.2,
           wordBreak: 'keep-all',
           textAlign: 'center',
-          textShadow: '0 1px 1px rgba(255,255,255,0.8)'
+          textShadow: '0 1px 2px rgba(255,255,255,0.9)'
         }}>
           {quote.quote}
         </p>
+        {quote.quote_en && (
+          <p style={{
+            margin: '0 0 32px',
+            fontSize: 14,
+            color: '#8A7B66',
+            fontFamily: "serif",
+            fontStyle: 'italic',
+            lineHeight: 1.6,
+            textAlign: 'center',
+            letterSpacing: 0.5
+          }}>
+            {quote.quote_en}
+          </p>
+        )}
 
-        {/* 하단 — 구분선 + 예술가 + 버튼 */}
-        <div style={{ borderTop: '1px solid rgba(184,145,42,0.12)', paddingTop: 18, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        {/* 하단 — 작가명 + 둥근 버튼 (가운데 정렬) */}
+        <div style={{ 
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16,
+          width: '80%', borderTop: '1px solid rgba(184,145,42,0.15)', paddingTop: 20 
+        }}>
           <p style={{
             margin: 0,
-            fontSize: 12,
-            fontWeight: 600,
-            color: 'rgba(122,80,48,0.7)',
+            fontSize: 14,
+            fontWeight: 700,
+            color: '#8C692A',
             fontFamily: "'Noto Serif KR', serif",
-            letterSpacing: 0.5,
+            letterSpacing: 1.5,
+            textAlign: 'center'
           }}>
             — {quote.artist}
+            {quote.artist_en && (
+              <span style={{ display: 'block', fontSize: 11, fontWeight: 500, marginTop: 4, letterSpacing: 0.5, color: 'rgba(140, 105, 42, 0.7)' }}>
+                ({quote.artist_en})
+              </span>
+            )}
           </p>
 
           <button
             onClick={fetchQuote}
             style={{
-              background: 'none',
-              border: 'none',
-              padding: '4px 0',
-              fontSize: 10,
-              color: 'rgba(184,145,42,0.45)',
+              background: 'linear-gradient(135deg, rgba(184,145,42,0.1), rgba(184,145,42,0.02))',
+              border: '1px solid rgba(184,145,42,0.25)',
+              padding: '8px 20px',
+              borderRadius: 30,
+              fontSize: 12,
+              fontWeight: 600,
+              color: 'rgba(140,105,42,0.9)',
               cursor: 'pointer',
-              letterSpacing: 1.5,
+              letterSpacing: 0.5,
               fontFamily: "'Noto Serif KR', serif",
-              transition: 'color 0.15s',
+              transition: 'all 0.25s ease',
+              boxShadow: '0 2px 8px rgba(184,145,42,0.05)'
             }}
-            onMouseEnter={e => e.currentTarget.style.color = 'rgba(184,145,42,0.9)'}
-            onMouseLeave={e => e.currentTarget.style.color = 'rgba(184,145,42,0.45)'}
+            onMouseOver={e => { 
+              e.target.style.background = 'linear-gradient(135deg, rgba(184,145,42,0.15), rgba(184,145,42,0.05))'; 
+              e.target.style.boxShadow = '0 4px 12px rgba(184,145,42,0.15)'; 
+              e.target.style.transform = 'translateY(-1px)';
+            }}
+            onMouseOut={e => { 
+              e.target.style.background = 'linear-gradient(135deg, rgba(184,145,42,0.1), rgba(184,145,42,0.02))';
+              e.target.style.boxShadow = '0 2px 8px rgba(184,145,42,0.05)';
+              e.target.style.transform = 'translateY(0)';
+            }}
           >
-            다른 문장 ›
+            다른 문장 감상하기
           </button>
         </div>
       </div>
@@ -551,7 +585,7 @@ export default function Routine() {
                     disabled={exPage === 1}
                     style={{ background: 'transparent', border: '1px solid var(--line)', padding: '4px 12px', borderRadius: 4, color: exPage === 1 ? 'rgba(0,0,0,0.1)' : 'var(--text)', cursor: exPage === 1 ? 'default' : 'pointer' }}
                   >
-                    이전
+                    &lt;
                   </button>
                   <span style={{ fontSize: 12, color: 'var(--sub)', alignSelf: 'center', margin: '0 8px' }}>
                     {exPage} / {Math.ceil(exhibitions.length / exPerPage)}
@@ -561,7 +595,7 @@ export default function Routine() {
                     disabled={exPage === Math.ceil(exhibitions.length / exPerPage)}
                     style={{ background: 'transparent', border: '1px solid var(--line)', padding: '4px 12px', borderRadius: 4, color: exPage === Math.ceil(exhibitions.length / exPerPage) ? 'rgba(0,0,0,0.1)' : 'var(--text)', cursor: exPage === Math.ceil(exhibitions.length / exPerPage) ? 'default' : 'pointer' }}
                   >
-                    다음
+                    &gt;
                   </button>
                 </div>
               )}
