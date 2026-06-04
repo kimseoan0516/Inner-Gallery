@@ -166,3 +166,8 @@ export async function getDailyArtworkAIC() {
   const { data } = await api.get('/api/daily-artwork-aic')
   return data
 }
+
+export async function getArtistQuote() {
+  const { data } = await api.get('/api/artist-quote')
+  return data
+}

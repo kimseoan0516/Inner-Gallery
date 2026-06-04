@@ -1,37 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getExhibitions, getDailyArtworkAIC } from '../api.js'
-
-// ── 날짜 기반 인덱스 (하루 동안 동일한 항목 유지) ───────────────────────────
-const dailyIndex = (len) => {
-  const d = new Date()
-  const ordinal = Math.floor((d - new Date(2000, 0, 1)) / 86400000)
-  return ordinal % len
-}
-
-// ── 예술가 명언 (나중에 교체 가능) ──────────────────────────────────────────
-const ARTIST_QUOTES = [
-  { quote: "예술은 영혼을 일상의 먼지로부터 씻어준다.", artist: "파블로 피카소", en: "Pablo Picasso", years: "1881–1973" },
-  { quote: "단순함은 궁극의 정교함이다.", artist: "레오나르도 다 빈치", en: "Leonardo da Vinci", years: "1452–1519" },
-  { quote: "나는 꿈을 꾸는 것이 아니라 꿈을 그린다.", artist: "빈센트 반 고흐", en: "Vincent van Gogh", years: "1853–1890" },
-  { quote: "예술은 무엇보다 영혼의 상태이다.", artist: "마르크 샤갈", en: "Marc Chagall", years: "1887–1985" },
-  { quote: "창의성은 용기를 필요로 한다.", artist: "앙리 마티스", en: "Henri Matisse", years: "1869–1954" },
-  { quote: "예술은 보이는 것을 재현하는 것이 아니라 보이게 만드는 것이다.", artist: "파울 클레", en: "Paul Klee", years: "1879–1940" },
-  { quote: "색채는 영혼에 직접 영향을 미치는 힘이다.", artist: "바실리 칸딘스키", en: "Wassily Kandinsky", years: "1866–1944" },
-  { quote: "나는 자연을 모방하지 않는다. 자연과 함께 작업한다.", artist: "파블로 피카소", en: "Pablo Picasso", years: "1881–1973" },
-  { quote: "아름다움은 보는 사람의 눈 속에 있다.", artist: "오귀스트 로댕", en: "Auguste Rodin", years: "1840–1917" },
-  { quote: "예술가는 감수성이 뛰어난 사람이 아니라 표현력이 뛰어난 사람이다.", artist: "에바 헤세", en: "Eva Hesse", years: "1936–1970" },
-  { quote: "그림은 시처럼 침묵의 시이고, 시는 그림처럼 말하는 그림이다.", artist: "레오나르도 다 빈치", en: "Leonardo da Vinci", years: "1452–1519" },
-  { quote: "예술의 목적은 세상을 아름답게 보이게 하는 것이 아니라 더 명확하게 보이게 하는 것이다.", artist: "존 러스킨", en: "John Ruskin", years: "1819–1900" },
-  { quote: "나는 보는 것이 아니라 느끼는 것을 그린다.", artist: "폴 세잔", en: "Paul Cézanne", years: "1839–1906" },
-  { quote: "진정한 예술가는 결코 배우는 것을 멈추지 않는다.", artist: "렘브란트", en: "Rembrandt", years: "1606–1669" },
-  { quote: "그림은 내 일기장이다.", artist: "프리다 칼로", en: "Frida Kahlo", years: "1907–1954" },
-  { quote: "나는 완성된 것보다 만들어지는 과정이 더 아름답다고 생각한다.", artist: "앤디 워홀", en: "Andy Warhol", years: "1928–1987" },
-  { quote: "색채는 나의 하루 종일의 집착이자 기쁨이며 고통이다.", artist: "클로드 모네", en: "Claude Monet", years: "1840–1926" },
-  { quote: "그림을 그릴 때 나는 자신을 잊는다.", artist: "구스타프 클림트", en: "Gustav Klimt", years: "1862–1918" },
-  { quote: "예술은 삶이 부족한 곳을 채운다.", artist: "살바도르 달리", en: "Salvador Dalí", years: "1904–1989" },
-  { quote: "모든 아이는 예술가다. 문제는 어떻게 어른이 되어서도 예술가로 남느냐이다.", artist: "파블로 피카소", en: "Pablo Picasso", years: "1881–1973" },
-]
+import { getExhibitions, getDailyArtworkAIC, getArtistQuote } from '../api.js'
 
 // ── 섹션 헤더 공통 컴포넌트 ──────────────────────────────────────────────────
 function SectionLabel({ en, ko, sub }) {
@@ -311,62 +280,84 @@ function ExhibitionFallback() {
 // ── ARTIST'S WORDS ────────────────────────────────────────────────────────────
 
 function ArtistWords() {
-  const quote = ARTIST_QUOTES[dailyIndex(ARTIST_QUOTES.length)]
+  const [quote, setQuote] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  const fetchQuote = () => {
+    setLoading(true)
+    getArtistQuote()
+      .then(res => setQuote(res))
+      .catch(() => setQuote(null))
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(() => { fetchQuote() }, [])
+
+  if (loading) {
+    return (
+      <div style={{ borderRadius: 12, background: 'var(--card)', border: '1px solid var(--line)', padding: '48px 28px', textAlign: 'center' }}>
+        <div style={{ display: 'flex', gap: 6, justifyContent: 'center' }}>
+          {[0,1,2].map(i => <div key={i} style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--gold)', opacity: 0.4, animation: `pulse 1.4s ${i*0.46}s infinite` }} />)}
+        </div>
+      </div>
+    )
+  }
+
+  if (!quote?.quote) return null
 
   return (
     <div style={{
-      borderRadius: 12, overflow: 'hidden',
-      background: 'var(--card)', border: '1px solid var(--line)',
-      padding: '36px 28px 32px',
-      textAlign: 'center',
-      position: 'relative',
+      borderRadius: 12, background: 'var(--card)', border: '1px solid var(--line)',
+      padding: '36px 28px 28px', textAlign: 'center', position: 'relative',
     }}>
       {/* 장식 코너 */}
       {[
-        { top: 12, left: 12, borderTop: '1px solid rgba(184,145,42,0.2)', borderLeft: '1px solid rgba(184,145,42,0.2)' },
-        { top: 12, right: 12, borderTop: '1px solid rgba(184,145,42,0.2)', borderRight: '1px solid rgba(184,145,42,0.2)' },
-        { bottom: 12, left: 12, borderBottom: '1px solid rgba(184,145,42,0.2)', borderLeft: '1px solid rgba(184,145,42,0.2)' },
-        { bottom: 12, right: 12, borderBottom: '1px solid rgba(184,145,42,0.2)', borderRight: '1px solid rgba(184,145,42,0.2)' },
-      ].map((s, i) => (
-        <div key={i} style={{ position: 'absolute', width: 18, height: 18, pointerEvents: 'none', ...s }} />
-      ))}
+        { top: 12, left: 12, borderTop: '1px solid rgba(184,145,42,0.18)', borderLeft: '1px solid rgba(184,145,42,0.18)' },
+        { top: 12, right: 12, borderTop: '1px solid rgba(184,145,42,0.18)', borderRight: '1px solid rgba(184,145,42,0.18)' },
+        { bottom: 12, left: 12, borderBottom: '1px solid rgba(184,145,42,0.18)', borderLeft: '1px solid rgba(184,145,42,0.18)' },
+        { bottom: 12, right: 12, borderBottom: '1px solid rgba(184,145,42,0.18)', borderRight: '1px solid rgba(184,145,42,0.18)' },
+      ].map((s, i) => <div key={i} style={{ position: 'absolute', width: 16, height: 16, pointerEvents: 'none', ...s }} />)}
 
       {/* 여는 따옴표 */}
       <p style={{
-        fontSize: 72, color: 'rgba(184,145,42,0.12)', fontFamily: 'Georgia, "Times New Roman", serif',
-        lineHeight: 0.7, margin: '0 0 22px', userSelect: 'none', letterSpacing: -4,
-      }}>
-        "
-      </p>
+        fontSize: 68, color: 'rgba(184,145,42,0.11)', fontFamily: 'Georgia, serif',
+        lineHeight: 0.7, margin: '0 0 20px', userSelect: 'none', letterSpacing: -4,
+      }}>"</p>
 
-      {/* 명언 텍스트 */}
+      {/* 명언 */}
       <p style={{
-        fontSize: 15, color: 'var(--text)',
-        fontFamily: "'Noto Serif KR', serif",
-        lineHeight: 2, letterSpacing: 0.4,
-        margin: '0 0 28px',
-        wordBreak: 'keep-all',
+        fontSize: 15, color: 'var(--text)', fontFamily: "'Noto Serif KR', serif",
+        lineHeight: 2, letterSpacing: 0.3, margin: '0 0 26px', wordBreak: 'keep-all',
       }}>
         {quote.quote}
       </p>
 
-      {/* 구분선 */}
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 14, marginBottom: 18 }}>
-        <div style={{ height: 1, width: 36, background: 'rgba(184,145,42,0.18)' }} />
-        <span style={{ fontSize: 8, color: 'rgba(184,145,42,0.4)', letterSpacing: 3, fontFamily: 'monospace' }}>◆</span>
-        <div style={{ height: 1, width: 36, background: 'rgba(184,145,42,0.18)' }} />
+      {/* 구분 */}
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 12, marginBottom: 16 }}>
+        <div style={{ height: 1, width: 32, background: 'rgba(184,145,42,0.15)' }} />
+        <span style={{ fontSize: 7, color: 'rgba(184,145,42,0.35)', letterSpacing: 3, fontFamily: 'monospace' }}>◆</span>
+        <div style={{ height: 1, width: 32, background: 'rgba(184,145,42,0.15)' }} />
       </div>
 
-      {/* 예술가 이름 */}
-      <p style={{
-        margin: '0 0 4px', fontSize: 13, fontWeight: 700,
-        color: 'var(--gold2)', fontFamily: "'Noto Serif KR', serif", letterSpacing: 0.8,
-      }}>
+      {/* 예술가 */}
+      <p style={{ margin: '0 0 16px', fontSize: 13, fontWeight: 700, color: 'var(--gold2)', fontFamily: "'Noto Serif KR', serif", letterSpacing: 0.8 }}>
         {quote.artist}
       </p>
-      <p style={{ margin: 0, fontSize: 10, color: 'var(--sub)', letterSpacing: 1, fontFamily: 'monospace' }}>
-        {quote.en}  {quote.years && `· ${quote.years}`}
-      </p>
+
+      {/* 다른 명언 버튼 */}
+      <button
+        onClick={fetchQuote}
+        style={{
+          background: 'none', border: '1px solid rgba(184,145,42,0.18)',
+          borderRadius: 20, padding: '5px 14px',
+          fontSize: 10, color: 'rgba(184,145,42,0.55)', cursor: 'pointer',
+          letterSpacing: 1, fontFamily: 'monospace', transition: 'all 0.15s',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.borderColor = 'rgba(184,145,42,0.4)'; e.currentTarget.style.color = 'rgba(184,145,42,0.85)' }}
+        onMouseLeave={e => { e.currentTarget.style.borderColor = 'rgba(184,145,42,0.18)'; e.currentTarget.style.color = 'rgba(184,145,42,0.55)' }}
+      >
+        다른 문장 ›
+      </button>
     </div>
   )
 }

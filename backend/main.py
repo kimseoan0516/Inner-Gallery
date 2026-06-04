@@ -26,7 +26,7 @@ from modules.llm_generator        import generate_interpretation, analyze_artwor
 from modules.quality_checker      import check_image_quality
 from modules.artwork_matcher      import match_artwork, top_k_artists, is_available as matcher_available
 from modules.era_lookup           import lookup_artwork
-from backend.database             import init_db, get_journal, get_journal_entry, save_journal_entry, delete_journal_entry, update_journal_note, update_journal_sketch, update_journal_exhibition
+from backend.database             import init_db, get_journal, get_journal_entry, save_journal_entry, delete_journal_entry, update_journal_note, update_journal_sketch, update_journal_exhibition, get_random_quote
 from backend.auth                 import router as auth_router, get_current_user
 
 app = FastAPI(title="Inner Gallery API")
@@ -1614,6 +1614,14 @@ async def docent_chat(req: ChatRequest):
         return {"reply": text.strip()}
     except Exception as e:
         raise HTTPException(500, str(e))
+
+
+# ── 명언 ─────────────────────────────────────────────────────────────────────
+
+@app.get("/api/artist-quote")
+async def artist_quote():
+    """DB에서 랜덤 명언 반환."""
+    return get_random_quote()
 
 
 # ── 전시 정보 ────────────────────────────────────────────────────────────────
