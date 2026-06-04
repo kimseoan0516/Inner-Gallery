@@ -195,13 +195,7 @@ const _AIC_QUESTIONS = [
   "오늘 하루를 이 그림의 제목으로 붙인다면?",
 ]
 
-export async function getDailyArtworkAIC() {
-  const today = new Date()
-  const ordinal = Math.floor((today - new Date(2000, 0, 1)) / 86400000)
-  const esFrom = ordinal % 9000
-
-  // 고전 회화(그림)으로 한정 — Painting 타입 + 퍼블릭 도메인
-  // artwork_type_id=1 이 회화(Painting) 타입 고정 ID
+async function _fetchAICPainting(esFrom, questionIdx) {
   const query = {
     query: { bool: { must: [
       { term: { is_public_domain: true } },
@@ -216,14 +210,11 @@ export async function getDailyArtworkAIC() {
     `?params=${encodeURIComponent(JSON.stringify(query))}` +
     `&fields=id,title,artist_display,date_display,medium_display,image_id,description`
 
-  const res = await fetch(url, {
-    headers: { 'AIC-User-Agent': 'inner-gallery (sakim9018@gmail.com)' },
-  })
+  const res = await fetch(url, { headers: { 'AIC-User-Agent': 'inner-gallery (sakim9018@gmail.com)' } })
   if (!res.ok) throw new Error('AIC API error')
 
   const payload = await res.json()
-  const artworks = payload.data || []
-  const artwork = artworks.find(a => a.image_id)
+  const artwork = (payload.data || []).find(a => a.image_id)
   if (!artwork) throw new Error('No artwork with image')
 
   const iiifBase = payload.config?.iiif_url || 'https://www.artic.edu/iiif/2'
@@ -240,8 +231,24 @@ export async function getDailyArtworkAIC() {
     image_url:     `${iiifBase}/${imgId}/full/843,/0/default.jpg`,
     thumbnail_url: `${iiifBase}/${imgId}/full/400,/0/default.jpg`,
     artic_url:     `https://www.artic.edu/artworks/${artwork.id}`,
-    question:      _AIC_QUESTIONS[ordinal % _AIC_QUESTIONS.length],
+    question:      _AIC_QUESTIONS[questionIdx % _AIC_QUESTIONS.length],
   }
+}
+
+export async function getDailyArtworkAIC() {
+  const ordinal = Math.floor((new Date() - new Date(2000, 0, 1)) / 86400000)
+  return _fetchAICPainting(ordinal % 9000, ordinal)
+}
+
+export async function getRandomArtworkAIC() {
+  const esFrom = Math.floor(Math.random() * 9000)
+  const qIdx   = Math.floor(Math.random() * _AIC_QUESTIONS.length)
+  return _fetchAICPainting(esFrom, qIdx)
+}
+
+export async function translateText(text) {
+  const { data } = await api.post('/api/translate', { text })
+  return data.translated || ''
 }
 
 // ── AIC 전시정보 — 브라우저 직접 호출 ─────────────────────────────────────────

@@ -1616,6 +1616,30 @@ async def docent_chat(req: ChatRequest):
         raise HTTPException(500, str(e))
 
 
+# ── 번역 ─────────────────────────────────────────────────────────────────────
+
+class TranslateRequest(BaseModel):
+    text: str
+
+@app.post("/api/translate")
+async def translate_text(req: TranslateRequest):
+    """영어 텍스트 → 한국어 번역 (Gemini)."""
+    if not req.text.strip() or not _API_KEY:
+        return {"translated": ""}
+    import google.generativeai as genai
+    genai.configure(api_key=_API_KEY)
+    model = genai.GenerativeModel("gemini-2.0-flash")
+    prompt = (
+        "다음 미술 작품 설명 영어 텍스트를 자연스러운 한국어로 번역해주세요. "
+        "번역문만 출력하세요 (설명, 주석 없이):\n\n" + req.text
+    )
+    try:
+        resp = model.generate_content(prompt)
+        return {"translated": resp.text.strip()}
+    except Exception:
+        return {"translated": "번역에 실패했습니다."}
+
+
 # ── 명언 ─────────────────────────────────────────────────────────────────────
 
 @app.get("/api/artist-quote")

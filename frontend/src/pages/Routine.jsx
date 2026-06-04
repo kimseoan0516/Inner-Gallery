@@ -1,6 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getExhibitions, getAICExhibitions, getDailyArtworkAIC, getArtistQuote } from '../api.js'
+import { getExhibitions, getAICExhibitions, getDailyArtworkAIC, getRandomArtworkAIC, translateText, getArtistQuote } from '../api.js'
+import { saveJournal } from '../api.js'
+import { useAuth } from '../context/AuthContext.jsx'
+import LoginModal from '../components/LoginModal.jsx'
+
+const _stripHtml = (html) => html ? html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() : ''
 
 // ── 섹션 헤더 공통 컴포넌트 ──────────────────────────────────────────────────
 function SectionLabel({ en, ko, sub }) {
@@ -32,7 +37,7 @@ function SectionLabel({ en, ko, sub }) {
 function ArtworkSkeleton() {
   return (
     <div style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid var(--line)' }}>
-      <div style={{ height: 260, background: 'var(--card)', opacity: 0.6 }} />
+      <div style={{ height: 280, background: 'var(--card)', opacity: 0.5 }} />
       <div style={{ padding: '18px 20px 22px', background: 'var(--card)', display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div style={{ height: 13, width: '60%', background: 'var(--line)', borderRadius: 4 }} />
         <div style={{ height: 10, width: '38%', background: 'var(--line)', borderRadius: 4, opacity: 0.6 }} />
@@ -43,145 +48,206 @@ function ArtworkSkeleton() {
 }
 
 function DailyArtworkSection() {
-  const [art, setArt] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [expanded, setExpanded] = useState(false)
+  const { user } = useAuth()
+  const [art, setArt]           = useState(null)
+  const [loading, setLoading]   = useState(true)
+  const [shuffling, setShuffling] = useState(false)
   const [imgLoaded, setImgLoaded] = useState(false)
+  const [expanded, setExpanded] = useState(false)
+  // 번역
+  const [translated, setTranslated]   = useState('')
+  const [translating, setTranslating] = useState(false)
+  // 질문 답변
+  const [qOpen, setQOpen]   = useState(false)
+  const [qAnswer, setQAnswer] = useState('')
+  // 저장
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved]   = useState(false)
+  const [showLogin, setShowLogin] = useState(false)
 
-  useEffect(() => {
-    getDailyArtworkAIC()
+  const load = (fetcher) => {
+    setLoading(true)
+    setImgLoaded(false)
+    setExpanded(false)
+    setTranslated('')
+    setQOpen(false)
+    setQAnswer('')
+    setSaved(false)
+    fetcher()
       .then(res => setArt(res))
       .catch(() => setArt({ fallback: true }))
       .finally(() => setLoading(false))
-  }, [])
+  }
+
+  useEffect(() => { load(getDailyArtworkAIC) }, [])
+
+  const handleShuffle = () => { setShuffling(true); load(getRandomArtworkAIC); setShuffling(false) }
+
+  const handleTranslate = async () => {
+    if (!art?.description || translating) return
+    setTranslating(true)
+    try { setTranslated(await translateText(_stripHtml(art.description))) } catch {}
+    setTranslating(false)
+  }
+
+  const handleSave = async () => {
+    if (!user) { setShowLogin(true); return }
+    if (!qAnswer.trim() || saving || saved) return
+    setSaving(true)
+    try {
+      const now = new Date()
+      const p = n => String(n).padStart(2, '0')
+      await saveJournal({
+        date: `${now.getFullYear()}-${p(now.getMonth()+1)}-${p(now.getDate())} ${p(now.getHours())}:${p(now.getMinutes())}`,
+        artwork_title:  art.title,
+        artwork_artist: art.artist,
+        artwork_year:   art.date,
+        essay_title:    '오늘의 명화 감상',
+        essay_body:     [],
+        questions:      [art.question],
+        question_answers: JSON.stringify({ '0': qAnswer }),
+        reflection:     qAnswer,
+        thumbnail:      '',
+        pre_emotions: [], post_emotions: [],
+        mood_color: '', mood_color_name: '', mood_note: '',
+        moods: [], dominant_colors: [],
+      })
+      setSaved(true)
+    } catch {}
+    setSaving(false)
+  }
 
   if (loading) return <ArtworkSkeleton />
 
-  if (!art || art.fallback) {
-    return (
-      <div style={{
-        padding: '40px 20px', textAlign: 'center', borderRadius: 12,
-        background: 'var(--card)', border: '1px solid var(--line)',
-      }}>
-        <p style={{ fontSize: 26, opacity: 0.1, color: '#C9A84C', margin: '0 0 14px', fontFamily: 'serif' }}>◇</p>
-        <p style={{ fontSize: 12, color: 'var(--sub)', lineHeight: 2 }}>
-          오늘의 작품을 불러오지 못했습니다<br />
-          <span style={{ fontSize: 10, color: 'rgba(122,80,48,0.4)' }}>잠시 후 새로고침해주세요</span>
-        </p>
-      </div>
-    )
-  }
+  if (!art || art.fallback) return (
+    <div style={{ padding: '40px 20px', textAlign: 'center', borderRadius: 12, background: 'var(--card)', border: '1px solid var(--line)' }}>
+      <p style={{ fontSize: 26, opacity: 0.1, color: '#C9A84C', margin: '0 0 14px', fontFamily: 'serif' }}>◇</p>
+      <p style={{ fontSize: 12, color: 'var(--sub)', lineHeight: 2 }}>
+        오늘의 작품을 불러오지 못했습니다<br />
+        <span style={{ fontSize: 10, color: 'rgba(122,80,48,0.4)' }}>잠시 후 새로고침해주세요</span>
+      </p>
+    </div>
+  )
 
   return (
-    <div style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid var(--line)', background: 'var(--card)' }}>
-      {/* 이미지 */}
-      <div style={{ position: 'relative', background: '#0f0d0a', minHeight: imgLoaded ? 0 : 240 }}>
-        {!imgLoaded && (
-          <div style={{ height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <span style={{ fontSize: 28, opacity: 0.08, color: '#C9A84C', fontFamily: 'serif' }}>◇</span>
-          </div>
-        )}
-        <img
-          src={art.image_url}
-          alt={art.title}
-          onLoad={() => setImgLoaded(true)}
-          onError={() => setImgLoaded(true)}
-          style={{ width: '100%', display: imgLoaded ? 'block' : 'none', maxHeight: 320, objectFit: 'cover' }}
-        />
-        {imgLoaded && (
-          <>
-            <div style={{
-              position: 'absolute', bottom: 0, left: 0, right: 0, height: '60%',
-              background: 'linear-gradient(to top, rgba(8,6,3,0.93) 0%, rgba(8,6,3,0.3) 65%, transparent 100%)',
-              pointerEvents: 'none',
-            }} />
-            <div style={{ position: 'absolute', bottom: 18, left: 20, right: 20 }}>
-              <p style={{
-                margin: '0 0 5px', fontSize: 17, fontWeight: 700,
-                color: '#fff', fontFamily: "'Noto Serif KR', serif",
-                lineHeight: 1.35, letterSpacing: 0.2,
-                textShadow: '0 2px 12px rgba(0,0,0,0.6)',
-              }}>{art.title}</p>
-              <p style={{ margin: 0, fontSize: 11, color: 'rgba(255,255,255,0.68)', letterSpacing: 0.3 }}>
-                {art.artist}
-              </p>
-            </div>
-          </>
-        )}
-      </div>
+    <>
+      {showLogin && <LoginModal onSuccess={() => { setShowLogin(false); handleSave() }} onClose={() => setShowLogin(false)} />}
+      <div style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid var(--line)', background: 'var(--card)' }}>
 
-      {/* 하단 */}
-      <div style={{ padding: '16px 20px 20px' }}>
-        {/* 날짜·재료 칩 */}
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
-          {art.date && (
-            <span style={{
-              fontSize: 10, color: 'rgba(140,105,42,0.85)',
-              padding: '3px 8px', borderRadius: 4,
-              background: 'rgba(184,145,42,0.08)', border: '1px solid rgba(184,145,42,0.14)',
-            }}>{art.date}</span>
-          )}
-          {art.medium && (
-            <span style={{
-              fontSize: 10, color: 'var(--sub)', padding: '3px 8px', borderRadius: 4,
-              background: 'rgba(0,0,0,0.04)', border: '1px solid var(--line)',
-              maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            }}>{art.medium}</span>
-          )}
+        {/* 이미지 — contain으로 전체 표시 */}
+        <div style={{ background: '#111009', minHeight: imgLoaded ? 0 : 240, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          {!imgLoaded && <span style={{ fontSize: 28, opacity: 0.08, color: '#C9A84C', fontFamily: 'serif' }}>◇</span>}
+          <img
+            src={art.image_url}
+            alt={art.title}
+            onLoad={() => setImgLoaded(true)}
+            onError={() => setImgLoaded(true)}
+            style={{ width: '100%', display: imgLoaded ? 'block' : 'none', objectFit: 'contain', maxHeight: 520 }}
+          />
         </div>
 
-        {/* 오늘의 질문 */}
-        {art.question && (
-          <div style={{
-            padding: '13px 16px', borderRadius: 8, marginBottom: 14,
-            background: 'rgba(184,145,42,0.04)',
-            borderLeft: '2px solid rgba(184,145,42,0.35)',
-            border: '1px solid rgba(184,145,42,0.12)',
-          }}>
-            <p style={{ margin: '0 0 4px', fontSize: 9, color: 'var(--gold)', letterSpacing: 2.5, fontWeight: 700 }}>
-              오늘의 질문
-            </p>
-            <p style={{ margin: 0, fontSize: 13, color: 'var(--text)', lineHeight: 1.75, fontFamily: "'Noto Serif KR', serif" }}>
-              {art.question}
-            </p>
-          </div>
-        )}
+        {/* 하단 정보 */}
+        <div style={{ padding: '16px 20px 20px', display: 'flex', flexDirection: 'column', gap: 12 }}>
 
-        {/* 작품 설명 */}
-        {art.description && (
-          <div style={{ marginBottom: 14 }}>
-            <div style={{
-              fontSize: 11, color: 'var(--sub)', lineHeight: 1.85,
-              overflow: expanded ? 'visible' : 'hidden',
-              display: expanded ? 'block' : '-webkit-box',
-              WebkitLineClamp: 3, WebkitBoxOrient: 'vertical',
-            }}
-              dangerouslySetInnerHTML={{ __html: art.description }}
-            />
-            <button onClick={() => setExpanded(v => !v)} style={{
-              background: 'none', border: 'none', padding: '4px 0 0',
-              fontSize: 10, color: 'rgba(184,145,42,0.65)', cursor: 'pointer',
-            }}>
-              {expanded ? '접기 ↑' : '더 보기 ›'}
+          {/* 제목 · 작가 */}
+          <div>
+            <p style={{ margin: '0 0 4px', fontSize: 16, fontWeight: 700, color: 'var(--text)', fontFamily: "'Noto Serif KR', serif", lineHeight: 1.4 }}>{art.title}</p>
+            {art.artist && <p style={{ margin: 0, fontSize: 12, color: 'var(--sub)' }}>{art.artist}</p>}
+          </div>
+
+          {/* 날짜·재료 칩 */}
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {art.date && <span style={{ fontSize: 10, color: 'rgba(140,105,42,0.85)', padding: '3px 8px', borderRadius: 4, background: 'rgba(184,145,42,0.08)', border: '1px solid rgba(184,145,42,0.14)' }}>{art.date}</span>}
+            {art.medium && <span style={{ fontSize: 10, color: 'var(--sub)', padding: '3px 8px', borderRadius: 4, background: 'rgba(0,0,0,0.04)', border: '1px solid var(--line)', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{art.medium}</span>}
+          </div>
+
+          {/* 오늘의 질문 — 클릭하면 답변 입력 */}
+          {art.question && (
+            <div style={{ borderRadius: 8, background: 'rgba(184,145,42,0.04)', border: '1px solid rgba(184,145,42,0.14)', borderLeft: '2px solid rgba(184,145,42,0.4)' }}>
+              <div
+                onClick={() => setQOpen(v => !v)}
+                style={{ padding: '12px 16px', cursor: 'pointer' }}
+              >
+                <p style={{ margin: '0 0 4px', fontSize: 9, color: 'var(--gold)', letterSpacing: 2.5, fontWeight: 700 }}>오늘의 질문</p>
+                <p style={{ margin: 0, fontSize: 13, color: 'var(--text)', lineHeight: 1.75, fontFamily: "'Noto Serif KR', serif" }}>{art.question}</p>
+              </div>
+              {qOpen && (
+                <div style={{ padding: '0 16px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                  <textarea
+                    autoFocus
+                    rows={3}
+                    value={qAnswer}
+                    onChange={e => setQAnswer(e.target.value)}
+                    placeholder="나의 생각을 적어보세요…"
+                    style={{ width: '100%', padding: '10px 12px', fontSize: 12, fontFamily: "'Noto Serif KR', serif", background: 'var(--bg)', color: 'var(--text)', border: '1px solid rgba(184,145,42,0.35)', borderRadius: 6, resize: 'none', outline: 'none', lineHeight: 1.8, boxSizing: 'border-box' }}
+                  />
+                  <button
+                    onClick={handleSave}
+                    disabled={saving || saved || !qAnswer.trim()}
+                    style={{
+                      alignSelf: 'flex-end', padding: '7px 16px', borderRadius: 5,
+                      background: saved ? 'rgba(60,120,70,0.15)' : '#3A332E',
+                      border: saved ? '1px solid rgba(60,120,70,0.4)' : 'none',
+                      color: saved ? '#3C7850' : '#fff', fontSize: 11, cursor: saving || saved ? 'default' : 'pointer',
+                      opacity: !qAnswer.trim() && !saved ? 0.5 : 1,
+                    }}
+                  >
+                    {saved ? '✓ 감상 기록에 저장됨' : saving ? '저장 중…' : '내 미술관에 저장하기'}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 작품 설명 (영어) */}
+          {art.description && (
+            <div>
+              {!translated ? (
+                <>
+                  <div style={{ fontSize: 11, color: 'var(--sub)', lineHeight: 1.85, overflow: expanded ? 'visible' : 'hidden', display: expanded ? 'block' : '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}
+                    dangerouslySetInnerHTML={{ __html: art.description }}
+                  />
+                  <div style={{ display: 'flex', gap: 12, marginTop: 6, alignItems: 'center' }}>
+                    <button onClick={() => setExpanded(v => !v)} style={{ background: 'none', border: 'none', padding: 0, fontSize: 10, color: 'rgba(184,145,42,0.65)', cursor: 'pointer' }}>
+                      {expanded ? '접기 ↑' : '더 보기 ›'}
+                    </button>
+                    <button
+                      onClick={handleTranslate}
+                      disabled={translating}
+                      style={{ background: 'none', border: '1px solid rgba(184,145,42,0.25)', borderRadius: 4, padding: '3px 10px', fontSize: 10, color: 'rgba(140,105,42,0.8)', cursor: translating ? 'wait' : 'pointer' }}
+                    >
+                      {translating ? '번역 중…' : '한국어로 번역'}
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p style={{ fontSize: 11, color: 'var(--sub)', lineHeight: 1.9, fontFamily: "'Noto Serif KR', serif" }}>{translated}</p>
+                  <button onClick={() => setTranslated('')} style={{ background: 'none', border: 'none', padding: '4px 0 0', fontSize: 10, color: 'rgba(184,145,42,0.55)', cursor: 'pointer' }}>원문 보기 ›</button>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* 버튼 행 */}
+          <div style={{ display: 'flex', gap: 8, marginTop: 2 }}>
+            <button
+              onClick={handleShuffle}
+              disabled={shuffling}
+              style={{ flex: 1, padding: '10px 0', background: 'transparent', border: '1px solid var(--line)', borderRadius: 6, fontSize: 11, color: 'var(--sub)', cursor: shuffling ? 'wait' : 'pointer' }}
+            >
+              {shuffling ? '불러오는 중…' : '다른 작품 보기 ›'}
+            </button>
+            <button
+              onClick={() => window.open(art.artic_url, '_blank', 'noopener,noreferrer')}
+              style={{ flex: 1, padding: '10px 0', background: 'transparent', border: '1px solid rgba(184,145,42,0.22)', borderRadius: 6, fontSize: 11, color: 'rgba(140,105,42,0.75)', cursor: 'pointer' }}
+            >
+              AIC에서 보기 ›
             </button>
           </div>
-        )}
-
-        <button
-          onClick={() => window.open(art.artic_url, '_blank', 'noopener,noreferrer')}
-          style={{
-            width: '100%', padding: '10px 0', background: 'transparent',
-            border: '1px solid rgba(184,145,42,0.18)', borderRadius: 6,
-            fontSize: 11, color: 'rgba(140,105,42,0.7)', cursor: 'pointer',
-            letterSpacing: 0.8, transition: 'all 0.15s',
-          }}
-          onMouseEnter={e => { e.currentTarget.style.background = 'rgba(184,145,42,0.05)'; e.currentTarget.style.borderColor = 'rgba(184,145,42,0.38)' }}
-          onMouseLeave={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.borderColor = 'rgba(184,145,42,0.18)' }}
-        >
-          Art Institute of Chicago에서 보기 ›
-        </button>
+        </div>
       </div>
-    </div>
+    </>
   )
 }
 
