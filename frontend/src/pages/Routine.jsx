@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { getExhibitions, getDailyArtworkAIC, getArtistQuote } from '../api.js'
+import { getExhibitions, getAICExhibitions, getDailyArtworkAIC, getArtistQuote } from '../api.js'
 
 // ── 섹션 헤더 공통 컴포넌트 ──────────────────────────────────────────────────
 function SectionLabel({ en, ko, sub }) {
@@ -188,8 +188,9 @@ function DailyArtworkSection() {
 // ── EXHIBITION PICK ───────────────────────────────────────────────────────────
 
 const SOURCE_STYLE = {
-  '국립현대미술관': { color: '#3C508C', dot: '#4A5FA8' },
-  '예술의전당':     { color: '#7A3264', dot: '#963C7A' },
+  '국립현대미술관':            { color: '#3C508C', dot: '#4A5FA8' },
+  '예술의전당':                { color: '#7A3264', dot: '#963C7A' },
+  'Art Institute of Chicago': { color: '#7A4020', dot: '#A05030' },
 }
 
 function ExhibitionCard({ item, onClick }) {
@@ -389,9 +390,17 @@ export default function Routine() {
   const [exFallback, setExFallback] = useState(false)
 
   useEffect(() => {
-    getExhibitions()
-      .then(res => { setExhibitions(res.items || []); setExFallback(res.fallback || false) })
-      .catch(() => setExFallback(true))
+    // 한국 API + AIC 전시 병렬 fetch 후 병합
+    Promise.allSettled([
+      getExhibitions(),
+      getAICExhibitions(),
+    ]).then(([krResult, aicResult]) => {
+      const krItems = krResult.status === 'fulfilled' ? (krResult.value.items || []) : []
+      const aicItems = aicResult.status === 'fulfilled' ? aicResult.value : []
+      const merged = [...krItems, ...aicItems]
+      setExhibitions(merged)
+      setExFallback(merged.length === 0)
+    }).catch(() => setExFallback(true))
       .finally(() => setExLoading(false))
   }, [])
 
@@ -416,7 +425,7 @@ export default function Routine() {
 
         {/* ② EXHIBITION PICK */}
         <section>
-          <SectionLabel en="EXHIBITION PICK" ko="오늘의 전시 산책" sub="국립현대미술관 · 예술의전당" />
+          <SectionLabel en="EXHIBITION PICK" ko="오늘의 전시 산책" sub="국립현대미술관 · 예술의전당 · Art Institute of Chicago" />
           {exLoading ? (
             <ExhibitionSkeleton />
           ) : (exFallback || exhibitions.length === 0) ? (

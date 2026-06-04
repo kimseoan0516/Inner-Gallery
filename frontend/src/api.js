@@ -200,10 +200,12 @@ export async function getDailyArtworkAIC() {
   const ordinal = Math.floor((today - new Date(2000, 0, 1)) / 86400000)
   const esFrom = ordinal % 9000
 
+  // 고전 회화(그림)으로 한정 — Painting 타입 + 퍼블릭 도메인
   const query = {
     query: { bool: { must: [
       { term: { is_public_domain: true } },
       { exists: { field: 'image_id' } },
+      { term: { artwork_type_title: 'Painting' } },
     ] } },
     from: esFrom,
     size: 10,
@@ -239,6 +241,50 @@ export async function getDailyArtworkAIC() {
     artic_url:     `https://www.artic.edu/artworks/${artwork.id}`,
     question:      _AIC_QUESTIONS[ordinal % _AIC_QUESTIONS.length],
   }
+}
+
+// ── AIC 전시정보 — 브라우저 직접 호출 ─────────────────────────────────────────
+
+function _fmtAICDate(iso) {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (isNaN(d)) return ''
+  return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`
+}
+
+export async function getAICExhibitions() {
+  const url = `https://api.artic.edu/api/v1/exhibitions` +
+    `?limit=12&fields=id,title,short_description,image_id,aic_start_at,aic_end_at,gallery_title,status`
+
+  const res = await fetch(url, {
+    headers: { 'AIC-User-Agent': 'inner-gallery (sakim9018@gmail.com)' },
+  })
+  if (!res.ok) throw new Error('AIC exhibitions error')
+
+  const payload = await res.json()
+  const iiifBase = payload.config?.iiif_url || 'https://www.artic.edu/iiif/2'
+  const today = new Date()
+
+  return (payload.data || [])
+    .filter(ex => {
+      if (!ex.title) return false
+      // 종료된 전시 제외
+      if (ex.aic_end_at && new Date(ex.aic_end_at) < today) return false
+      return true
+    })
+    .slice(0, 4)
+    .map(ex => ({
+      source:    'Art Institute of Chicago',
+      title:     ex.title,
+      place:     ex.gallery_title || 'Art Institute of Chicago',
+      period:    ex.aic_start_at || ex.aic_end_at
+        ? `${_fmtAICDate(ex.aic_start_at)} ~ ${_fmtAICDate(ex.aic_end_at)}`
+        : '',
+      fee:       '유료',
+      thumbnail: ex.image_id ? `${iiifBase}/${ex.image_id}/full/400,/0/default.jpg` : '',
+      url:       `https://www.artic.edu/exhibitions/${ex.id}`,
+      author:    '',
+    }))
 }
 
 export async function getArtistQuote() {
