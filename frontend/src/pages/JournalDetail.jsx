@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext.jsx'
-import { deleteJournal } from '../api.js'
+import { deleteJournal, getJournalEntry } from '../api.js'
 import GoldDivider from '../components/GoldDivider.jsx'
 
 function SecLabel({ icon, title, en }) {
@@ -19,10 +19,29 @@ function SecLabel({ icon, title, en }) {
 
 export default function JournalDetail() {
   const nav = useNavigate()
-  const { selectedEntry: rec } = useApp()
+  const { selectedEntry } = useApp()
+  const [rec, setRec] = useState(selectedEntry)
   const [reportOpen, setReportOpen] = useState(false)
+  const [detailLoading, setDetailLoading] = useState(true)
 
-  if (!rec) { nav('/journal'); return null }
+  useEffect(() => {
+    if (!selectedEntry?.date) { nav('/journal'); return }
+    getJournalEntry(selectedEntry.date)
+      .then(full => { setRec(full); setDetailLoading(false) })
+      .catch(() => { setRec(selectedEntry); setDetailLoading(false) })
+  }, [selectedEntry?.date])
+
+  if (!selectedEntry) { nav('/journal'); return null }
+  if (detailLoading) return (
+    <div className="screen" style={{ background: 'var(--bg)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {[0,1,2].map(i => <div key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--gold)', animation: `pulse 1.4s ${i * 0.46}s infinite` }} />)}
+        </div>
+        <p style={{ fontSize: 12, color: 'var(--sub)', letterSpacing: 1 }}>기록을 불러오는 중…</p>
+      </div>
+    </div>
+  )
 
   const eraData = rec.era_data ? (() => { try { return JSON.parse(rec.era_data) } catch { return null } })() : null
 

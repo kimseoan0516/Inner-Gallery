@@ -11,9 +11,13 @@ export default function Journal() {
   const location = useLocation()
   const { setSelectedEntry } = useApp()
   const [records, setRecords] = useState([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    getJournal().then(data => setRecords(data)).catch(() => {})
+    setLoading(true)
+    getJournal()
+      .then(data => { setRecords(data); setLoading(false) })
+      .catch(() => setLoading(false))
   }, [location.state?.refresh])
 
   const open = (rec) => { setSelectedEntry(rec); nav('/journal/detail') }
@@ -56,7 +60,16 @@ export default function Journal() {
 
 
 
-        {records.length === 0 ? (
+        {loading ? (
+          <div style={{ textAlign: 'center', marginTop: 80, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16 }}>
+            <div style={{ display: 'flex', gap: 8 }}>
+              {[0,1,2].map(i => (
+                <div key={i} style={{ width: 8, height: 8, borderRadius: '50%', background: 'var(--gold)', animation: `pulse 1.4s ${i * 0.46}s infinite` }} />
+              ))}
+            </div>
+            <p style={{ fontSize: 12, color: 'var(--sub)', letterSpacing: 1 }}>감상 기록을 불러오는 중…</p>
+          </div>
+        ) : records.length === 0 ? (
           <div style={{ textAlign: 'center', marginTop: 60 }}>
             <div style={{ fontSize: 28, marginBottom: 16, opacity: 0.25, letterSpacing: 4, fontFamily: 'serif' }}>◇</div>
             <p style={{ color: 'var(--sub)', lineHeight: 2, fontSize: 13 }}>

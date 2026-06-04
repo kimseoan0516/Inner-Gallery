@@ -26,7 +26,7 @@ from modules.llm_generator        import generate_interpretation, analyze_artwor
 from modules.quality_checker      import check_image_quality
 from modules.artwork_matcher      import match_artwork, top_k_artists, is_available as matcher_available
 from modules.era_lookup           import lookup_artwork
-from backend.database             import init_db, get_journal, save_journal_entry, delete_journal_entry, update_journal_note, update_journal_sketch
+from backend.database             import init_db, get_journal, get_journal_entry, save_journal_entry, delete_journal_entry, update_journal_note, update_journal_sketch
 from backend.auth                 import router as auth_router, get_current_user
 
 app = FastAPI(title="Inner Gallery API")
@@ -1065,6 +1065,13 @@ async def analyze(
 @app.get("/api/journal")
 def journal_get(user=Depends(get_current_user)):
     return get_journal(user["id"])
+
+@app.get("/api/journal/detail/{date:path}")
+def journal_entry_get(date: str, user=Depends(get_current_user)):
+    entry = get_journal_entry(user["id"], date)
+    if not entry:
+        raise HTTPException(404, "기록을 찾을 수 없습니다")
+    return entry
 
 
 class JournalEntry(BaseModel):

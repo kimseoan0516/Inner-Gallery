@@ -123,6 +123,11 @@ export async function getJournal() {
   return data
 }
 
+export async function getJournalEntry(date) {
+  const { data } = await api.get(`/api/journal/detail/${encodeURIComponent(date)}`)
+  return data
+}
+
 export async function saveJournal(entry) {
   const { data } = await api.post('/api/journal', entry)
   return data
