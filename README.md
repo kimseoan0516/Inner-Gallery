@@ -10,6 +10,7 @@ license: mit
 short_description: An AI-powered art journal using computer vision and LLM
 ---
 
+---
 <img width="2304" height="876" alt="inner_gallery_logo_horizontal" src="https://github.com/user-attachments/assets/eae8da45-107b-4b86-91fc-126c577a12d2" />
 
 <div align="center">
