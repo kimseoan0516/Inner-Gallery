@@ -15,6 +15,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
+# 앱 아이콘이 없으면 플레이스홀더 생성 (HF Spaces는 바이너리 파일 직접 저장 불가)
+RUN python3 -c "from PIL import Image; import os; pub='frontend/public'; os.makedirs(pub,exist_ok=True); [Image.new('RGB',(s,s),color='#1C1008').save(f'{pub}/{n}','PNG') for s,n in [(512,'icon-512.png'),(192,'icon-192.png'),(180,'apple-touch-icon.png')] if not os.path.exists(f'{pub}/{n}')]"
+
 # 프론트엔드 빌드
 RUN cd frontend && npm install && npm run build
 
