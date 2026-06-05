@@ -260,7 +260,7 @@ _SELECT_COLS = """
     id, user_id, date, entry_type,
     artwork_title, artwork_artist, artwork_year,
     essay_title,
-    moods, dominant_colors, thumbnail,
+    moods, dominant_colors,
     pre_emotions, post_emotions,
     mood_color, mood_color_name, mood_note,
     sketch_title, ticket_memo, ticket_exhibition,
@@ -275,6 +275,25 @@ def get_journal(user_id: int) -> list[dict]:
             (user_id,),
         ).fetchall()
     return [row_to_entry(r) for r in rows]
+
+def get_journal_thumbs(user_id: int, dates: list[str]) -> dict[str, str]:
+    """날짜 목록에 해당하는 thumbnail(또는 sketch_image) 만 반환."""
+    if not dates:
+        return {}
+    ph = ','.join(['?'] * len(dates))
+    with conn() as c:
+        rows = c.execute(
+            f"SELECT date, thumbnail, sketch_image, entry_type FROM journal_entries WHERE user_id = ? AND date IN ({ph})",
+            [user_id] + list(dates),
+        ).fetchall()
+    result = {}
+    for r in rows:
+        d = dict(r)
+        img = d.get('thumbnail') or ''
+        if not img and d.get('entry_type') == 'sketch':
+            img = d.get('sketch_image') or ''
+        result[d['date']] = img
+    return result
 
 def get_journal_entry(user_id: int, date: str) -> dict | None:
     """상세용 — 전체 컬럼 반환."""

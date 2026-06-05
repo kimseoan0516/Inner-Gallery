@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import { useApp } from '../context/AppContext.jsx'
 import { toPng } from 'html-to-image'
 
-import { getJournal, updateJournalNote, updateJournalExhibition } from '../api.js'
+import { getJournal, getJournalThumbs, updateJournalNote, updateJournalExhibition } from '../api.js'
 import GoldDivider from '../components/GoldDivider.jsx'
 
 export default function Journal() {
@@ -15,9 +15,20 @@ export default function Journal() {
 
   useEffect(() => {
     setLoading(true)
-    getJournal()
-      .then(data => { setRecords(data); setLoading(false) })
-      .catch(() => setLoading(false))
+    getJournal().then(data => {
+      setRecords(data)
+      setLoading(false)
+      // 썸네일 별도 로딩 (목록 렌더 차단 안 함)
+      const dates = data.map(r => r.date)
+      if (dates.length > 0) {
+        getJournalThumbs(dates).then(thumbMap => {
+          setRecords(prev => prev.map(r => ({
+            ...r,
+            thumbnail: thumbMap[r.date] || r.thumbnail || '',
+          })))
+        }).catch(() => {})
+      }
+    }).catch(() => setLoading(false))
   }, [location.state?.refresh])
 
   const open = (rec) => {

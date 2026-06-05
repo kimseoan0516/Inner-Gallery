@@ -26,7 +26,7 @@ from modules.llm_generator        import generate_interpretation, analyze_artwor
 from modules.quality_checker      import check_image_quality
 from modules.artwork_matcher      import match_artwork, top_k_artists, is_available as matcher_available
 from modules.era_lookup           import lookup_artwork
-from backend.database             import init_db, get_journal, get_journal_entry, save_journal_entry, delete_journal_entry, update_journal_note, update_journal_sketch, update_journal_exhibition, get_random_quote
+from backend.database             import init_db, get_journal, get_journal_entry, get_journal_thumbs, save_journal_entry, delete_journal_entry, update_journal_note, update_journal_sketch, update_journal_exhibition, get_random_quote
 from backend.auth                 import router as auth_router, get_current_user
 
 app = FastAPI(title="Inner Gallery API")
@@ -1065,6 +1065,13 @@ async def analyze(
 @app.get("/api/journal")
 def journal_get(user=Depends(get_current_user)):
     return get_journal(user["id"])
+
+class ThumbsRequest(BaseModel):
+    dates: List[str]
+
+@app.post("/api/journal/thumbs")
+def journal_thumbs(req: ThumbsRequest, user=Depends(get_current_user)):
+    return get_journal_thumbs(user["id"], req.dates)
 
 @app.get("/api/journal/detail/{date:path}")
 def journal_entry_get(date: str, user=Depends(get_current_user)):
