@@ -1107,21 +1107,21 @@ export default function Results() {
                     <span style={{ fontSize: 8, color: 'var(--sub)', letterSpacing: 2, fontFamily: 'monospace' }}>{label}</span>
                     <span style={{ fontSize: 9, color: 'var(--body)', fontFamily: 'monospace' }}>{value}{unit}</span>
                   </div>
-                  <div style={{ position: 'relative', height: 36 }}>
+                  <div style={{ position: 'relative', height: 44 }}>
                     {/* 그라디언트 바 - 세로 중앙 */}
                     <div style={{ position: 'absolute', left: 0, right: 0, top: '50%', height: 10, transform: 'translateY(-50%)', borderRadius: 5, background: gradient, border: '1px solid var(--line)' }}/>
                     {/* 핸들 */}
                     <div style={{
                       position: 'absolute', top: '50%', left: `${pct}%`,
                       transform: 'translate(-50%,-50%)', pointerEvents: 'none', zIndex: 2,
-                      width: 20, height: 20, borderRadius: '50%',
+                      width: 24, height: 24, borderRadius: '50%',
                       background: '#fff', border: '1.5px solid rgba(120,90,40,0.38)',
                       boxShadow: '0 1px 6px rgba(0,0,0,0.2)',
                     }}/>
                     {/* 넓은 터치 영역 */}
                     <input type="range" min={min} max={max} value={value}
                       onChange={e => onChange(Number(e.target.value))}
-                      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer', zIndex: 3, margin: 0, touchAction: 'none' }}
+                      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', opacity: 0, cursor: 'pointer', zIndex: 3, margin: 0, touchAction: 'pan-y' }}
                     />
                   </div>
                 </div>
