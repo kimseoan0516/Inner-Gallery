@@ -108,10 +108,10 @@ function TicketCard({ rec, onClick, onUpdateNote, onUpdateExhibition }) {
     ? (rec.sketch_title || '마음 스케치')
     : (rec.artwork_title || rec.essay_title || '(제목 미확인)')
   const artist   = isSketch ? '나의 기록' : (rec.artwork_artist || '')
-  const imgSrc   = isSketch
-    ? (rec.sketch_image  ? `data:image/jpeg;base64,${rec.sketch_image}` : null)
-    : (rec.thumbnail     ? (rec.thumbnail.startsWith('http') ? rec.thumbnail : `data:image/jpeg;base64,${rec.thumbnail}`) : null)
-  const imgBg    = isSketch ? (rec.mood_color || '#333') : '#333'
+  const imgSrc   = rec.thumbnail
+    ? (rec.thumbnail.startsWith('http') ? rec.thumbnail : `data:image/jpeg;base64,${rec.thumbnail}`)
+    : null
+  const imgBg    = isSketch ? (rec.mood_color || '#2a1a0e') : '#333'
   
   const dateObj  = new Date(rec.date.replace(' ', 'T'))
   const dateStr  = `${dateObj.getFullYear()}-${String(dateObj.getMonth() + 1).padStart(2, '0')}-${String(dateObj.getDate()).padStart(2, '0')}`
@@ -129,22 +129,42 @@ function TicketCard({ rec, onClick, onUpdateNote, onUpdateExhibition }) {
 
     await document.fonts.ready
 
-    // 이미지 로드 대기
+    // 외부 HTTP 이미지를 data URL로 변환 (CORS 우회)
     const imgs = [...el.querySelectorAll('img')]
-    await Promise.all(imgs.map(img => {
-      if (img.complete && img.naturalHeight !== 0) return Promise.resolve()
-      return new Promise(resolve => {
-        img.addEventListener('load', resolve, { once: true })
-        img.addEventListener('error', resolve, { once: true })
-      })
+    const restored = []
+    await Promise.all(imgs.map(async (img) => {
+      const src = img.getAttribute('src') || ''
+      if (src.startsWith('http')) {
+        try {
+          const resp = await fetch(src, { mode: 'cors', cache: 'force-cache' })
+          const blob = await resp.blob()
+          const dataUrl = await new Promise(r => {
+            const reader = new FileReader()
+            reader.onloadend = () => r(reader.result)
+            reader.readAsDataURL(blob)
+          })
+          restored.push({ img, src })
+          img.removeAttribute('crossOrigin')
+          img.src = dataUrl
+          await new Promise(r => { img.complete ? r() : (img.onload = r, img.onerror = r) })
+        } catch { /* 실패 시 원본 유지 */ }
+      } else if (src && !img.complete) {
+        await new Promise(r => {
+          img.addEventListener('load', r, { once: true })
+          img.addEventListener('error', r, { once: true })
+        })
+      }
     }))
 
-    // skipFonts: true로 외부 폰트 CORS 문제 회피 → 빠르고 안정적
-    return toPng(el, {
-      pixelRatio: 2,
-      skipFonts: true,
-      filter: node => node.nodeType !== 1 || !node.dataset?.noCapture,
-    })
+    try {
+      return await toPng(el, {
+        pixelRatio: 2,
+        skipFonts: false,
+        filter: node => node.nodeType !== 1 || !node.dataset?.noCapture,
+      })
+    } finally {
+      restored.forEach(({ img, src }) => { img.src = src; img.setAttribute('crossOrigin', 'anonymous') })
+    }
   }
 
   const handleSave = async (e) => {
@@ -252,8 +272,8 @@ function TicketCard({ rec, onClick, onUpdateNote, onUpdateExhibition }) {
 
         {!isSketch && (
           <div style={{ position: 'absolute', bottom: 22, left: 16, right: 16 }}>
-            <h3 style={{ margin: 0, fontSize: 20, color: 'white', fontFamily: "'Georgia', 'Noto Serif KR', serif", letterSpacing: 0.5, marginBottom: 4 }}>{title}</h3>
-            <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.8)' }}>{artist}</p>
+            <h3 style={{ margin: 0, fontSize: 20, color: 'white', fontFamily: "'Noto Serif KR', 'Georgia', serif", fontWeight: 700, letterSpacing: 0.3, marginBottom: 4 }}>{title}</h3>
+            <p style={{ margin: 0, fontSize: 12, color: 'rgba(255,255,255,0.8)', fontFamily: "'Noto Serif KR', serif" }}>{artist}</p>
           </div>
         )}
       </div>

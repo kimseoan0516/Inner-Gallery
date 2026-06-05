@@ -263,7 +263,7 @@ _SELECT_COLS = """
     moods, dominant_colors, thumbnail,
     pre_emotions, post_emotions,
     mood_color, mood_color_name, mood_note,
-    sketch_title, sketch_image, ticket_memo, ticket_exhibition,
+    sketch_title, ticket_memo, ticket_exhibition,
     created_at
 """
 
