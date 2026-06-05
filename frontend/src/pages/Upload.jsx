@@ -7,7 +7,7 @@ import { useApp } from '../context/AppContext.jsx'
 import { analyzeImage, quickMatch, quickQuality, getDemoResult } from '../api.js'
 
 const EMOTION_CATEGORIES = [
-  { label: '가라앉음',         emotions: ['슬픔', '우울감', '외로움', '그리움', '공허함', '결핍', '상처', '자괴감', '절망', '무기력', '지침', '피곤', '부담감'] },
+  { label: '가라앉음',         emotions: ['슬픔', '우울감', '외로움', '그리움', '공허함', '결핍', '상처', '자괴감', '후회', '자책', '절망', '무기력', '지침', '피곤', '부담감'] },
   { label: '불안과 흔들림',     emotions: ['불안', '긴장감', '두려움', '막연함', '내적 갈등'] },
   { label: '분노와 복잡한 감정', emotions: ['짜증', '화', '증오', '애증'] },
   { label: '안정과 위로',       emotions: ['평온함', '편안함', '여유', '휴식', '온기', '위로', '수용', '화해', '환기'] },
