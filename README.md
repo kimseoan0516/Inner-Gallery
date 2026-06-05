@@ -56,7 +56,6 @@ short_description: An AI-powered art journal using computer vision and LLM
 - [API Overview](#api-overview)
 - [Architecture](#architecture)
 - [Database Schema](#database-schema)
-- [Feature Flow](#feature-flow)
 - [References & External Resources](#references--external-resources)
 - [Future Improvements](#future-improvements)
 - [License](#license)
@@ -662,34 +661,6 @@ flowchart LR
     H --> I
 ```
 
-### Authentication Flow
-
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant API as FastAPI
-    participant DB as Database
-
-    C->>API: POST /api/auth/register {username, email, password}
-    API->>API: bcrypt.hashpw(password)
-    API->>DB: INSERT INTO users
-    DB-->>API: ok
-    API-->>C: {ok: true}
-
-    C->>API: POST /api/auth/login {username, password}
-    API->>DB: SELECT * FROM users WHERE username=?
-    DB-->>API: user row
-    API->>API: bcrypt.checkpw() → JWT encode(sub=user_id, exp=30d)
-    API-->>C: {access_token, username, user_id}
-
-    C->>API: POST /api/journal (Authorization: Bearer <token>)
-    API->>API: jwt.decode() → user_id
-    API->>DB: SELECT * FROM users WHERE id=?
-    DB-->>API: user row
-    API->>DB: INSERT INTO journal_entries
-    API-->>C: {ok: true}
-```
-
 ---
 
 ## Database Schema
@@ -795,68 +766,6 @@ erDiagram
 | `thumbnail`, `sketch_image` | Base64 JPEG (또는 HTTP URL) | — |
 
 ---
-
-## Feature Flow
-
-### 작품 분석 → 저장 전체 흐름
-
-```mermaid
-flowchart TD
-    A([이미지 업로드 / 카메라 촬영]) --> B{카메라 모드?}
-    B -->|Yes| C[화질 검사\nBlur·Glare·Darkness]
-    B -->|No| D[Client-side Sobel Crop]
-    C -->|경고| D
-    D --> E[POST /api/quick-match\nCLIP+FAISS Top-5 미리보기]
-    E --> F[사용자: 힌트 입력 / 감정 선택 / 설정]
-    F --> G[POST /api/analyze\n전체 분석 파이프라인]
-    G --> H{식별 상태}
-    H -->|confirmed| I[작품 정보 + era_db 조회]
-    H -->|unknown| I2[색채·구도 중심 감상]
-    I --> J[도슨트 에세이 생성\nGemini 2.0 Flash]
-    I2 --> J
-    J --> K[Results 페이지\n에세이·질문·마음색·감정바]
-    K --> L{저장?}
-    L -->|Yes| M[감상 후 감정 선택]
-    M --> N[POST /api/journal\n전시 티켓 저장]
-    N --> O([Journal 아카이브])
-    K --> P[마음 스케치]
-    P --> Q[POST /api/sketch-reflection\nGemini Vision 회고]
-    Q --> N
-```
-
-### 오늘의 명화 흐름
-
-```mermaid
-flowchart TD
-    A([Routine 페이지 진입]) --> B[getDailyArtworkAIC\n날짜 기반 결정론적 선택]
-    B --> C[AIC Public API\n퍼블릭 도메인 작품 조회]
-    C --> D[작품 이미지 + 메타데이터 표시\nAIC IIIF Image API]
-    D --> E{번역 요청?}
-    E -->|Yes| F[POST /api/translate\nGemini 한국어 번역]
-    F --> D
-    D --> G[오늘의 질문 표시\n30개 중 날짜 기반 선택]
-    G --> H[사용자 답변 입력]
-    H --> I[POST /api/journal\n감상 기록 저장]
-    I --> J([Journal 아카이브])
-    D --> K[다른 작품 보기\nRandom offset]
-    K --> C
-```
-
-### 감상 기록 조회 흐름
-
-```mermaid
-flowchart TD
-    A([Journal 페이지]) --> B[GET /api/journal\n텍스트 메타 + thumbnail 한번에 수신]
-    B --> C[티켓 카드 목록 렌더링]
-    C --> D{티켓 클릭}
-    D --> E[GET /api/journal/detail/date\n전체 컬럼 수신]
-    E --> F[JournalDetail 렌더\n에세이·질문·감정·스케치·시대정보 한번에 표시]
-    F --> G{VIEW REPORT}
-    G -->|펼치기| H[에세이 본문 + 질문·답변 + 시대 맥락]
-    F --> I{티켓 이미지 저장/공유}
-    I --> J[html-to-image → PNG\n외부 이미지 data URL 변환]
-    J --> K([PNG 저장 / Web Share API])
-```
 
 ---
 
