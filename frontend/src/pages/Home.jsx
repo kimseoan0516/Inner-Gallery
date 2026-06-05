@@ -122,69 +122,70 @@ function AiExplainCard() {
       {open && (
         <div style={{ background: 'rgba(0,0,0,0.02)', padding: '16px 14px', display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-          <Step num="1" title="Roboflow — 작품 영역 자동 감지 & 크롭">
+          <Step num="1" title="Roboflow — 회화 영역 객체 탐지 & 크롭">
             <p style={{ fontSize: 10.5, color: 'var(--sub)', lineHeight: 1.8 }}>
-              업로드된 사진에서 <span style={{ color: 'var(--body)', fontWeight: 600 }}>Roboflow 객체 감지 모델</span>이 작품 영역을 정밀 탐지해 자동으로 크롭합니다. 액자·배경·그림자를 제거해 이후 분석 정확도를 높입니다.
+              커스텀 학습된 <span style={{ color: 'var(--body)', fontWeight: 600 }}>Roboflow Painting Detection</span> 모델이 입력 이미지에서 회화 바운딩 박스를 추출합니다. 액자·벽면·그림자 등 노이즈 영역을 제거하고 8% 패딩을 적용해 순수 작품 영역만 크롭, 이후 모든 분석의 정밀도를 높입니다.
             </p>
             <Code lines={[
-              '원본 사진 입력  →  Roboflow Painting Detection',
-              '작품 바운딩 박스 추출  →  8% 패딩 적용 크롭',
+              'input image  →  Roboflow Painting Detector',
+              'bbox(x,y,w,h) → +8% padding crop  →  artwork_roi',
             ]} />
           </Step>
 
           <div style={{ height: '0.5px', background: `${BRZ}0.12)` }} />
 
-          <Step num="2" title="OpenCV — 색채·구도·인물 병렬 분석">
+          <Step num="2" title="OpenCV — LAB 색공간 · 구도 · 인물 병렬 분석">
             <p style={{ fontSize: 10.5, color: 'var(--sub)', lineHeight: 1.8 }}>
-              크롭된 이미지를 <span style={{ color: 'var(--body)', fontWeight: 600 }}>OpenCV</span>로 동시에 세 갈래 분석합니다. 지배 색상 5가지와 색채 무드, 구도·여백·대칭 수치, 인물 자세·표정을 수치화된 데이터로 추출합니다.
+              크롭된 ROI를 <span style={{ color: 'var(--body)', fontWeight: 600 }}>OpenCV</span> 3개 모듈이 병렬 처리합니다. <b>색채 분석</b>은 CIE LAB 색공간에서 K-Means 클러스터링으로 지배색 5종과 무드 태그를 추출하고, <b>구도 분석</b>은 3분할 법칙·대칭도·여백 비율·시선 방향을 수치화하며, <b>인물 분석</b>은 DNN 기반 포즈 추정으로 자세와 감정적 자세를 태깅합니다.
             </p>
             <Code lines={[
-              'analyze_colors()       →  지배색 5개 · 색채 무드 태그',
-              'analyze_composition()  →  구도 · 여백 · 대칭 · 방향',
-              'analyze_person()       →  인물 감지 · 자세 · 표정',
+              'analyze_colors()       →  LAB K-Means  →  지배색 5 · 무드 태그',
+              'analyze_composition()  →  구도점수 · 대칭 · 여백 · 방향벡터',
+              'analyze_person()       →  DNN Pose  →  자세 · 감정적 자세 태그',
             ]} />
           </Step>
 
           <div style={{ height: '0.5px', background: `${BRZ}0.12)` }} />
 
-          <Step num="3" title="Gemini 2.0 Flash Vision — 멀티모달 작품 식별">
+          <Step num="3" title="CLIP ViT-B/32 + FAISS — 벡터 유사도 작품 매칭">
             <p style={{ fontSize: 10.5, color: 'var(--sub)', lineHeight: 1.8 }}>
-              <span style={{ color: 'var(--body)', fontWeight: 600 }}>Gemini 2.0 Flash</span> 멀티모달 모델이 이미지를 직접 읽어 작품명·작가·연도 후보를 추출하고, OCR로 캡션 텍스트 인식 및 인물 표정까지 동시에 분석합니다.
+              <span style={{ color: 'var(--body)', fontWeight: 600 }}>CLIP ViT-B/32</span> 모델이 입력 이미지를 512차원 임베딩으로 인코딩하고, L2 정규화 후 <span style={{ color: 'var(--body)', fontWeight: 600 }}>FAISS IndexFlatIP</span>로 코사인 유사도 최근접 이웃을 검색합니다. 상위 12개 후보 중 유사도 0.78 이상이고 동일 작가 hit이 2회 이상인 경우에만 매칭을 확정하는 <b>다중 투표(multi-vote)</b> 방식으로 오탐률을 최소화합니다.
             </p>
             <Code lines={[
-              'analyze_artwork_vision()  →  작품 후보 + OCR + figure',
-              '출력 예시  →  "Vincent van Gogh · The Starry Night"',
+              'image  →  CLIP ViT-B/32  →  emb[512] / L2-norm',
+              'FAISS IndexFlatIP.search(emb, k=12)  →  (sim, idx)[]',
+              'sim ≥ 0.78  AND  same-artist votes ≥ 2  →  match confirmed',
             ]} />
           </Step>
 
           <div style={{ height: '0.5px', background: `${BRZ}0.12)` }} />
 
-          <Step num="4" title="3중 크로스 검증 — 작품 신원 최종 확정">
+          <Step num="4" title="Gemini Vision + Google Cloud Vision — 멀티모달 교차 검증">
             <p style={{ fontSize: 10.5, color: 'var(--sub)', lineHeight: 1.8 }}>
-              <span style={{ color: 'var(--body)', fontWeight: 600 }}>CLIP 기반 FAISS DB 매칭</span> + <span style={{ color: 'var(--body)', fontWeight: 600 }}>Google Cloud Vision 웹 검색</span> + <span style={{ color: 'var(--body)', fontWeight: 600 }}>OCR 힌트</span> 세 결과를 교차 검증해 작품 신원을 확정합니다. 불일치 시 신뢰도 임계값 기준으로 자동 조정합니다.
+              <span style={{ color: 'var(--body)', fontWeight: 600 }}>Gemini 2.0 Flash</span> 멀티모달 모델이 이미지를 직접 읽어 작품명·작가·연도 후보를 생성하고 OCR로 캡션 텍스트를 인식합니다. <span style={{ color: 'var(--body)', fontWeight: 600 }}>Google Cloud Vision Web Detection</span>이 웹 상의 유사 이미지를 역검색해 결과를 보완합니다. 세 소스(CLIP, Gemini, Vision)가 교차 일치하면 <b>confirmed</b>로 격상되며, OCR 강힌트가 있으면 단독으로도 확정 가능합니다.
             </p>
             <Code lines={[
-              'CLIP DB 유사도  ≥ 85%  →  confirmed',
-              'Google Vision + Gemini 교차 일치  →  confirmed',
-              'OCR 강한 힌트 + 교차 검증  →  confirmed 격상',
+              'Gemini Vision  →  [후보 작품명 · 작가 · OCR · figure]',
+              'GCV Web Detection  →  best_guess · web_entities · pages',
+              'CLIP ∩ Gemini ∩ GCV  ≥ 2-source match  →  confirmed',
             ]} />
           </Step>
 
           <div style={{ height: '0.5px', background: `${BRZ}0.12)` }} />
 
-          <Step num="5" title="감정 점수 산출 → 도슨트 에세이 생성">
+          <Step num="5" title="감정 스코어링 → 도슨트 에세이 실시간 생성">
             <p style={{ fontSize: 10.5, color: 'var(--sub)', lineHeight: 1.8 }}>
-              색채·구도·인물 수치를 종합해 <span style={{ color: 'var(--body)', fontWeight: 600 }}>8가지 감정 점수</span>를 산출하고, 전체 분석 결과를 Gemini에 전달해 <span style={{ color: 'var(--body)', fontWeight: 600 }}>사용자 맞춤형 도슨트 에세이</span>와 감상 질문을 실시간 생성합니다.
+              색채·구도·인물 분석 수치 전체를 가중 합산해 <span style={{ color: 'var(--body)', fontWeight: 600 }}>8차원 감정 벡터</span>(평온, 슬픔, 기쁨, 불안, 경이, 에너지, 온기, 멜랑콜리)를 산출합니다. 확정된 작품 메타데이터와 감정 벡터를 컨텍스트로 Gemini에 전달해 <span style={{ color: 'var(--body)', fontWeight: 600 }}>사용자 맞춤 도슨트 에세이</span>·성찰 질문·위로 메시지를 스트리밍 생성합니다.
             </p>
             <Code lines={[
-              '시각 데이터 전체  →  calculate_emotion_scores()',
-              '작품 정보 + 감정 점수  →  generate_interpretation()',
-              '출력  →  맞춤 에세이 · 감상 질문 · 위로 메시지',
+              'color + composition + person  →  calculate_emotion_scores()  →  vec[8]',
+              '{artwork_meta, emotion_vec, user_context}  →  Gemini 2.0 Flash',
+              'output  →  essay · reflection_q · comfort · similar_works',
             ]} />
           </Step>
 
           <p style={{ fontSize: 9, color: `${BRZ}0.35)`, textAlign: 'center', letterSpacing: 0.5, lineHeight: 1.7 }}>
-            Roboflow · OpenCV · CLIP · Gemini 2.0 Flash · Google Cloud Vision 복합 파이프라인
+            Roboflow · OpenCV · CLIP ViT-B/32 · FAISS · Gemini 2.0 Flash · Google Cloud Vision
           </p>
         </div>
       )}
