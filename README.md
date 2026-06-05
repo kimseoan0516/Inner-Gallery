@@ -7,7 +7,7 @@ sdk: docker
 app_port: 7860
 pinned: false
 license: mit
-short_description: AI-powered art reflection journal with computer vision and grounded LLM
+short_description: AI art reflection journal with computer vision
 ---
 
 <br />
