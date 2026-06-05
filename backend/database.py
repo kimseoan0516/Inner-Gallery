@@ -259,11 +259,12 @@ def search_artists(query: str, limit: int = 10) -> list[dict]:
 _SELECT_COLS = """
     id, user_id, date, entry_type,
     artwork_title, artwork_artist, artwork_year,
-    essay_title,
-    moods, dominant_colors,
+    essay_title, reflection,
+    moods, dominant_colors, thumbnail,
     pre_emotions, post_emotions,
     mood_color, mood_color_name, mood_note,
-    sketch_title, ticket_memo, ticket_exhibition,
+    sketch_title, sketch_reflection,
+    ticket_memo, ticket_exhibition,
     created_at
 """
 

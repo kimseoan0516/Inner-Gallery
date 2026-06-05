@@ -15,20 +15,10 @@ export default function Journal() {
 
   useEffect(() => {
     setLoading(true)
-    getJournal().then(data => {
-      setRecords(data)
-      setLoading(false)
-      // 썸네일 별도 로딩 (목록 렌더 차단 안 함)
-      const dates = data.map(r => r.date)
-      if (dates.length > 0) {
-        getJournalThumbs(dates).then(thumbMap => {
-          setRecords(prev => prev.map(r => ({
-            ...r,
-            thumbnail: thumbMap[r.date] || r.thumbnail || '',
-          })))
-        }).catch(() => {})
-      }
-    }).catch(() => setLoading(false))
+    getJournal()
+      .then(data => setRecords(data))
+      .catch(() => {})
+      .finally(() => setLoading(false))
   }, [location.state?.refresh])
 
   const open = (rec) => {
