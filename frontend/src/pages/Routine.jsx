@@ -438,54 +438,36 @@ function ArtistWords() {
           </p>
         )}
 
-        {/* 하단 — 작가명 + 둥근 버튼 */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <p style={{
-              margin: 0,
-              fontSize: 13,
-              fontWeight: 700,
-              color: '#8C692A',
-              fontFamily: "'Noto Serif KR', serif",
-              letterSpacing: 1.5,
-            }}>
-              — {quote.artist}
-            </p>
-            {quote.artist_en && (
-              <p style={{ margin: '4px 0 0', fontSize: 11, fontWeight: 500, color: 'rgba(140, 105, 42, 0.7)', letterSpacing: 0.5 }}>
-                ({quote.artist_en})
-              </p>
-            )}
-          </div>
+        {/* 하단 — 작가명 + 텍스트 링크 */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+          <p style={{
+            margin: 0,
+            fontSize: 13,
+            fontWeight: 700,
+            color: '#8C692A',
+            fontFamily: "'Noto Serif KR', serif",
+            letterSpacing: 1.2,
+          }}>
+            — {quote.artist}{quote.artist_en ? ` (${quote.artist_en})` : ''}
+          </p>
 
           <button
             onClick={fetchQuote}
             style={{
-              background: 'linear-gradient(135deg, rgba(184,145,42,0.1), rgba(184,145,42,0.02))',
-              border: '1px solid rgba(184,145,42,0.25)',
-              padding: '8px 20px',
-              borderRadius: 30,
-              fontSize: 12,
-              fontWeight: 600,
-              color: 'rgba(140,105,42,0.9)',
+              background: 'none',
+              border: 'none',
+              padding: 0,
+              fontSize: 11,
+              color: 'rgba(140,105,42,0.55)',
               cursor: 'pointer',
-              letterSpacing: 0.5,
+              letterSpacing: 0.3,
               fontFamily: "'Noto Serif KR', serif",
-              transition: 'all 0.25s ease',
-              boxShadow: '0 2px 8px rgba(184,145,42,0.05)'
-            }}
-            onMouseOver={e => { 
-              e.target.style.background = 'linear-gradient(135deg, rgba(184,145,42,0.15), rgba(184,145,42,0.05))'; 
-              e.target.style.boxShadow = '0 4px 12px rgba(184,145,42,0.15)'; 
-              e.target.style.transform = 'translateY(-1px)';
-            }}
-            onMouseOut={e => { 
-              e.target.style.background = 'linear-gradient(135deg, rgba(184,145,42,0.1), rgba(184,145,42,0.02))';
-              e.target.style.boxShadow = '0 2px 8px rgba(184,145,42,0.05)';
-              e.target.style.transform = 'translateY(0)';
+              textDecoration: 'none',
+              flexShrink: 0,
+              marginLeft: 16,
             }}
           >
-            다른 문장 감상하기
+            다른 문장 ›
           </button>
         </div>
       </div>
@@ -501,7 +483,7 @@ export default function Routine() {
   const [exLoading, setExLoading] = useState(true)
   const [exFallback, setExFallback] = useState(false)
   const [exPage, setExPage] = useState(1)
-  const exPerPage = 6
+  const exPerPage = 4
 
   useEffect(() => {
     // 한국 API + AIC 전시 병렬 fetch 후 병합

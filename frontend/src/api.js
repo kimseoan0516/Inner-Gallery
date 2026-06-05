@@ -196,43 +196,51 @@ const _AIC_QUESTIONS = [
 ]
 
 async function _fetchAICPainting(esFrom, questionIdx) {
-  const query = {
-    query: { bool: { must: [
-      { term: { is_public_domain: true } },
-      { exists: { field: 'image_id' } },
-      { term: { artwork_type_id: 1 } },
-    ] } },
-    from: esFrom,
-    size: 10,
+  const attempts = [esFrom, (esFrom + 150) % 1780, (esFrom + 400) % 1780, Math.floor(Math.random() * 1780)]
+
+  for (const offset of attempts) {
+    try {
+      const query = {
+        query: { bool: { must: [
+          { term: { is_public_domain: true } },
+          { exists: { field: 'image_id' } },
+          { term: { artwork_type_id: 1 } },
+        ] } },
+        from: offset,
+        size: 20,
+      }
+
+      const url = `https://api.artic.edu/api/v1/artworks/search` +
+        `?params=${encodeURIComponent(JSON.stringify(query))}` +
+        `&fields=id,title,artist_display,date_display,medium_display,image_id,description`
+
+      const res = await fetch(url, { headers: { 'AIC-User-Agent': 'inner-gallery (sakim9018@gmail.com)' } })
+      if (!res.ok) continue
+
+      const payload = await res.json()
+      const artwork = (payload.data || []).find(a => a.image_id)
+      if (!artwork) continue
+
+      const iiifBase = payload.config?.iiif_url || 'https://www.artic.edu/iiif/2'
+      const imgId = artwork.image_id
+
+      return {
+        fallback:      false,
+        id:            artwork.id,
+        title:         artwork.title || '',
+        artist:        artwork.artist_display || '',
+        date:          artwork.date_display || '',
+        medium:        artwork.medium_display || '',
+        description:   artwork.description || '',
+        image_url:     `${iiifBase}/${imgId}/full/843,/0/default.jpg`,
+        thumbnail_url: `${iiifBase}/${imgId}/full/400,/0/default.jpg`,
+        artic_url:     `https://www.artic.edu/artworks/${artwork.id}`,
+        question:      _AIC_QUESTIONS[questionIdx % _AIC_QUESTIONS.length],
+      }
+    } catch {}
   }
 
-  const url = `https://api.artic.edu/api/v1/artworks/search` +
-    `?params=${encodeURIComponent(JSON.stringify(query))}` +
-    `&fields=id,title,artist_display,date_display,medium_display,image_id,description`
-
-  const res = await fetch(url, { headers: { 'AIC-User-Agent': 'inner-gallery (sakim9018@gmail.com)' } })
-  if (!res.ok) throw new Error('AIC API error')
-
-  const payload = await res.json()
-  const artwork = (payload.data || []).find(a => a.image_id)
-  if (!artwork) throw new Error('No artwork with image')
-
-  const iiifBase = payload.config?.iiif_url || 'https://www.artic.edu/iiif/2'
-  const imgId = artwork.image_id
-
-  return {
-    fallback:      false,
-    id:            artwork.id,
-    title:         artwork.title || '',
-    artist:        artwork.artist_display || '',
-    date:          artwork.date_display || '',
-    medium:        artwork.medium_display || '',
-    description:   artwork.description || '',
-    image_url:     `${iiifBase}/${imgId}/full/843,/0/default.jpg`,
-    thumbnail_url: `${iiifBase}/${imgId}/full/400,/0/default.jpg`,
-    artic_url:     `https://www.artic.edu/artworks/${artwork.id}`,
-    question:      _AIC_QUESTIONS[questionIdx % _AIC_QUESTIONS.length],
-  }
+  throw new Error('Failed to fetch artwork')
 }
 
 export async function getDailyArtworkAIC() {
@@ -247,7 +255,7 @@ export async function getDailyArtworkAIC() {
   }
 
   const ordinal = now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate()
-  const esFrom = ordinal % 5000
+  const esFrom = ordinal % 1780
   
   localStorage.setItem('dailyArtworkDate', todayStr)
   localStorage.setItem('dailyArtworkFrom', esFrom.toString())
@@ -257,7 +265,7 @@ export async function getDailyArtworkAIC() {
 }
 
 export async function getRandomArtworkAIC() {
-  const esFrom = Math.floor(Math.random() * 5000)
+  const esFrom = Math.floor(Math.random() * 1780)
   const qIdx   = Math.floor(Math.random() * _AIC_QUESTIONS.length)
   
   const now = new Date()
@@ -301,7 +309,7 @@ export async function getAICExhibitions() {
 
   return (payload.data || [])
     .filter(ex => ex.title)
-    .slice(0, 4)
+    .slice(0, 10)
     .map(ex => ({
       source:    'Art Institute of Chicago',
       title:     ex.title,
