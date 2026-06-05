@@ -1400,8 +1400,9 @@ export default function Results() {
                   style={{ flex: 1, background: 'var(--bg)', border: '1px solid var(--line)', borderRadius: 4, padding: '8px 12px', fontSize: 12, color: 'var(--text)', fontFamily: 'inherit', outline: 'none' }}
                 />
                 <button onClick={sendChat} disabled={chatLoading} style={{
-                  padding: '0 16px', background: 'var(--gold2)', border: '1px solid rgba(154,120,32,0.45)',
+                  padding: '0 14px', background: 'var(--gold2)', border: '1px solid rgba(154,120,32,0.45)',
                   borderRadius: 4, color: 'var(--card)', fontSize: 12, fontWeight: 700, cursor: 'pointer', fontFamily: 'inherit',
+                  whiteSpace: 'nowrap', flexShrink: 0,
                 }}>전송</button>
               </div>
             </div>
