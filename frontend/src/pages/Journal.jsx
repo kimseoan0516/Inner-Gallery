@@ -223,7 +223,7 @@ function TicketCard({ rec, onClick, onUpdateNote, onUpdateExhibition }) {
     }
   }
 
-  let snippet = rec.ticket_memo || '기록된 감상 메모가 없습니다.'
+  let snippet = rec.reflection || rec.ticket_memo || '기록된 감상 메모가 없습니다.'
   if (snippet.length > 70 && !isEditing) snippet = snippet.substring(0, 70) + '...'
 
   return (
