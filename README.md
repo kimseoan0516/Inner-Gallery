@@ -54,6 +54,7 @@ short_description: An AI-powered art journal using computer vision and LLM
 - [Getting Started](#getting-started)
 - [Project Structure](#project-structure)
 - [API Overview](#api-overview)
+- [References & External Resources](#references--external-resources)
 - [Future Improvements](#future-improvements)
 - [License](#license)
 
@@ -575,6 +576,92 @@ inner-gallery/
 | `GET` | `/api/auth/me` | 현재 사용자 정보 |
 | `DELETE` | `/api/auth/me` | 계정 탈퇴 (저널 데이터 포함 삭제) |
 | `POST` | `/api/auth/reset-password` | 비밀번호 재설정 |
+
+---
+
+## References & External Resources
+
+이 프로젝트에서 사용한 외부 API, 오픈소스 모델, 데이터셋, 라이브러리를 모두 기록합니다.
+
+---
+
+### External APIs
+
+| Service | Usage | License / Terms |
+|---|---|---|
+| **Google Gemini API** (Gemini 2.0 Flash) | 작품 멀티모달 식별, 도슨트 에세이 생성, 스케치 회고, 번역, 도슨트 채팅 | [Google AI Terms](https://ai.google.dev/terms) |
+| **Google Cloud Vision API** | 웹 이미지 역검색(Web Detection)을 통한 작품 교차 검증 | [Google Cloud Terms](https://cloud.google.com/terms) |
+| **Roboflow Serverless Workflows API** | 회화 경계 감지(Object Detection) 및 작품 영역 자동 크롭 | [Roboflow Terms](https://roboflow.com/terms) |
+| **Art Institute of Chicago (AIC) Public API** | 오늘의 명화 퍼블릭 도메인 작품 데이터 및 IIIF 고화질 이미지 제공 | [AIC API Docs](https://api.artic.edu/docs/) · CC0 |
+| **AIC IIIF Image API** | `/{image_id}/full/843,/0/default.jpg` 형식의 작품 원본 이미지 스트리밍 | CC0 Public Domain |
+| **국립문화정보원 KCISA API** | 국내 공공 미술관·문화 기관 전시 정보 (국립현대미술관 외 27개 기관) | [공공데이터포털](https://www.data.go.kr/) |
+| **Supabase** (선택) | PostgreSQL 기반 사용자 데이터 영구 저장 (DATABASE_URL 환경변수 설정 시) | [Supabase Terms](https://supabase.com/terms) |
+
+---
+
+### Datasets
+
+| Dataset | Source | Usage |
+|---|---|---|
+| **Best Artworks of All Time** | [Kaggle — ikarus777](https://www.kaggle.com/datasets/ikarus777/best-artworks-of-all-time) | 50명 주요 화가 8,446점 이미지. CLIP 임베딩 인덱스 구축에 사용 |
+| **Greatest of All Time (GOATs) Painters** | Kaggle | 추가 화가 작품 이미지. Best Artworks와 병합하여 FAISS 인덱스 확장 |
+| **AIC Public Domain Collection** | [Art Institute of Chicago](https://www.artic.edu/open-access/open-access-images) | 퍼블릭 도메인 명화 4,000+점. 오늘의 명화 큐레이션에 실시간 활용. CC0 |
+
+> FAISS 인덱스(`index.faiss`)는 위 Kaggle 데이터셋을 직접 다운로드 후 `backend/scripts/build_index.py`를 실행해 재현할 수 있습니다. 데이터셋 원본 이미지는 저장소에 포함되지 않습니다.
+
+---
+
+### Pre-trained Models
+
+| Model | Source | Usage |
+|---|---|---|
+| **CLIP ViT-B/32** | [OpenAI CLIP](https://github.com/openai/CLIP) via [sentence-transformers](https://www.sbert.net/) (`clip-ViT-B-32`) | 작품 이미지 → 512차원 벡터 임베딩. 코사인 유사도 기반 FAISS 검색의 핵심 인코더 |
+| **OpenCV StaticSaliencySpectralResidual** | [OpenCV](https://opencv.org/) (BSD License) | Spectral Residual 기법 기반 Saliency Map 생성. 작품 내 시선 집중 영역 감지 |
+| **OpenCV Haar Cascade (haarcascade_frontalface_default)** | OpenCV 내장 모델 | 인물 분석 파이프라인의 얼굴 감지 fallback |
+
+---
+
+### Open Source Libraries
+
+#### Backend (Python)
+
+| Library | Version | License | Usage |
+|---|---|---|---|
+| [FastAPI](https://fastapi.tiangolo.com/) | ≥0.111 | MIT | REST API 서버 프레임워크 |
+| [Uvicorn](https://www.uvicorn.org/) | ≥0.29 | BSD | ASGI 서버 |
+| [OpenCV](https://opencv.org/) (`opencv-contrib-python`) | ≥4.9 | Apache 2.0 | 이미지 전처리, 색채 분석, 구도 분석, Saliency, Perspective Warp |
+| [NumPy](https://numpy.org/) | ≥1.24 | BSD | 수치 계산, 벡터 연산 |
+| [scikit-learn](https://scikit-learn.org/) | ≥1.3 | BSD | KMeans 클러스터링 (주조색 추출) |
+| [Pillow](https://pillow.readthedocs.io/) | ≥10.0 | HPND | 이미지 포맷 변환, PWA 아이콘 생성 |
+| [SciPy](https://scipy.org/) | ≥1.11 | BSD | 수치 최적화, 신호 처리 |
+| [sentence-transformers](https://www.sbert.net/) | ≥2.6 | Apache 2.0 | CLIP ViT-B/32 모델 로딩 및 이미지 임베딩 추출 |
+| [FAISS](https://faiss.ai/) (`faiss-cpu`) | ≥1.8 | MIT | 18,455개 벡터 IndexFlatIP 근접 이웃 검색 |
+| [google-generativeai](https://pypi.org/project/google-generativeai/) | ≥0.5 | Apache 2.0 | Gemini API (도슨트 에세이, 채팅, 번역, 회고) |
+| [google-cloud-vision](https://cloud.google.com/vision/docs/reference/libraries) | ≥2.14 | Apache 2.0 | Google Cloud Vision Web Detection |
+| [python-jose](https://github.com/mpdavis/python-jose) | ≥3.3 | MIT | JWT 토큰 생성 및 검증 |
+| [passlib](https://passlib.readthedocs.io/) | ≥1.7 | BSD | bcrypt 기반 비밀번호 해싱 |
+| [psycopg2-binary](https://www.psycopg.org/) | ≥2.9 | LGPL | PostgreSQL 연결 (Supabase 사용 시) |
+| [python-dotenv](https://pypi.org/project/python-dotenv/) | ≥1.0 | BSD | `.env` 환경변수 로딩 |
+
+#### Frontend (JavaScript)
+
+| Library | Version | License | Usage |
+|---|---|---|---|
+| [React](https://react.dev/) | ^18.3 | MIT | UI 프레임워크 |
+| [Vite](https://vitejs.dev/) | ^5.1 | MIT | 프론트엔드 빌드 툴 |
+| [React Router](https://reactrouter.com/) | ^6.22 | MIT | SPA 클라이언트 라우팅 |
+| [Axios](https://axios-http.com/) | ^1.6 | MIT | HTTP 클라이언트, 인터셉터 기반 JWT 주입 |
+| [html-to-image](https://github.com/bubkoo/html-to-image) | ^1.11 | MIT | 티켓 DOM을 PNG 이미지로 변환 (저장·공유 기능) |
+| [react-colorful](https://github.com/omgovich/react-colorful) | ^5.7 | MIT | HSL 색상 피커 컴포넌트 (마음색 직접 선택) |
+
+#### Fonts
+
+| Font | Source | License |
+|---|---|---|
+| **Cinzel** | [Google Fonts](https://fonts.google.com/specimen/Cinzel) | OFL |
+| **Cormorant Garamond** | [Google Fonts](https://fonts.google.com/specimen/Cormorant+Garamond) | OFL |
+| **Noto Serif KR** | [Google Fonts](https://fonts.google.com/noto/specimen/Noto+Serif+KR) | OFL |
+| **Noto Sans KR** | [Google Fonts](https://fonts.google.com/noto/specimen/Noto+Sans+KR) | OFL |
 
 ---
 
