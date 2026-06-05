@@ -57,6 +57,7 @@ function DailyArtworkSection() {
   // 번역
   const [translated, setTranslated]   = useState('')
   const [translating, setTranslating] = useState(false)
+  const [translateErr, setTranslateErr] = useState('')
   // 질문 답변
   const [qOpen, setQOpen]   = useState(false)
   const [qAnswer, setQAnswer] = useState('')
@@ -70,6 +71,7 @@ function DailyArtworkSection() {
     setImgLoaded(false)
     setExpanded(false)
     setTranslated('')
+    setTranslateErr('')
     setQOpen(false)
     setQAnswer('')
     setSaved(false)
@@ -86,15 +88,16 @@ function DailyArtworkSection() {
   const handleTranslate = async () => {
     if (!art?.description || translating) return
     setTranslating(true)
+    setTranslateErr('')
     try {
       const res = await translateText(_stripHtml(art.description))
       if (res) {
         setTranslated(res)
       } else {
-        alert("번역을 불러올 수 없습니다. 서버 또는 API 키 설정을 확인해주세요.")
+        setTranslateErr('번역을 불러올 수 없습니다.')
       }
     } catch (e) {
-      alert("번역 중 오류가 발생했습니다: " + (e.response?.data?.detail || e.message))
+      setTranslateErr(e.response?.data?.detail || '번역 중 오류가 발생했습니다.')
     }
     setTranslating(false)
   }
@@ -216,7 +219,7 @@ function DailyArtworkSection() {
                   <div style={{ fontSize: 11, color: 'var(--sub)', lineHeight: 1.85, overflow: expanded ? 'visible' : 'hidden', display: expanded ? 'block' : '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical' }}
                     dangerouslySetInnerHTML={{ __html: art.description }}
                   />
-                  <div style={{ display: 'flex', gap: 12, marginTop: 6, alignItems: 'center' }}>
+                  <div style={{ display: 'flex', gap: 12, marginTop: 6, alignItems: 'center', flexWrap: 'wrap' }}>
                     <button onClick={() => setExpanded(v => !v)} style={{ background: 'none', border: 'none', padding: 0, fontSize: 10, color: 'rgba(184,145,42,0.65)', cursor: 'pointer' }}>
                       {expanded ? '접기 ↑' : '더 보기 ›'}
                     </button>
@@ -227,6 +230,7 @@ function DailyArtworkSection() {
                     >
                       {translating ? '번역 중…' : '한국어로 번역'}
                     </button>
+                    {translateErr && <span style={{ fontSize: 10, color: 'rgba(180,60,60,0.7)' }}>{translateErr}</span>}
                   </div>
                 </>
               ) : (

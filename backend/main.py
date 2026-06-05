@@ -1624,20 +1624,22 @@ class TranslateRequest(BaseModel):
 @app.post("/api/translate")
 async def translate_text(req: TranslateRequest):
     """영어 텍스트 → 한국어 번역 (Gemini)."""
-    if not req.text.strip() or not _API_KEY:
+    if not req.text.strip():
         return {"translated": ""}
-    import google.generativeai as genai
-    genai.configure(api_key=_API_KEY)
-    model = genai.GenerativeModel("gemini-2.0-flash")
+    if not _API_KEY:
+        raise HTTPException(500, "GEMINI_API_KEY가 설정되지 않았습니다.")
+    from google import genai as _new_genai
+    client = _new_genai.Client(api_key=_API_KEY)
     prompt = (
         "다음 미술 작품 설명 영어 텍스트를 자연스러운 한국어로 번역해주세요. "
         "번역문만 출력하세요 (설명, 주석 없이):\n\n" + req.text
     )
     try:
-        resp = model.generate_content(prompt)
+        resp = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
         return {"translated": resp.text.strip()}
-    except Exception:
-        return {"translated": "번역에 실패했습니다."}
+    except Exception as e:
+        print(f"[translate] error: {e}", flush=True)
+        raise HTTPException(500, f"번역 오류: {e}")
 
 
 # ── 명언 ─────────────────────────────────────────────────────────────────────
