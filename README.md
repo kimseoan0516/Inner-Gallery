@@ -11,7 +11,8 @@ short_description: An AI-powered art journal using computer vision and LLM
 ---
 
 <br />
-<img width="2172" height="724" alt="헤더이미지" src="https://github.com/user-attachments/assets/d494d8b4-58ed-4c85-85ba-278bd7f3bd14" />
+<img width="2123" height="724" alt="헤더이미지" src="https://github.com/user-attachments/assets/c1d664e8-10f2-4183-a0de-f9f486f2cb30" />
+
 
 
 
