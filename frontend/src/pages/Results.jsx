@@ -53,12 +53,13 @@ const formatArtist = (artistText) => {
 };
 
 
-function SectionHead({ icon, title, en }) {
+function SectionHead({ icon, title, en, hint }) {
   return (
     <div style={{ marginBottom: 2 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
         <span style={{ fontSize: 13, color: 'var(--gold2)', lineHeight: 1 }}>{icon}</span>
         <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text)' }}>{title}</span>
+        {hint && <span style={{ marginLeft: 'auto', fontSize: 10, color: 'var(--sub)', letterSpacing: 0.3, opacity: 0.75 }}>{hint}</span>}
       </div>
       {en && <p style={{ fontSize: 10, color: 'var(--sub)', fontStyle: 'italic', letterSpacing: 1.5, marginLeft: 21, marginBottom: 6 }}>{en}</p>}
       <GoldDivider />
@@ -576,13 +577,10 @@ export default function Results() {
                 이름을 알 수 없는 작품
               </p>
             )}
-            {/* 한줄 감상 제목 — 작품 정보와 명확히 분리 */}
             {derivedEssayTitle && (
-              <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid rgba(184,145,42,0.15)' }}>
-                <p style={{ fontSize: 13, color: 'var(--gold2)', lineHeight: 1.65, letterSpacing: 0.2, fontFamily: "'Noto Serif KR', serif", fontStyle: 'italic' }}>
-                  {derivedEssayTitle}
-                </p>
-              </div>
+              <p style={{ fontSize: 13, color: 'var(--gold2)', lineHeight: 1.65, letterSpacing: 0.2, fontFamily: "'Noto Serif KR', serif", fontStyle: 'italic', marginTop: 10 }}>
+                {derivedEssayTitle}
+              </p>
             )}
           </div>
           {/* Archive badge */}
@@ -813,10 +811,7 @@ export default function Results() {
         {/* Questions — 클릭하면 바로 아래 답변 입력 */}
         {activeEssay.questions?.length > 0 && (
           <div className="card" style={{ padding: '18px 18px' }}>
-            <SectionHead icon="○" title="감상 질문" en="Reflection Questions" />
-            <p style={{ fontSize: 11, color: 'var(--sub)', marginTop: 6, marginBottom: 14, lineHeight: 1.6, paddingLeft: 22 }}>
-              질문을 눌러 나의 대답을 남겨보세요
-            </p>
+            <SectionHead icon="○" title="감상 질문" en="Reflection Questions" hint="질문을 눌러 나의 대답을 남겨보세요" />
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               {activeEssay.questions.map((q, i) => (
                 <div key={i} style={{
