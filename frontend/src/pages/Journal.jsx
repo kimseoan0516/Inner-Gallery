@@ -20,7 +20,10 @@ export default function Journal() {
       .catch(() => setLoading(false))
   }, [location.state?.refresh])
 
-  const open = (rec) => { setSelectedEntry(rec); nav('/journal/detail') }
+  const open = (rec) => {
+    setSelectedEntry(rec)
+    nav('/journal/detail', { state: { entry: rec } })
+  }
 
   const handleUpdateNote = async (date, note) => {
     setRecords(prev => prev.map(r => r.date === date ? { ...r, ticket_memo: note } : r))

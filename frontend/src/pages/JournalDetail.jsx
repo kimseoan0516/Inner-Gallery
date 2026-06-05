@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useApp } from '../context/AppContext.jsx'
 import { deleteJournal, getJournalEntry } from '../api.js'
 import GoldDivider from '../components/GoldDivider.jsx'
@@ -68,7 +68,10 @@ function SecLabel({ icon, title, en }) {
 
 export default function JournalDetail() {
   const nav = useNavigate()
-  const { selectedEntry } = useApp()
+  const location = useLocation()
+  const { selectedEntry: ctxEntry } = useApp()
+  // router state로 동기적으로 받아온 entry를 우선 사용, 없으면 context fallback
+  const selectedEntry = ctxEntry || location.state?.entry
   const [rec, setRec] = useState(selectedEntry)
   const [reportOpen, setReportOpen] = useState(false)
   const [detailLoading, setDetailLoading] = useState(true)
