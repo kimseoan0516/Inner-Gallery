@@ -122,52 +122,69 @@ function AiExplainCard() {
       {open && (
         <div style={{ background: 'rgba(0,0,0,0.02)', padding: '16px 14px', display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-          <Step num="1" title="Gemini 2.0 Flash Vision — 정밀 이미지 분석">
+          <Step num="1" title="Roboflow — 작품 영역 자동 감지 & 크롭">
             <p style={{ fontSize: 10.5, color: 'var(--sub)', lineHeight: 1.8 }}>
-              최신 멀티모달 AI 인 <span style={{ color: 'var(--body)', fontWeight: 600 }}>Gemini 2.0 Flash</span> 모델을 통해 업로드된 작품 이미지를 정밀 분석합니다. 그림 안의 구체적인 형태와 화풍을 읽어 <span style={{ color: 'var(--body)', fontWeight: 600 }}>작품명, 작가, 제작 연도</span> 등의 기본 정보를 즉각적으로 도출합니다.
+              업로드된 사진에서 <span style={{ color: 'var(--body)', fontWeight: 600 }}>Roboflow 객체 감지 모델</span>이 작품 영역을 정밀 탐지해 자동으로 크롭합니다. 액자·배경·그림자를 제거해 이후 분석 정확도를 높입니다.
             </p>
             <Code lines={[
-              '업로드된 이미지 전송  →  Gemini Vision 멀티모달 분석',
-              '출력  →  "Vincent van Gogh, The Starry Night, 1889"',
+              '원본 사진 입력  →  Roboflow Painting Detection',
+              '작품 바운딩 박스 추출  →  8% 패딩 적용 크롭',
             ]} />
           </Step>
 
           <div style={{ height: '0.5px', background: `${BRZ}0.12)` }} />
 
-          <Step num="2" title="색채 및 구도, 감정 메타데이터 추출">
+          <Step num="2" title="OpenCV — 색채·구도·인물 병렬 분석">
             <p style={{ fontSize: 10.5, color: 'var(--sub)', lineHeight: 1.8 }}>
-              단순한 정보 인식을 넘어 작품의 전반적인 분위기를 결정하는 <span style={{ color: 'var(--body)', fontWeight: 600 }}>핵심 색상(Dominant Colors)</span>과 <span style={{ color: 'var(--body)', fontWeight: 600 }}>감정(Moods)</span> 키워드를 구조화된 데이터(JSON) 형태로 동시에 추출합니다.
+              크롭된 이미지를 <span style={{ color: 'var(--body)', fontWeight: 600 }}>OpenCV</span>로 동시에 세 갈래 분석합니다. 지배 색상 5가지와 색채 무드, 구도·여백·대칭 수치, 인물 자세·표정을 수치화된 데이터로 추출합니다.
             </p>
             <Code lines={[
-              'Dominant Colors  →  #2a3b5c, #d4a373',
-              'Moods            →  몽환적인, 우울한, 역동적인',
+              'analyze_colors()       →  지배색 5개 · 색채 무드 태그',
+              'analyze_composition()  →  구도 · 여백 · 대칭 · 방향',
+              'analyze_person()       →  인물 감지 · 자세 · 표정',
             ]} />
           </Step>
 
           <div style={{ height: '0.5px', background: `${BRZ}0.12)` }} />
 
-          <Step num="3" title="개인화된 맞춤형 미술 심리 분석">
+          <Step num="3" title="Gemini 2.0 Flash Vision — 멀티모달 작품 식별">
             <p style={{ fontSize: 10.5, color: 'var(--sub)', lineHeight: 1.8 }}>
-              분석된 작품의 감정선과 사용자가 직접 기록한 현재의 감정 상태를 연결하여, <span style={{ color: 'var(--body)', fontWeight: 600 }}>사용자 맞춤형 위로와 통찰</span>을 담은 도슨트 에세이를 실시간으로 생성합니다.
+              <span style={{ color: 'var(--body)', fontWeight: 600 }}>Gemini 2.0 Flash</span> 멀티모달 모델이 이미지를 직접 읽어 작품명·작가·연도 후보를 추출하고, OCR로 캡션 텍스트 인식 및 인물 표정까지 동시에 분석합니다.
             </p>
+            <Code lines={[
+              'analyze_artwork_vision()  →  작품 후보 + OCR + figure',
+              '출력 예시  →  "Vincent van Gogh · The Starry Night"',
+            ]} />
           </Step>
 
           <div style={{ height: '0.5px', background: `${BRZ}0.12)` }} />
 
-          <Step num="→" title="실제 작품 인식 흐름">
+          <Step num="4" title="3중 크로스 검증 — 작품 신원 최종 확정">
+            <p style={{ fontSize: 10.5, color: 'var(--sub)', lineHeight: 1.8 }}>
+              <span style={{ color: 'var(--body)', fontWeight: 600 }}>CLIP 기반 FAISS DB 매칭</span> + <span style={{ color: 'var(--body)', fontWeight: 600 }}>Google Cloud Vision 웹 검색</span> + <span style={{ color: 'var(--body)', fontWeight: 600 }}>OCR 힌트</span> 세 결과를 교차 검증해 작품 신원을 확정합니다. 불일치 시 신뢰도 임계값 기준으로 자동 조정합니다.
+            </p>
             <Code lines={[
-              '사용자 이미지 업로드 + 현재 감정 입력',
-              '                  ↓',
-              '   Gemini 2.0 Flash Vision 복합 분석 (작품 정보 + 색채 + 무드)',
-              '                  ↓',
-              '   [심층 AI 도슨트 시스템]',
-              '                  ↓',
-              '   맞춤형 에세이 및 치유의 감상 결과 제공',
+              'CLIP DB 유사도  ≥ 85%  →  confirmed',
+              'Google Vision + Gemini 교차 일치  →  confirmed',
+              'OCR 강한 힌트 + 교차 검증  →  confirmed 격상',
+            ]} />
+          </Step>
+
+          <div style={{ height: '0.5px', background: `${BRZ}0.12)` }} />
+
+          <Step num="5" title="감정 점수 산출 → 도슨트 에세이 생성">
+            <p style={{ fontSize: 10.5, color: 'var(--sub)', lineHeight: 1.8 }}>
+              색채·구도·인물 수치를 종합해 <span style={{ color: 'var(--body)', fontWeight: 600 }}>8가지 감정 점수</span>를 산출하고, 전체 분석 결과를 Gemini에 전달해 <span style={{ color: 'var(--body)', fontWeight: 600 }}>사용자 맞춤형 도슨트 에세이</span>와 감상 질문을 실시간 생성합니다.
+            </p>
+            <Code lines={[
+              '시각 데이터 전체  →  calculate_emotion_scores()',
+              '작품 정보 + 감정 점수  →  generate_interpretation()',
+              '출력  →  맞춤 에세이 · 감상 질문 · 위로 메시지',
             ]} />
           </Step>
 
           <p style={{ fontSize: 9, color: `${BRZ}0.35)`, textAlign: 'center', letterSpacing: 0.5, lineHeight: 1.7 }}>
-            Gemini 2.0 Flash 기반의 정밀 멀티모달 분석 및 개인화 도슨트 시스템
+            Roboflow · OpenCV · CLIP · Gemini 2.0 Flash · Google Cloud Vision 복합 파이프라인
           </p>
         </div>
       )}
