@@ -36,9 +36,9 @@ short_description: AI-powered art reflection journal with computer vision and gr
 
 <br />
 
-**Inner Gallery is an AI-powered art reflection journal that recognizes artworks, analyzes visual elements, and turns the viewing experience into a grounded personal journal.**
+**Inner Gallery is a multimodal AI art reflection journal that recognizes artworks, analyzes visual elements, and turns the viewing experience into a grounded personal reflection archive.**
 
-**명화를 단순히 맞히고 설명하는 것을 넘어, 작품의 색·구도·여백을 사용자의 감정 회고와 연결하는 AI 기반 아트 저널 서비스입니다.**
+**사용자가 작품을 촬영하거나 업로드하면, 작품 인식·색채/구도/여백 분석·감정 회고·저널 저장까지 이어지는 AI 기반 아트 저널 서비스입니다.**
 
 </div>
 
