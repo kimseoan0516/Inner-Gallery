@@ -206,37 +206,36 @@ flowchart TD
 
 ## System Architecture
 
-```text
-┌─────────────────────────────────────────────────────────────────────┐
-│                          Client: React / PWA                        │
-│                                                                     │
-│  Upload · Camera · Results · Drawing · Routine · Journal · Auth     │
-│                                                                     │
-│  - artwork upload / camera capture                                  │
-│  - emotion keyword selection                                        │
-│  - docent result view and chat                                      │
-│  - HTML5 canvas mind sketch                                         │
-│  - ticket-style journal archive                                     │
-└───────────────────────────────┬─────────────────────────────────────┘
-                                │ Axios + JWT Bearer
-┌───────────────────────────────▼─────────────────────────────────────┐
-│                        Backend: FastAPI / Docker                     │
-│                                                                     │
-│  REST API · Auth · Journal CRUD · AI/CV Pipeline · External APIs     │
-└──────────────┬───────────────────────────────┬──────────────────────┘
-               │                               │
-┌──────────────▼──────────────┐   ┌────────────▼─────────────────────┐
-│       AI / CV Pipeline       │   │           Database Layer          │
-│                              │   │                                  │
-│  Roboflow frame detection    │   │  SQLite for local/HF Spaces       │
-│  OpenCV preprocessing        │   │  Supabase PostgreSQL optional     │
-│  CLIP ViT-B/32 embeddings    │   │                                  │
-│  FAISS vector search         │   │  users                            │
-│  Gemini 2.0 Flash Vision     │   │  journal_entries                  │
-│  Google Cloud Vision Web     │   │  artworks / artists / quotes      │
-│  AIC / KCISA API integration │   │  password_reset_tokens            │
-└──────────────────────────────┘   └──────────────────────────────────┘
-```
+```mermaid
+flowchart TD
+    A[Client / React PWA] --> A1[Upload · Camera · Results]
+    A --> A2[Drawing · Routine · Journal]
+    A --> A3[Emotion Input · Docent Chat · Auth]
+
+    A1 --> B[FastAPI Backend / Docker]
+    A2 --> B
+    A3 --> B
+
+    B --> B1[REST API Endpoints]
+    B --> B2[JWT Auth · Journal CRUD]
+    B --> B3[AI / CV Orchestration]
+    B --> B4[External API Integration]
+
+    B3 --> C1[Roboflow Frame Detection]
+    B3 --> C2[OpenCV Preprocessing]
+    B3 --> C3[CLIP ViT-B/32 + FAISS]
+    B3 --> C4[Gemini 2.0 Flash Vision]
+    B3 --> C5[Google Cloud Vision]
+
+    B4 --> D1[Art Institute of Chicago API]
+    B4 --> D2[KCISA Exhibition API]
+
+    B2 --> E[Database Layer]
+    E --> E1[SQLite Local / HF Spaces]
+    E --> E2[Supabase PostgreSQL Optional]
+    E --> E3[users · journal_entries]
+    E --> E4[artworks · artists · quotes]
+    E --> E5[password_reset_tokens]
 
 ---
 
@@ -749,30 +748,3 @@ inner-gallery/
 ### License
 
 This project is licensed under the **MIT License**. See [`LICENSE`](LICENSE) for details.
-
-```text
-MIT License
-
-Copyright (c) 2025 kimseoan0516
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.
-```
-
-> This MIT license applies to the source code in this repository.  
-> Third-party datasets, APIs, model weights, fonts, and artwork images follow their own licenses and terms of use.
