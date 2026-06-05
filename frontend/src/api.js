@@ -201,25 +201,28 @@ const _AIC_QUESTIONS = [
 ]
 
 async function _fetchAICPainting(esFrom, questionIdx) {
-  const attempts = [esFrom, (esFrom + 150) % 1780, (esFrom + 400) % 1780, Math.floor(Math.random() * 1780)]
+  const TOTAL = 4000
+  const attempts = [
+    esFrom,
+    (esFrom + 200) % TOTAL,
+    (esFrom + 700) % TOTAL,
+    (esFrom + 1300) % TOTAL,
+    Math.floor(Math.random() * TOTAL),
+    Math.floor(Math.random() * TOTAL),
+  ]
 
   for (const offset of attempts) {
     try {
-      const query = {
-        query: { bool: { must: [
-          { term: { is_public_domain: true } },
-          { exists: { field: 'image_id' } },
-          { term: { artwork_type_id: 1 } },
-        ] } },
-        from: offset,
-        size: 20,
-      }
+      const url = `https://api.artic.edu/api/v1/artworks` +
+        `?query[term][is_public_domain]=true` +
+        `&query[exists][field]=image_id` +
+        `&fields=id,title,artist_display,date_display,medium_display,image_id,description` +
+        `&limit=10&page=${Math.floor(offset / 10) + 1}`
 
-      const url = `https://api.artic.edu/api/v1/artworks/search` +
-        `?params=${encodeURIComponent(JSON.stringify(query))}` +
-        `&fields=id,title,artist_display,date_display,medium_display,image_id,description`
-
-      const res = await fetch(url, { headers: { 'AIC-User-Agent': 'inner-gallery (sakim9018@gmail.com)' } })
+      const res = await fetch(url, {
+        headers: { 'AIC-User-Agent': 'inner-gallery (sakim9018@gmail.com)' },
+        signal: AbortSignal.timeout(8000),
+      })
       if (!res.ok) continue
 
       const payload = await res.json()
@@ -242,7 +245,7 @@ async function _fetchAICPainting(esFrom, questionIdx) {
         artic_url:     `https://www.artic.edu/artworks/${artwork.id}`,
         question:      _AIC_QUESTIONS[questionIdx % _AIC_QUESTIONS.length],
       }
-    } catch {}
+    } catch { /* 실패 시 다음 오프셋 시도 */ }
   }
 
   throw new Error('Failed to fetch artwork')
@@ -251,7 +254,7 @@ async function _fetchAICPainting(esFrom, questionIdx) {
 export async function getDailyArtworkAIC() {
   const now = new Date()
   const todayStr = `${now.getFullYear()}-${now.getMonth()+1}-${now.getDate()}`
-  
+
   const savedDate = localStorage.getItem('dailyArtworkDate')
   if (savedDate === todayStr) {
     const savedFrom = parseInt(localStorage.getItem('dailyArtworkFrom') || '0', 10)
@@ -260,17 +263,17 @@ export async function getDailyArtworkAIC() {
   }
 
   const ordinal = now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate()
-  const esFrom = ordinal % 1780
-  
+  const esFrom = ordinal % 4000
+
   localStorage.setItem('dailyArtworkDate', todayStr)
   localStorage.setItem('dailyArtworkFrom', esFrom.toString())
   localStorage.setItem('dailyArtworkQIdx', ordinal.toString())
-  
+
   return _fetchAICPainting(esFrom, ordinal)
 }
 
 export async function getRandomArtworkAIC() {
-  const esFrom = Math.floor(Math.random() * 1780)
+  const esFrom = Math.floor(Math.random() * 4000)
   const qIdx   = Math.floor(Math.random() * _AIC_QUESTIONS.length)
   
   const now = new Date()

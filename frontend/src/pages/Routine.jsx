@@ -78,7 +78,7 @@ function DailyArtworkSection() {
     setQOpen(false)
     setQAnswer('')
     setSaved(false)
-    fetcher()
+    return fetcher()
       .then(res => setArt(res))
       .catch(() => setArt({ fallback: true }))
       .finally(() => setLoading(false))
@@ -86,7 +86,12 @@ function DailyArtworkSection() {
 
   useEffect(() => { load(getDailyArtworkAIC) }, [])
 
-  const handleShuffle = () => { setShuffling(true); load(getRandomArtworkAIC); setShuffling(false) }
+  const handleShuffle = async () => {
+    if (shuffling) return
+    setShuffling(true)
+    await load(getRandomArtworkAIC)
+    setShuffling(false)
+  }
 
   const handleTranslate = async () => {
     if (!art?.description || translating) return
