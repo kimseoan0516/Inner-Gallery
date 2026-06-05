@@ -124,6 +124,7 @@ Visual Evidence Extraction
 Emotion-aware Reflection
         ↓
 Personal Journal Archive
+```
 
 따라서 Inner Gallery는 작품 정보 제공에 그치지 않고, **시각 분석 → 정서적 해석 → 자기 회고 → 기록화**로 이어지는 감상 흐름을 구현합니다.
 
@@ -174,6 +175,7 @@ Grounded AI 도슨트 해설 + 감상 질문 + 마음색 제안
 전시 티켓 형태로 저장 → Inner Gallery Archive
         ↓
 [별도] 오늘의 명화 / 전시 정보 / 예술가 명언 큐레이션
+```
 
 ```mermaid
 flowchart TD
@@ -198,6 +200,7 @@ flowchart TD
     K --> L[Sketch Reflection]
     L --> M[Journal Ticket Archive]
     N[Daily Artwork / Exhibitions / Quotes] --> M
+```
 
 ---
 
@@ -205,34 +208,63 @@ flowchart TD
 
 ```mermaid
 flowchart TD
-    A[Client / React PWA] --> A1[Upload · Camera · Results]
-    A --> A2[Drawing · Routine · Journal]
-    A --> A3[Emotion Input · Docent Chat · Auth]
+    subgraph CLIENT["Client / React PWA"]
+        A1["Upload · Camera · Results"]
+        A2["Drawing · Routine · Journal"]
+        A3["Emotion Input · Docent Chat · Auth"]
+    end
 
-    A1 --> B[FastAPI Backend / Docker]
-    A2 --> B
-    A3 --> B
+    subgraph BACKEND["FastAPI Backend / Docker"]
+        B1["REST API Endpoints"]
+        B2["JWT Auth · Journal CRUD"]
+        B3["AI / CV Orchestration"]
+        B4["External API Integration"]
+    end
 
-    B --> B1[REST API Endpoints]
-    B --> B2[JWT Auth · Journal CRUD]
-    B --> B3[AI / CV Orchestration]
-    B --> B4[External API Integration]
+    subgraph AI_CV["AI / Computer Vision Pipeline"]
+        C1["Roboflow Frame Detection"]
+        C2["OpenCV Preprocessing"]
+        C3["CLIP ViT-B/32 + FAISS"]
+        C4["Gemini 2.0 Flash Vision"]
+        C5["Google Cloud Vision"]
+    end
 
-    B3 --> C1[Roboflow Frame Detection]
-    B3 --> C2[OpenCV Preprocessing]
-    B3 --> C3[CLIP ViT-B/32 + FAISS]
-    B3 --> C4[Gemini 2.0 Flash Vision]
-    B3 --> C5[Google Cloud Vision]
+    subgraph EXTERNAL["External Data APIs"]
+        D1["Art Institute of Chicago API"]
+        D2["KCISA Exhibition API"]
+    end
 
-    B4 --> D1[Art Institute of Chicago API]
-    B4 --> D2[KCISA Exhibition API]
+    subgraph DATABASE["Database Layer"]
+        E1["SQLite Local / HF Spaces"]
+        E2["Supabase PostgreSQL Optional"]
+        E3["users · journal_entries"]
+        E4["artworks · artists · quotes"]
+        E5["password_reset_tokens"]
+    end
 
-    B2 --> E[Database Layer]
-    E --> E1[SQLite Local / HF Spaces]
-    E --> E2[Supabase PostgreSQL Optional]
-    E --> E3[users · journal_entries]
-    E --> E4[artworks · artists · quotes]
-    E --> E5[password_reset_tokens]
+    A1 --> B1
+    A2 --> B1
+    A3 --> B1
+
+    B1 --> B2
+    B1 --> B3
+    B1 --> B4
+
+    B3 --> C1
+    B3 --> C2
+    B3 --> C3
+    B3 --> C4
+    B3 --> C5
+
+    B4 --> D1
+    B4 --> D2
+
+    B2 --> E1
+    B2 --> E2
+    B2 --> E3
+    B2 --> E4
+    B2 --> E5
+```
 
 ---
 
@@ -280,6 +312,7 @@ edges = cv2.Canny(blur, lower=0.67 * v, upper=1.33 * v)
 # Convex quadrilateral detection → Homography
 M = cv2.getPerspectiveTransform(src_corners, dst_corners)
 warped = cv2.warpPerspective(img, M, (target_w, target_h))
+```
 
 사각형 윤곽 검출에 실패하면 8% padding crop으로 fallback하고, 원본과 crop 이미지를 함께 분석하는 dual-image 전략으로 인식 안정성을 높였습니다.
 
@@ -330,6 +363,7 @@ AI 도슨트는 다음 정보를 기반으로 해설을 생성합니다.
 1. 시각 분석    색채·구도·여백·인물 요소 묘사
 2. 정서적 작용  시각 요소가 감상자에게 줄 수 있는 감각 설명
 3. 자기 회고   작품을 통해 자신의 마음을 돌아보는 질문 제안
+```
 
 지원하는 해설 스타일은 `아트 테라피`, `도슨트 해설`, `시각 분석`, `짧은 감상`입니다.
 
@@ -584,6 +618,7 @@ erDiagram
     users ||--o{ journal_entries : writes
     users ||--o{ password_reset_tokens : requests
     artists ||--o{ artworks : painted
+```
 
 ---
 
@@ -610,6 +645,8 @@ DATABASE_URL=postgresql://user:password@host:port/dbname
 GOOGLE_CLOUD_VISION_KEY=your-key
 ROBOFLOW_API_KEY=your-key
 KCISA_API_KEY=your-key
+```
+
 ### Backend
 
 ```bash
@@ -618,6 +655,8 @@ source venv/bin/activate        # Windows: venv\Scripts\activate
 
 pip install -r requirements.txt
 uvicorn backend.main:app --reload --port 8000
+```
+
 ### Frontend
 
 ```bash
@@ -625,11 +664,14 @@ cd frontend
 npm install
 npm run dev
 # http://localhost:5173
+```
+
 ### Optional: Build FAISS Index
 
 ```bash
 # Place Kaggle artwork datasets under backend/artwork_sources/
 python backend/scripts/build_index.py
+```
 
 ---
 
@@ -678,6 +720,7 @@ inner-gallery/
 ├── Dockerfile
 ├── generate_icons.py
 └── requirements.txt
+```
 
 ---
 
