@@ -559,10 +559,12 @@ export default function Upload({ mode: pageMode }) {
             {preview ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                 <VintageFrame>
-                  <img src={preview} alt="preview" style={{ width: '100%', height: '100%', objectFit: pageMode === 'camera' ? 'cover' : 'contain' }} />
+                  <img src={preview} alt="preview" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
                 </VintageFrame>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 2px' }}>
-                  <span style={{ fontSize: 10, color: 'var(--sub)', flex: 1 }}>이미지가 준비되었습니다</span>
+                  <span style={{ fontSize: 10, color: cropInfo?.cropped ? 'var(--gold2)' : 'var(--sub)', flex: 1 }}>
+                    {cropInfo?.cropped ? '✓ 작품 영역 감지 · 자동 크롭됨' : '이미지가 준비되었습니다'}
+                  </span>
                   <button className="btn-ghost" style={{ fontSize: 11, padding: '5px 12px', height: 32 }}
                     onClick={() => {
                       setPreview(null); setFile(null)

@@ -90,10 +90,10 @@ export async function cropToArtwork(inputFile) {
     const edges = buildEdgeMap(wc.getContext('2d').getImageData(0, 0, ww, wh))
     const box   = findCropBox(edges, ww, wh)
 
-    // Skip crop if < 10% reduction on both axes (not worth it)
+    // Skip crop if < 4% reduction on both axes (not worth it)
     const widthShrink  = (ww - box.w) / ww
     const heightShrink = (wh - box.h) / wh
-    if (widthShrink < 0.10 && heightShrink < 0.10) {
+    if (widthShrink < 0.04 && heightShrink < 0.04) {
       bitmap.close?.()
       return { file: inputFile, cropped: false }
     }
