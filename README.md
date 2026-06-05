@@ -13,10 +13,6 @@ short_description: An AI-powered art journal using computer vision and LLM
 <br />
 <img width="2123" height="724" alt="헤더이미지" src="https://github.com/user-attachments/assets/c1d664e8-10f2-4183-a0de-f9f486f2cb30" />
 
-
-
-
-
 <div align="center">
 
 # Inner Gallery
@@ -34,6 +30,8 @@ short_description: An AI-powered art journal using computer vision and LLM
 [![OpenCV](https://img.shields.io/badge/OpenCV-CV_Pipeline-5C3EE8?style=flat-square&logo=opencv&logoColor=white)](https://opencv.org)
 [![FAISS](https://img.shields.io/badge/FAISS-Vector_Search-4B8BBE?style=flat-square)](https://faiss.ai)
 [![Gemini](https://img.shields.io/badge/Gemini-2.0_Flash-4285F4?style=flat-square&logo=google&logoColor=white)](https://ai.google.dev)
+[![PostgreSQL](https://img.shields.io/badge/Supabase-PostgreSQL-3FCF8E?style=flat-square&logo=supabase&logoColor=white)](https://supabase.com)
+[![PWA](https://img.shields.io/badge/PWA-Installable-5A0FC8?style=flat-square&logo=pwa&logoColor=white)](https://web.dev/progressive-web-apps/)
 [![License](https://img.shields.io/badge/License-MIT-C9A84C?style=flat-square)](LICENSE)
 
 <br />
@@ -67,7 +65,7 @@ short_description: An AI-powered art journal using computer vision and LLM
 
 사용자가 작품 이미지를 촬영하거나 업로드하면 시스템은 먼저 작품 프레임을 감지하고 원근을 보정합니다. 이후 CLIP+FAISS, Gemini Vision, Google Web Detection, OCR 힌트 기반 식별을 조합해 작품 후보를 검증하고, 색채·구도·여백·인물 요소를 컴퓨터 비전으로 분석합니다.
 
-그 결과를 바탕으로 사용자의 현재 감정과 연결된 **맞춤형 감상 해설**, **마음색**, **스케치 회고**, **전시 티켓 형태의 감상 기록**을 생성합니다.
+그 결과를 바탕으로 사용자의 현재 감정과 연결된 **맞춤형 감상 해설**, **마음색**, **스케치 회고**, **전시 티켓 형태의 감상 기록**을 생성합니다. 또한 Art Institute of Chicago Public API를 통해 매일 새로운 퍼블릭 도메인 명화를 큐레이션하고, 전국 미술관·갤러리 전시 정보를 통합 제공합니다.
 
 > Inner Gallery는 작품을 설명하는 AI가 아니라,  
 > **작품을 통해 나를 돌아보게 하는 AI**입니다.
@@ -107,17 +105,18 @@ short_description: An AI-powered art journal using computer vision and LLM
 | `artwork_era_db.json` | 6,905줄 규모의 명화 맥락 지식 DB. 작품별 사조, 제작 배경, 시대 맥락, 작가 생애, 시각적 연결 정보를 직접 큐레이션 |
 | `index.faiss` | 18,455개 명화 이미지를 CLIP ViT-B/32로 임베딩한 로컬 벡터 검색 인덱스 |
 | `metadata.json` | FAISS 검색 결과와 연결되는 작품명, 작가, 장르, 연도 등 메타데이터 |
-| `solace.db` | 사용자, 작품, 감상 기록, 스케치, 감정 태그를 저장하는 SQLite 데이터베이스 |
+| `artist_quotes` | 세계 주요 예술가 120+명의 명언 데이터. 한국어·영문 병행 수록 |
+| `database` | 사용자, 감상 기록, 스케치, 감정 태그, 명언을 저장하는 SQLite / Supabase PostgreSQL |
 | `backend/scripts/` | 데이터셋 전처리, FAISS 인덱스 빌드, 작가 정보 임포트, DB 검증 및 마이그레이션 스크립트 |
 
 ### 직접 설계한 CV/AI 파이프라인
 
 - Roboflow 기반 작품 프레임 감지 및 8% padding crop
 - OpenCV 기반 Perspective Warp로 비스듬한 작품 사진 정면 보정
-- Laplacian variance, brightness, glare ratio, artwork size 기반 화질 사전 검사
-- CLIP ViT-B/32 + FAISS 기반 로컬 벡터 검색
+- Laplacian variance, brightness, glare ratio, artwork size 기반 화질 사전 검사 (카메라 모드 전용)
+- CLIP ViT-B/32 + FAISS IndexFlatIP 기반 로컬 벡터 검색 (top-k=12, threshold=0.78, vote_min=2)
 - Gemini Vision, Google Web Detection, OCR 힌트를 조합한 4-Way 작품 식별
-- KMeans 기반 주조색 추출 및 명화 도메인 특화 색채 분석
+- CIE LAB 색공간 KMeans(k=5) 기반 주조색 추출 및 명화 도메인 특화 색채 분석
 - 구도, 여백, 대칭성, 주목도(Saliency Map) 분석
 - HOG, Haar Cascade, 피부색 fallback을 조합한 미술 작품 인물 감지
 - `safe_visual_facts` / `blocked_uncertain_facts` 분리로 LLM 환각 방지
@@ -125,9 +124,14 @@ short_description: An AI-powered art journal using computer vision and LLM
 
 ### 기획·UX 설계 포인트
 
-- 작품 해설을 “정답 제공”이 아니라 “자기 회고”로 이어지게 하는 3단계 감상 구조 설계
+- 작품 해설을 "정답 제공"이 아니라 "자기 회고"로 이어지게 하는 3단계 감상 구조 설계
+- 감상 전/후 감정 키워드 선택으로 감상 경험 변화 추적 (27개 감정 카테고리, 6개 그룹)
 - 감상 후 스케치를 남기고 AI 회고문으로 다시 해석하는 Mind Sketch UX 구현
-- 감상 기록을 전시 티켓 형태로 저장해 개인 아카이브처럼 보관하는 Journal UX 설계
+- HSL 색공간 기반 마음색 직접 선택 (HUE·SATURATION·LIGHTNESS 슬라이더)
+- Art Institute of Chicago Public Domain API 연동 일일 명화 큐레이션
+- 국립현대미술관, 예술의전당 등 국내 27개 기관 + AIC 전시 정보 통합 제공
+- 감상 기록을 전시 티켓 형태(No. IG-YYMMDD)로 저장하고 이미지로 저장·공유하는 Journal UX
+- PWA(Progressive Web App) 지원으로 홈 화면 설치 가능
 - 의료적 치료·진단처럼 보이지 않도록 표현 범위와 안전 문구를 명확히 제한
 
 ---
@@ -137,40 +141,53 @@ short_description: An AI-powered art journal using computer vision and LLM
 ```text
 이미지 업로드 / 카메라 촬영
         ↓
-화질 검사 → 작품 프레임 감지 → 크롭 → 원근 보정
+[카메라 전용] 화질 검사 → 작품 프레임 감지 → 크롭 → 원근 보정
         ↓
 CLIP+FAISS · Gemini Vision · Google Web Detection · OCR 힌트
         ↓
 4-Way 하이브리드 작품 식별
         ↓
-색채 · 구도 · 인물 · Saliency 분석
+색채 · 구도 · 인물 · Saliency 병렬 분석
         ↓
-감정 지도 생성 + 사용자 감정 상태 반영
+사용자 감정 상태 입력 (전 감정 키워드 선택)
         ↓
-AI 도슨트 해설 생성
+AI 도슨트 해설 생성 + 감상 질문 + 마음색 제안
         ↓
-마음 스케치 → AI 회고
+도슨트 채팅 / 감상 질문 답변 / 사조·시대 맥락 조회
+        ↓
+마음 스케치 → Gemini AI 회고문 생성
+        ↓
+감상 후 감정 키워드 선택 (후 감정)
         ↓
 전시 티켓 형태로 저장 → Inner Gallery 아카이브
+        ↓
+[별도] 오늘의 명화 / 전시 정보 / 예술가 명언 큐레이션
 ```
 
 ```mermaid
 flowchart TD
-    A[Artwork Image Upload] --> B[Quality Check]
-    B --> C[Frame Detection & Perspective Warp]
-    C --> D[Hybrid Artwork Recognition]
-    D --> D1[CLIP + FAISS]
-    D --> D2[Gemini Vision]
-    D --> D3[Google Web Detection]
-    D --> D4[OCR Hint]
-    D --> E[Visual Analysis]
-    E --> E1[Color]
-    E --> E2[Composition]
-    E --> E3[Person / Saliency]
-    E --> F[Emotion Map]
-    F --> G[Grounded AI Docent]
-    G --> H[Mind Sketch]
-    H --> I[Journal Ticket Archive]
+    A[Artwork Image Upload / Camera] --> B{Camera Mode?}
+    B -->|Yes| C[Quality Check: Blur / Glare / Brightness]
+    B -->|No| D[Artwork Frame Detection & Perspective Warp]
+    C --> D
+    D --> E[Hybrid Artwork Recognition]
+    E --> E1[CLIP ViT-B/32 + FAISS]
+    E --> E2[Gemini 2.0 Flash Vision]
+    E --> E3[Google Web Detection]
+    E --> E4[OCR Hint Injection]
+    E --> F[CV Analysis Pipeline]
+    F --> F1[LAB KMeans Color]
+    F --> F2[Composition & Saliency]
+    F --> F3[Person & Posture]
+    F --> G[8D Emotion Vector]
+    G --> H[Grounded AI Docent + Reflection Questions]
+    H --> I[Docent Chat]
+    H --> J[Mind Sketch]
+    J --> K[Gemini Sketch Reflection]
+    K --> L[Journal Ticket Archive]
+
+    M[Daily Artwork AIC API] --> N[Reflection Q&A]
+    N --> L
 ```
 
 ---
@@ -183,10 +200,10 @@ flowchart TD
 
 | Engine | Role |
 |---|---|
-| **CLIP + FAISS** | 18,455개 명화 이미지 로컬 벡터 인덱스 기반 유사도 검색 |
-| **Gemini Vision** | 작품명, 작가, 제작 연도, 이미지 내 시각 정보 추론 |
-| **Google Cloud Vision Web Detection** | 미술관·위키피디아 등 신뢰 도메인 기반 웹 교차 검증 |
-| **OCR Hint Injection** | 전시장 작품 라벨의 제목·작가 정보를 추출해 인식 힌트로 사용 |
+| **CLIP ViT-B/32 + FAISS** | 18,455개 명화 이미지 로컬 벡터 인덱스. L2 정규화 후 IndexFlatIP로 코사인 유사도 검색. top-k=12, threshold=0.78, vote_min=2 다중 투표 방식으로 오탐 최소화 |
+| **Gemini 2.0 Flash Vision** | 작품명·작가·연도 후보 추출, 이미지 내 OCR, 인물 표정·자세 동시 분석 |
+| **Google Cloud Vision Web Detection** | 미술관·위키피디아 등 신뢰 도메인 기반 웹 교차 검증, best_guess 및 엔티티 추출 |
+| **OCR Hint Injection** | 전시장 작품 라벨의 제목·작가 정보를 추출해 인식 힌트로 사용. 신뢰도 평가 후 strong / partial / rejected 분류 |
 
 식별 결과는 다음 상태로 분류합니다.
 
@@ -205,7 +222,7 @@ flowchart TD
 
 LLM에 이미지를 바로 넘기지 않고, 먼저 컴퓨터 비전 파이프라인을 통해 해설의 근거가 되는 시각 정보를 추출합니다.
 
-#### Input Quality Check
+#### Input Quality Check (카메라 모드 전용)
 
 | Check | Algorithm | Threshold |
 |---|---|---|
@@ -213,6 +230,8 @@ LLM에 이미지를 바로 넘기지 않고, 먼저 컴퓨터 비전 파이프�
 | Darkness | Average brightness | `< 0.12` |
 | Glare | Bright pixel ratio + largest blob | `> 8%` or blob `> 1.5%` |
 | Artwork size | bbox / image area | `< 15%` |
+
+이미지 업로드 모드에서는 화질 경고를 표시하지 않습니다. 사용자가 직접 선택한 이미지에 대해 불필요한 경고를 줄이기 위한 의도적 설계입니다.
 
 #### Frame Detection & Perspective Warp
 
@@ -226,22 +245,22 @@ M = cv2.getPerspectiveTransform(src_corners, dst_corners)
 warped = cv2.warpPerspective(img, M, (target_w, target_h))
 ```
 
-사각형 윤곽 검출에 실패하면 8% padding crop으로 fallback합니다. 또한 원본과 crop 이미지를 함께 분석하는 dual-image 전략을 사용해 작품 인식 안정성을 높였습니다.
+사각형 윤곽 검출에 실패하면 8% padding crop으로 fallback합니다. 원본과 crop 이미지를 함께 분석하는 dual-image 전략으로 인식 안정성을 높였습니다.
 
 #### Color, Composition, Saliency
 
 | Area | Implementation |
 |---|---|
-| **Color** | KMeans(k=5)로 주조색 5가지 추출, RGB/HSV/점유율 계산 |
+| **Color** | CIE LAB 색공간에서 KMeans(k=5)로 주조색 5가지 추출, RGB/HSV/점유율 계산 |
 | **Custom Color Rules** | 무채색 필터, Gold/Amber 별도 분류, 밝은 영역 위치 추적 |
 | **Composition** | 9분할 위치, 여백 비율, 대칭성, 피사체 규모, edge direction 분석 |
 | **Saliency** | OpenCV StaticSaliencySpectralResidual + 대비 기반 fallback |
 
 ---
 
-### 3. Emotion Map
+### 3. Emotion Map — 8차원 감정 벡터
 
-색채·구도·인물 분석값을 조합해 6가지 감정 차원을 계산합니다.
+색채·구도·인물 분석값을 조합해 8가지 감정 차원을 계산하고, 사용자 선택 감정 키워드와 교차 반영합니다.
 
 | Emotion | Main Signals |
 |---|---|
@@ -251,20 +270,41 @@ warped = cv2.warpPerspective(img, M, (target_w, target_h))
 | 따뜻함 | 따뜻한 색 비율, 높은 밝기 |
 | 슬픔 | 어두움, 저채도, 차가운 색, 위축된 자세 |
 | 생동감 | 밝음, 고채도, 따뜻한 색, 활기 있는 자세 |
+| 경이로움 | 강한 saliency 집중, 복잡한 구도, 넓은 색조 범위 |
+| 멜랑콜리 | 낮은 채도 + 부드러운 색 + 인물 고독 자세 조합 |
 
 감정 판단은 단순 임계값이 아니라 복합 조건으로 보정했습니다. 예를 들어 밝고 차가운 색은 고독감이 아니라 평온함으로 해석하고, 밝고 열린 여백은 고독이 아닌 해방감으로 반영합니다.
 
 ---
 
-### 4. Grounded AI Docent
+### 4. Emotion Keyword Selection
+
+사용자가 감상 전·후 감정 상태를 직접 선택해 AI 해설 생성에 반영합니다.
+
+**감정 카테고리 (6그룹, 45종)**
+
+| 그룹 | 키워드 예시 |
+|---|---|
+| 가라앉음 | 슬픔, 외로움, 그리움, 공허함, 상처, 자괴감, 후회, 자책, 절망, 무기력 |
+| 불안과 흔들림 | 불안, 긴장감, 두려움, 막연함, 내적 갈등 |
+| 분노와 복잡한 감정 | 짜증, 화, 증오, 애증 |
+| 안정과 위로 | 평온함, 편안함, 여유, 온기, 위로, 수용, 화해 |
+| 회복과 긍정 | 회복, 희망, 기쁨, 설렘, 자신감, 열정, 자유로움, 영감 |
+| 깊은 감각과 바라봄 | 감동, 경이로움, 성찰, 집중, 깨달음, 배려심, 통찰 |
+
+감상 전(pre_emotions)과 감상 후(post_emotions)를 별도로 기록해 작품 경험 전후의 감정 변화를 추적합니다.
+
+---
+
+### 5. Grounded AI Docent
 
 AI 도슨트는 다음 데이터를 기반으로 해설을 생성합니다.
 
 - `safe_visual_facts`: 신뢰도 높은 시각 분석 결과
 - `blocked_uncertain_facts`: 추측이 금지된 불확실한 항목
-- 직접 구축한 작품 맥락 DB
-- 감정 지도 및 사용자 감정 상태
-- 사용자가 선택한 해설 스타일
+- 직접 구축한 작품 맥락 DB (`artwork_era_db.json`)
+- 8차원 감정 벡터 및 사용자 감정 상태
+- 사용자가 선택한 해설 스타일 및 분석 포커스
 
 해설은 항상 다음 3단계 구조를 따릅니다.
 
@@ -276,20 +316,100 @@ AI 도슨트는 다음 데이터를 기반으로 해설을 생성합니다.
 
 지원하는 해설 스타일은 `아트 테라피`, `도슨트 해설`, `시각 분석`, `짧은 감상`입니다.
 
+#### Docent Chat
+
+작품 분석 결과를 컨텍스트로 도슨트와 실시간 대화할 수 있습니다. 작품 정보, 색채 분석, 감정 지도, 사용자 감정 상태를 모두 프롬프트에 주입해 맥락 있는 대화를 지원합니다.
+
+#### Era & Art Movement Lookup
+
+작품 식별이 확정되면 직접 구축한 `artwork_era_db.json`에서 해당 작품의 사조, 제작 시대, 역사적 맥락, 작가 생애, 시각적 연결 정보를 즉시 조회합니다. DB에 없는 경우 Gemini로 생성 후 반환합니다.
+
 ---
 
-### 5. Mind Sketch & Art Journal
+### 6. Daily Curation — 오늘의 아트 큐레이션
+
+#### 오늘의 명화
+
+Art Institute of Chicago Public Domain Collection API를 통해 매일 다른 퍼블릭 도메인 명화를 제공합니다.
+
+- 4,000개 이상의 퍼블릭 도메인 작품 풀에서 날짜 기반 결정론적 선택
+- AIC IIIF Image API를 통한 고화질 이미지 제공
+- 작품 설명 한국어 번역 (Gemini 기반)
+- 매일 30개의 감상 질문 중 무작위 선택 제시
+- "다른 작품 보기"로 랜덤 전환 가능 (로드 완료 전 재클릭 방지)
+- 감상 질문 답변 작성 후 저널에 저장
+
+#### 오늘의 전시 산책
+
+국내외 미술 기관 전시 정보를 통합 제공합니다.
+
+| 소스 | 내용 |
+|---|---|
+| 국립현대미술관 KCISA API | 현재 전시 정보 (국립 기관 27개 포함) |
+| 예술의전당 API | 현재 진행 전시 |
+| Art Institute of Chicago | AIC 현재 전시 (영문, `Confirmed` 상태 필터링) |
+
+#### 예술가의 한 문장
+
+세계 주요 예술가 120+명의 명언을 한국어·영문 병행 표시합니다. 레오나르도 다 빈치, 반 고흐, 피카소, 모네, 클림트 등 20명 이상의 화가 명언을 직접 큐레이션했습니다.
+
+---
+
+### 7. Mind Sketch & Mood Color
+
+#### Mind Sketch
 
 감상 후 HTML5 Canvas에 마음의 흔적을 남길 수 있습니다.
 
 | Mode | Description |
 |---|---|
-| 자유 그리기 | 마음에 남은 형태를 자유롭게 그림 |
+| 선으로 남기기 | 감정의 방향을 선과 형태로 표현 |
 | 색으로 채우기 | 감정에 가까운 색으로 캔버스를 채움 |
-| 선으로 남기기 | 감정의 방향을 선으로 표현 |
-| 한 문장 쓰기 | 작품이 건넨 말을 짧게 기록 |
+| 문장 쓰기 | 작품이 건넨 말을 짧게 기록 |
 
-완성된 스케치는 Gemini가 선·색·여백을 읽어 짧은 회고문을 생성합니다. 모든 감상은 작품 정보, 해설, 질문, 감정 변화, 마음색, 스케치, 개인 메모와 함께 **전시 티켓(No. IG-XXXX)** 형태로 저장됩니다.
+- 실행 취소(Undo) / 전체 지우기 지원
+- 작품 이미지를 배경 오버레이로 사용 가능
+- Gemini Vision이 선·색·여백을 읽어 2~3문장 또는 4항목 심층 회고문 생성
+
+#### Mood Color — 마음색
+
+감상 후 오늘의 감정을 색으로 표현합니다.
+
+- **팔레트 선택**: 분석된 작품 색상 팔레트에서 선택
+- **감정-색 매핑**: 평온함(청록), 따뜻함(베이지), 우울함(남색) 등 30종 감정-색 사전 매핑
+- **직접 고르기**: HUE·SATURATION·LIGHTNESS 슬라이더로 세밀한 색 조정 (터치 드래그 최적화)
+- 선택한 마음색과 이름은 저널에 함께 저장
+
+---
+
+### 8. Art Journal — 전시 티켓 아카이브
+
+모든 감상 경험은 **전시 티켓(No. IG-YYMMDD-XXXX)** 형태로 저장됩니다.
+
+#### 저장되는 정보
+
+| Field | Content |
+|---|---|
+| 작품 정보 | 제목, 작가, 제작 연도 |
+| AI 해설 | 에세이 본문, 감상 질문, 위로 메시지 |
+| 감정 데이터 | 감상 전·후 감정 키워드, 마음색, 무드 태그 |
+| 사용자 기록 | 직접 작성한 감상 후기, 질문 답변, 전시 메모 |
+| 스케치 | 마음 스케치 이미지, 스케치 제목, 회고문 |
+| 시대 정보 | 작품 사조, 역사적 맥락, 작가 생애 |
+| 썸네일 | 작품 썸네일 이미지 (480×360 JPEG) |
+
+#### 티켓 기능
+
+- **이미지 저장**: `html-to-image` 기반으로 티켓 전체를 PNG로 저장. 외부 이미지 CORS 문제를 사전 data URL 변환으로 해결
+- **공유하기**: Web Share API 지원 기기에서 직접 공유, 미지원 시 이미지 다운로드 fallback
+- **전시 장소 수정**: 티켓 내 전시 제목/장소를 직접 편집 가능
+- **메모 편집**: 티켓 하단 개인 메모 인라인 편집
+
+#### 인증 시스템
+
+- JWT 기반 인증 (30일 만료)
+- 비밀번호 재설정 (이메일 + 새 비밀번호 방식)
+- `SECRET_KEY` 환경변수 고정으로 서버 재시작 후에도 기존 토큰 유지
 
 ---
 
@@ -297,12 +417,12 @@ AI 도슨트는 다음 데이터를 기반으로 해설을 생성합니다.
 
 Inner Gallery는 LLM의 감성적 글쓰기가 근거 없는 해설로 흐르지 않도록 다음 장치를 둡니다.
 
-- 불확실한 표정·시선·자세는 `blocked_uncertain_facts`로 분리
+- 불확실한 표정·시선·자세는 `blocked_uncertain_facts`로 분리해 LLM 프롬프트에서 제외
 - 추상화·풍경·정물·건축 작품에서는 인물 분석 자동 비활성화
 - 의료적 치료, 심리 진단, 정서 개선 효과 표현 금지
-- 감상자의 현재 감정을 단정하지 않고 가능성형으로 표현
+- 감상자의 현재 감정을 단정하지 않고 `~처럼 느껴질 수 있어요`, `~일지도 모릅니다` 표현 사용
 - 작품 식별 신뢰도가 낮을 경우 작품명 단정을 피하고 시각 분석 중심 감상으로 전환
-- 생성 후 근거 없는 시각 주장 검증 및 필요 시 재생성
+- 생성 후 근거 없는 시각 주장(`unsupported_visual_claims`) 검증 및 필요 시 재생성
 
 ---
 
@@ -310,11 +430,15 @@ Inner Gallery는 LLM의 감성적 글쓰기가 근거 없는 해설로 흐르지
 
 | Area | Stack |
 |---|---|
-| **Frontend** | React 18, Vite, React Router, HTML5 Canvas, Vanilla CSS, Axios |
-| **Backend** | Python 3.11, FastAPI, SQLite, Uvicorn, JWT Auth, passlib |
+| **Frontend** | React 18, Vite, React Router v6, HTML5 Canvas, Vanilla CSS, Axios |
+| **PWA** | Web App Manifest, Service Worker ready, apple-touch-icon, theme-color |
+| **Backend** | Python 3.11, FastAPI, Uvicorn, JWT (python-jose), bcrypt |
+| **Database** | SQLite (로컬/HF Spaces) / Supabase PostgreSQL (`DATABASE_URL` 환경변수로 자동 전환) |
 | **Computer Vision** | OpenCV, Roboflow Serverless, KMeans, HOG, Haar Cascade, Saliency Map, Perspective Transform |
 | **AI / ML** | Gemini 2.0 Flash, Google Cloud Vision API, CLIP ViT-B/32, FAISS IndexFlatIP, scikit-learn, NumPy |
-| **Data** | `artwork_era_db.json`, `index.faiss`, `metadata.json`, `solace.db` |
+| **External APIs** | Art Institute of Chicago Public API (IIIF), 국립문화정보원 KCISA API |
+| **Deployment** | Docker, HuggingFace Spaces (port 7860) |
+| **Data** | `artwork_era_db.json`, `index.faiss`, `metadata.json`, artist_quotes (DB seeded) |
 
 ---
 
@@ -330,13 +454,20 @@ Inner Gallery는 LLM의 감성적 글쓰기가 근거 없는 해설로 흐르지
 ### Environment Variables
 
 ```env
-GEMINI_API_KEY=your-key
+# Required
+GEMINI_API_KEY=your-gemini-key
+SECRET_KEY=your-jwt-secret          # JWT 시크릿, 미설정 시 재시작마다 재생성
+
+# Optional — PostgreSQL 사용 시 (미설정 시 SQLite)
+DATABASE_URL=postgresql://user:password@host:port/dbname
 
 # Optional
 GOOGLE_CLOUD_VISION_KEY=your-key
 ROBOFLOW_API_KEY=your-key
-SECRET_KEY=your-jwt-secret
+KCISA_API_KEY=your-key              # 국내 전시 정보 API
 ```
+
+> **PostgreSQL (Supabase) 설정**: `DATABASE_URL` 환경변수를 설정하면 SQLite 대신 Supabase PostgreSQL을 자동으로 사용합니다. HuggingFace Spaces에서 데이터를 영구 보존하려면 Supabase 연결을 권장합니다.
 
 ### Backend
 
@@ -372,27 +503,45 @@ python backend/scripts/build_index.py
 inner-gallery/
 ├── backend/
 │   ├── main.py                 # API endpoints and analysis pipeline
-│   ├── auth.py                 # JWT authentication
-│   ├── database.py             # SQLite CRUD
-│   ├── artwork_index/          # FAISS index and metadata
-│   ├── data/                   # artwork_era_db.json, web cache
+│   ├── auth.py                 # JWT authentication, login, register, reset
+│   ├── database.py             # SQLite / PostgreSQL CRUD (auto-switch)
+│   ├── artwork_index/
+│   │   ├── index.faiss         # CLIP ViT-B/32 vector index (18,455 artworks)
+│   │   └── metadata.json       # artwork metadata linked to FAISS index
+│   ├── data/
+│   │   └── artwork_era_db.json # curated art history context DB (6,905 lines)
 │   └── scripts/                # dataset and DB pipeline scripts
 │
 ├── modules/
-│   ├── color_analyzer.py       # custom artwork color analysis
+│   ├── color_analyzer.py       # LAB KMeans color extraction, mood tagging
 │   ├── composition_analyzer.py # composition, negative space, symmetry
-│   ├── person_analyzer.py      # HOG + fallback person analysis
-│   ├── emotion_scorer.py       # 6D emotion map
-│   ├── llm_generator.py        # docent essays and chat
-│   ├── artwork_matcher.py      # CLIP + FAISS matching
-│   ├── era_lookup.py           # curated artwork DB lookup
-│   └── quality_checker.py      # image quality pre-check
+│   ├── person_analyzer.py      # HOG + fallback person and posture analysis
+│   ├── emotion_scorer.py       # 8D emotion vector calculation
+│   ├── llm_generator.py        # docent essays, chat, era, sketch reflection
+│   ├── artwork_matcher.py      # CLIP ViT-B/32 + FAISS matching pipeline
+│   ├── era_lookup.py           # artwork_era_db.json lookup
+│   ├── quality_checker.py      # image quality pre-check (camera mode)
+│   ├── saliency_analyzer.py    # OpenCV saliency map generation
+│   └── ocr_extractor.py        # artwork label OCR extraction
 │
-└── frontend/src/
-    ├── pages/                  # Home, Upload, Results, Drawing, Journal
-    ├── components/             # UI components
-    ├── context/                # App and auth state
-    └── utils/                  # matching and detection helpers
+├── frontend/src/
+│   ├── pages/
+│   │   ├── Home.jsx            # main menu + AI pipeline explainer
+│   │   ├── Upload.jsx          # image upload / camera capture + pre-analysis
+│   │   ├── Results.jsx         # full analysis results + docent + journal save
+│   │   ├── Routine.jsx         # daily artwork / exhibitions / artist quotes
+│   │   ├── Drawing.jsx         # HTML5 Canvas mind sketch
+│   │   ├── Journal.jsx         # ticket-style journal list + image export
+│   │   ├── JournalDetail.jsx   # full journal entry view
+│   │   ├── Login.jsx           # login / register / password reset
+│   │   └── ResetPassword.jsx   # standalone password reset page
+│   ├── components/             # GoldDivider, EmotionBar, PaletteBar, LoginModal
+│   ├── context/                # AppContext (global state), AuthContext (JWT)
+│   └── utils/                  # artwork detection, fuzzy match helpers
+│
+├── Dockerfile                  # multi-stage build: Python deps → npm build → uvicorn
+├── generate_icons.py           # PWA icon generation from embedded base64
+└── requirements.txt
 ```
 
 ---
@@ -401,28 +550,44 @@ inner-gallery/
 
 | Method | Endpoint | Description |
 |---|---|---|
-| `POST` | `/api/analyze` | 이미지 전체 분석 파이프라인 실행 |
-| `POST` | `/api/quick-match` | 업로드 즉시 Top-5 작품 후보 미리보기 |
-| `POST` | `/api/quick-quality` | 이미지 화질 사전 검사 |
-| `POST` | `/api/sketch-reflection` | 마음 스케치 회고문 생성 |
-| `POST` | `/api/essay-text` | 텍스트 기반 에세이 재생성 |
-| `POST` | `/api/artwork-era` | 작품 사조·시대·작가 맥락 조회 |
-| `POST` | `/api/docent-chat` | 작품 기반 도슨트 채팅 |
-| `GET` | `/api/daily-artwork` | 오늘의 명화 추천 |
-| `GET/POST/PATCH/DELETE` | `/api/journal` | 감상 기록 CRUD |
-| `POST` | `/auth/register`, `/auth/login` | 회원가입 및 로그인 |
+| `POST` | `/api/analyze` | 이미지 전체 분석 파이프라인 실행 (CV + 4-Way 식별 + 해설 생성) |
+| `POST` | `/api/quick-match` | 업로드 즉시 Top-5 작품 후보 미리보기 (CLIP + FAISS) |
+| `POST` | `/api/quick-quality` | 이미지 화질 사전 검사 (카메라 모드 전용) |
+| `POST` | `/api/sketch-reflection` | 마음 스케치 이미지 기반 AI 회고문 생성 (Gemini Vision) |
+| `POST` | `/api/essay-text` | 작품 정보 기반 도슨트 에세이 텍스트 재생성 |
+| `POST` | `/api/artwork-era` | 작품 사조·시대·작가 맥락 조회 (DB lookup → Gemini fallback) |
+| `POST` | `/api/docent-chat` | 작품 컨텍스트 기반 도슨트 실시간 채팅 |
+| `POST` | `/api/translate` | 영어 작품 설명 한국어 번역 (Gemini) |
+| `GET` | `/api/daily-artwork` | 서버 사이드 오늘의 명화 추천 |
+| `GET` | `/api/artist-quote` | 예술가 명언 랜덤 반환 |
+| `GET` | `/api/exhibitions` | 국내외 전시 정보 (KCISA + AIC 통합) |
+| `GET` | `/api/demo-result` | 작품 분석 데모 결과 반환 |
+| `GET` | `/api/journal` | 감상 기록 목록 조회 |
+| `POST` | `/api/journal/thumbs` | 날짜 목록 기반 썸네일 배치 조회 |
+| `GET` | `/api/journal/detail/{date}` | 감상 기록 상세 조회 |
+| `POST` | `/api/journal` | 감상 기록 저장 |
+| `DELETE` | `/api/journal/{date}` | 감상 기록 삭제 |
+| `PATCH` | `/api/journal/{date}/note` | 티켓 메모 수정 |
+| `PATCH` | `/api/journal/{date}/exhibition` | 티켓 전시 제목 수정 |
+| `PATCH` | `/api/journal/{date}/sketch` | 마음 스케치 데이터 업데이트 |
+| `POST` | `/api/auth/register` | 회원가입 |
+| `POST` | `/api/auth/login` | 로그인 (JWT 발급) |
+| `GET` | `/api/auth/me` | 현재 사용자 정보 |
+| `DELETE` | `/api/auth/me` | 계정 탈퇴 (저널 데이터 포함 삭제) |
+| `POST` | `/api/auth/reset-password` | 비밀번호 재설정 |
 
 ---
 
 ## Future Improvements
 
 - 실제 갤러리 촬영 데이터 기반 frame detection fine-tuning
-- OCR 기반 작품 라벨 인식 고도화
-- 감정 지도 시각화 개선
-- 저널 검색·필터링 기능
-- 사용자별 감상 패턴 리포트
-- 다국어 도슨트 해설
+- OCR 기반 작품 라벨 인식 고도화 (한글 라벨 지원)
+- 저널 검색·날짜 필터·감정 태그 필터링 기능
+- 사용자별 감상 패턴 분석 리포트 (자주 느끼는 감정, 선호 색채 등)
+- 다국어 도슨트 해설 (영어, 일본어)
 - 작품 인식 실패 케이스를 활용한 active learning 데이터셋 구축
+- 스케치 히스토리 및 시리즈 기록 기능
+- 감상 통계 시각화 (캘린더 히트맵, 감정 분포 차트)
 
 ---
 
