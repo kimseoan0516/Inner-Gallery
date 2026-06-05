@@ -75,6 +75,7 @@ export default function JournalDetail() {
   const [rec, setRec] = useState(selectedEntry)
   const [reportOpen, setReportOpen] = useState(false)
   const [detailLoading, setDetailLoading] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     if (!selectedEntry?.date) { nav('/journal'); return }
@@ -111,8 +112,14 @@ export default function JournalDetail() {
 
   const handleDelete = async () => {
     if (!window.confirm('이 기록을 삭제하시겠습니까?')) return
-    await deleteJournal(rec.date)
-    nav('/journal')
+    setDeleting(true)
+    try {
+      await deleteJournal(rec.date)
+      nav('/journal', { state: { refresh: Date.now() } })
+    } catch {
+      alert('삭제에 실패했습니다. 다시 시도해주세요.')
+      setDeleting(false)
+    }
   }
 
   return (
@@ -128,12 +135,13 @@ export default function JournalDetail() {
             {isSketch ? 'Heart Sketch' : 'Journal Entry'}
           </div>
         </div>
-        <button onClick={handleDelete} style={{
-          background: 'transparent', color: '#C07070',
+        <button onClick={handleDelete} disabled={deleting} style={{
+          background: 'transparent', color: deleting ? 'rgba(180,80,80,0.4)' : '#C07070',
           border: '1px solid rgba(180,80,80,0.3)', borderRadius: 6,
           padding: '0 12px', height: 32, fontSize: 12,
-          cursor: 'pointer', fontFamily: 'inherit',
-        }}>삭제</button>
+          cursor: deleting ? 'default' : 'pointer', fontFamily: 'inherit',
+          opacity: deleting ? 0.6 : 1,
+        }}>{deleting ? '삭제 중…' : '삭제'}</button>
       </div>
 
       <div className="screen-scroll" style={{ padding: '20px 20px 52px', display: 'flex', flexDirection: 'column', gap: 28 }}>
