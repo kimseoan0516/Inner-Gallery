@@ -100,7 +100,12 @@ function DailyArtworkSection() {
         setTranslateErr('번역을 불러올 수 없습니다.')
       }
     } catch (e) {
-      setTranslateErr(e.response?.data?.detail || '번역 중 오류가 발생했습니다.')
+      const status = e.response?.status
+      if (status === 429) {
+        setTranslateErr('번역 서비스가 일시적으로 한도에 도달했습니다. 잠시 후 다시 시도해주세요.')
+      } else {
+        setTranslateErr('번역 중 오류가 발생했습니다.')
+      }
     }
     setTranslating(false)
   }
@@ -438,7 +443,7 @@ function ArtistWords() {
 
       <div style={{ padding: '32px 28px 24px' }}>
         {/* 오픈 쿼트 */}
-        <div style={{ fontSize: 72, color: 'rgba(184,145,42,0.22)', fontFamily: 'Georgia, serif', lineHeight: 0.8, marginBottom: 12, userSelect: 'none' }}>”</div>
+        <div style={{ fontSize: 72, color: 'rgba(184,145,42,0.22)', fontFamily: 'Georgia, serif', lineHeight: 0.8, marginBottom: 2, userSelect: 'none' }}>”</div>
 
         {/* 명언 텍스트 */}
         <p style={{

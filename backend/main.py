@@ -1635,12 +1635,18 @@ async def translate_text(req: TranslateRequest):
         "다음 미술 작품 설명 영어 텍스트를 자연스러운 한국어로 번역해주세요. "
         "번역문만 출력하세요 (설명, 주석 없이):\n\n" + req.text
     )
-    try:
-        resp = client.models.generate_content(model="gemini-2.0-flash", contents=prompt)
-        return {"translated": resp.text.strip()}
-    except Exception as e:
-        print(f"[translate] error: {e}", flush=True)
-        raise HTTPException(500, f"번역 오류: {e}")
+    # gemini-1.5-flash → 2.0-flash 순으로 시도 (쿼터 분산)
+    for model_name in ["gemini-1.5-flash", "gemini-2.0-flash"]:
+        try:
+            resp = client.models.generate_content(model=model_name, contents=prompt)
+            return {"translated": resp.text.strip()}
+        except Exception as e:
+            err_str = str(e)
+            print(f"[translate] {model_name} error: {err_str[:200]}", flush=True)
+            if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+                continue  # 다음 모델 시도
+            raise HTTPException(500, "번역 중 오류가 발생했습니다.")
+    raise HTTPException(429, "번역 서비스가 일시적으로 한도에 도달했습니다. 잠시 후 다시 시도해주세요.")
 
 
 # ── 명언 ─────────────────────────────────────────────────────────────────────
