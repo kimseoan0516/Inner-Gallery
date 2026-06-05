@@ -54,6 +54,9 @@ short_description: An AI-powered art journal using computer vision and LLM
 - [Getting Started](#getting-started)
 - [Project Structure](#project-structure)
 - [API Overview](#api-overview)
+- [Architecture](#architecture)
+- [Database Schema](#database-schema)
+- [Feature Flow](#feature-flow)
 - [References & External Resources](#references--external-resources)
 - [Future Improvements](#future-improvements)
 - [License](#license)
@@ -579,6 +582,284 @@ inner-gallery/
 
 ---
 
+## Architecture
+
+### System Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                          CLIENT (Browser / PWA)                      │
+│                                                                       │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────────────┐ │
+│  │  Upload  │  │ Results  │  │ Journal  │  │  Routine / Drawing   │ │
+│  │  Camera  │  │ (Detail) │  │ (Ticket) │  │  (Daily / Sketch)    │ │
+│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └──────────┬───────────┘ │
+│       │              │              │                    │             │
+│       └──────────────┴──────────────┴────────────────────┘            │
+│                               Axios (JWT Bearer)                      │
+└───────────────────────────────────┬─────────────────────────────────┘
+                                    │ HTTPS
+                          ┌─────────▼──────────┐
+                          │    FastAPI (Python) │
+                          │    Uvicorn / Docker │
+                          │       port 7860     │
+                          └─────────┬──────────┘
+               ┌─────────────────────────────────────────┐
+               │                                         │
+    ┌──────────▼──────────┐               ┌─────────────▼──────────────┐
+    │   CV / AI Pipeline  │               │        Database Layer       │
+    │                     │               │                             │
+    │  ┌───────────────┐  │               │  SQLite  ──or──  Supabase  │
+    │  │ Roboflow API  │  │               │      PostgreSQL             │
+    │  │ (frame crop)  │  │               │                             │
+    │  ├───────────────┤  │               │  users                      │
+    │  │ OpenCV        │  │               │  journal_entries            │
+    │  │ Color/Comp/   │  │               │  artists                    │
+    │  │ Person/Sal    │  │               │  artworks                   │
+    │  ├───────────────┤  │               │  artist_quotes              │
+    │  │ CLIP ViT-B/32 │  │               │  password_reset_tokens      │
+    │  │ + FAISS Index │  │               └─────────────────────────────┘
+    │  ├───────────────┤  │
+    │  │ Gemini 2.0    │  │          ┌─────────────────────────────────┐
+    │  │ Flash Vision  │  │          │         Static Assets           │
+    │  ├───────────────┤  │          │                                 │
+    │  │ Google Cloud  │  │          │  frontend/dist/  ←  Vite build  │
+    │  │ Vision API    │  │          │  (React SPA + manifest + icons) │
+    │  └───────────────┘  │          └─────────────────────────────────┘
+    └─────────────────────┘
+```
+
+### CV + AI Analysis Pipeline
+
+```mermaid
+flowchart LR
+    A[Raw Image] --> B[Roboflow\nPainting Detection]
+    B -->|bbox + 8% padding| C[Cropped ROI]
+    B -->|detection failed| C2[Client-side\nSobel Crop]
+    C2 --> C
+
+    C --> D1[OpenCV\nLAB KMeans\nColor Analysis]
+    C --> D2[OpenCV\nComposition\n& Saliency]
+    C --> D3[OpenCV\nHOG + Haar\nPerson Analysis]
+    C --> D4[CLIP ViT-B/32\n→ 512-dim emb\nFAISS Search]
+    C --> D5[Gemini 2.0 Flash\nVision + OCR]
+    C --> D6[Google Cloud\nVision\nWeb Detection]
+
+    D4 -->|sim≥0.78\nvote≥2| E[FAISS Match]
+    D5 --> E2[Gemini\nCandidates]
+    D6 --> E3[Web Entities\n& Best Guess]
+
+    E --> F{4-Way\nCross Validation}
+    E2 --> F
+    E3 --> F
+
+    D1 --> G[8D Emotion\nVector]
+    D2 --> G
+    D3 --> G
+
+    F -->|confirmed / unknown| H[Artwork Identity\n+ era_db Lookup]
+    G --> I[Grounded\nDocent Essay\nGemini 2.0 Flash]
+    H --> I
+```
+
+### Authentication Flow
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant API as FastAPI
+    participant DB as Database
+
+    C->>API: POST /api/auth/register {username, email, password}
+    API->>API: bcrypt.hashpw(password)
+    API->>DB: INSERT INTO users
+    DB-->>API: ok
+    API-->>C: {ok: true}
+
+    C->>API: POST /api/auth/login {username, password}
+    API->>DB: SELECT * FROM users WHERE username=?
+    DB-->>API: user row
+    API->>API: bcrypt.checkpw() → JWT encode(sub=user_id, exp=30d)
+    API-->>C: {access_token, username, user_id}
+
+    C->>API: POST /api/journal (Authorization: Bearer <token>)
+    API->>API: jwt.decode() → user_id
+    API->>DB: SELECT * FROM users WHERE id=?
+    DB-->>API: user row
+    API->>DB: INSERT INTO journal_entries
+    API-->>C: {ok: true}
+```
+
+---
+
+## Database Schema
+
+```mermaid
+erDiagram
+    users {
+        INTEGER id PK
+        TEXT username UK
+        TEXT email UK
+        TEXT hashed_password
+        TEXT created_at
+    }
+
+    journal_entries {
+        INTEGER id PK
+        INTEGER user_id FK
+        TEXT date
+        TEXT entry_type
+        TEXT artwork_title
+        TEXT artwork_artist
+        TEXT artwork_year
+        TEXT essay_title
+        TEXT essay_body
+        TEXT questions
+        TEXT comfort
+        TEXT reflection
+        TEXT moods
+        TEXT dominant_colors
+        TEXT thumbnail
+        TEXT pre_emotions
+        TEXT post_emotions
+        TEXT mood_color
+        TEXT mood_color_name
+        TEXT mood_note
+        TEXT sketch_image
+        TEXT sketch_title
+        TEXT sketch_note
+        TEXT sketch_guide
+        TEXT sketch_reflection
+        TEXT ticket_memo
+        TEXT ticket_exhibition
+        TEXT era_data
+        TEXT question_answers
+        TEXT created_at
+    }
+
+    artists {
+        INTEGER id PK
+        TEXT name
+        TEXT name_ko
+        TEXT nationality
+        TEXT years
+        TEXT genre
+        TEXT bio
+        TEXT wikipedia
+        INTEGER painting_count
+        TEXT created_at
+    }
+
+    artworks {
+        INTEGER id PK
+        TEXT title
+        TEXT title_ko
+        INTEGER artist_id FK
+        TEXT year
+        TEXT medium
+        TEXT museum
+        TEXT genre
+        TEXT description
+        TEXT created_at
+    }
+
+    artist_quotes {
+        INTEGER id PK
+        TEXT quote
+        TEXT quote_en
+        TEXT artist
+        TEXT artist_en
+    }
+
+    password_reset_tokens {
+        INTEGER id PK
+        INTEGER user_id FK
+        TEXT token UK
+        TEXT expires_at
+        INTEGER used
+        TEXT created_at
+    }
+
+    users ||--o{ journal_entries : "writes"
+    users ||--o{ password_reset_tokens : "requests"
+    artists ||--o{ artworks : "painted"
+```
+
+**`journal_entries` 컬럼 타입 노트**
+
+| 컬럼 | 실제 타입 | 직렬화 형식 |
+|---|---|---|
+| `essay_body`, `questions`, `moods`, `dominant_colors`, `pre_emotions`, `post_emotions` | JSON Array | `["item1", "item2"]` |
+| `era_data` | JSON Object (또는 빈 문자열) | `{"art_movement": "...", ...}` |
+| `question_answers` | JSON Object | `{"0": "답변 텍스트"}` |
+| `thumbnail`, `sketch_image` | Base64 JPEG (또는 HTTP URL) | — |
+
+---
+
+## Feature Flow
+
+### 작품 분석 → 저장 전체 흐름
+
+```mermaid
+flowchart TD
+    A([이미지 업로드 / 카메라 촬영]) --> B{카메라 모드?}
+    B -->|Yes| C[화질 검사\nBlur·Glare·Darkness]
+    B -->|No| D[Client-side Sobel Crop]
+    C -->|경고| D
+    D --> E[POST /api/quick-match\nCLIP+FAISS Top-5 미리보기]
+    E --> F[사용자: 힌트 입력 / 감정 선택 / 설정]
+    F --> G[POST /api/analyze\n전체 분석 파이프라인]
+    G --> H{식별 상태}
+    H -->|confirmed| I[작품 정보 + era_db 조회]
+    H -->|unknown| I2[색채·구도 중심 감상]
+    I --> J[도슨트 에세이 생성\nGemini 2.0 Flash]
+    I2 --> J
+    J --> K[Results 페이지\n에세이·질문·마음색·감정바]
+    K --> L{저장?}
+    L -->|Yes| M[감상 후 감정 선택]
+    M --> N[POST /api/journal\n전시 티켓 저장]
+    N --> O([Journal 아카이브])
+    K --> P[마음 스케치]
+    P --> Q[POST /api/sketch-reflection\nGemini Vision 회고]
+    Q --> N
+```
+
+### 오늘의 명화 흐름
+
+```mermaid
+flowchart TD
+    A([Routine 페이지 진입]) --> B[getDailyArtworkAIC\n날짜 기반 결정론적 선택]
+    B --> C[AIC Public API\n퍼블릭 도메인 작품 조회]
+    C --> D[작품 이미지 + 메타데이터 표시\nAIC IIIF Image API]
+    D --> E{번역 요청?}
+    E -->|Yes| F[POST /api/translate\nGemini 한국어 번역]
+    F --> D
+    D --> G[오늘의 질문 표시\n30개 중 날짜 기반 선택]
+    G --> H[사용자 답변 입력]
+    H --> I[POST /api/journal\n감상 기록 저장]
+    I --> J([Journal 아카이브])
+    D --> K[다른 작품 보기\nRandom offset]
+    K --> C
+```
+
+### 감상 기록 조회 흐름
+
+```mermaid
+flowchart TD
+    A([Journal 페이지]) --> B[GET /api/journal\n텍스트 메타 + thumbnail 한번에 수신]
+    B --> C[티켓 카드 목록 렌더링]
+    C --> D{티켓 클릭}
+    D --> E[GET /api/journal/detail/date\n전체 컬럼 수신]
+    E --> F[JournalDetail 렌더\n에세이·질문·감정·스케치·시대정보 한번에 표시]
+    F --> G{VIEW REPORT}
+    G -->|펼치기| H[에세이 본문 + 질문·답변 + 시대 맥락]
+    F --> I{티켓 이미지 저장/공유}
+    I --> J[html-to-image → PNG\n외부 이미지 data URL 변환]
+    J --> K([PNG 저장 / Web Share API])
+```
+
+---
+
 ## References & External Resources
 
 이 프로젝트에서 사용한 외부 API, 오픈소스 모델, 데이터셋, 라이브러리를 모두 기록합니다.
@@ -680,4 +961,50 @@ inner-gallery/
 
 ## License
 
-[MIT](LICENSE)
+This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
+
+```
+MIT License
+
+Copyright (c) 2025 kimseoan0516
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+### Third-party Licenses
+
+이 프로젝트에서 사용하는 주요 외부 컴포넌트의 라이센스입니다.
+
+| Component | License |
+|---|---|
+| React, Vite, Axios, html-to-image, react-colorful, React Router | MIT |
+| FastAPI, Uvicorn, python-jose, passlib, python-dotenv, FAISS | MIT |
+| OpenCV | Apache 2.0 |
+| NumPy, scikit-learn, SciPy, Pillow | BSD |
+| sentence-transformers | Apache 2.0 |
+| google-generativeai, google-cloud-vision | Apache 2.0 |
+| psycopg2-binary | LGPL |
+| CLIP ViT-B/32 (via sentence-transformers) | MIT |
+| Cinzel, Cormorant Garamond, Noto Serif KR, Noto Sans KR | OFL (SIL Open Font License) |
+| AIC Public Domain Artworks | CC0 1.0 Universal |
+| Kaggle Datasets (Best Artworks of All Time) | CC BY-NC-SA 4.0 (Kaggle 이용약관 준수) |
+
+> **Note**: 이 프로젝트의 MIT 라이센스는 소스 코드에만 적용됩니다.  
+> AIC 작품 이미지는 CC0 퍼블릭 도메인이며, Kaggle 데이터셋 이미지는 해당 데이터셋의 라이센스를 따릅니다.  
+> Gemini API, Google Cloud Vision API, Roboflow API 사용 시 각 서비스의 이용약관을 준수해야 합니다.
