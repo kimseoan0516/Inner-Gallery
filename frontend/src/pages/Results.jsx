@@ -537,7 +537,7 @@ export default function Results() {
         <div style={{ borderRadius: 6, overflow: 'hidden', background: 'var(--card2)', border: '1px solid var(--line)' }}>
           <img
             src={!artwork_image ? '' :
-              (artwork_image.startsWith('/') || artwork_image.startsWith('http') || artwork_image.startsWith('data:'))
+              (artwork_image.startsWith('http') || artwork_image.startsWith('data:'))
               ? artwork_image
               : `data:image/jpeg;base64,${artwork_image}`}
             alt="작품"
