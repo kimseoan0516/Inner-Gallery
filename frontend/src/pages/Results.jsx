@@ -535,7 +535,9 @@ export default function Results() {
         {/* Artwork image — full width, no frame */}
         <div style={{ borderRadius: 6, overflow: 'hidden', background: 'var(--card2)', border: '1px solid var(--line)' }}>
           <img
-            src={`data:image/jpeg;base64,${artwork_image}`}
+            src={artwork_image.startsWith('/') || artwork_image.startsWith('http') || artwork_image.startsWith('data:')
+              ? artwork_image
+              : `data:image/jpeg;base64,${artwork_image}`}
             alt="작품"
             style={{ width: '100%', height: 'auto', display: 'block', maxHeight: 500, objectFit: 'contain' }}
           />

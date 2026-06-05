@@ -764,55 +764,87 @@ export default function Upload({ mode: pageMode }) {
                 </button>
                 <button className="btn-outline" onClick={() => {
                   setResult({
-                    artwork_image: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+                    artwork_image: "/starry-night-demo.jpg",
                     saliency_image: "",
-                    thumbnail: "",
+                    thumbnail: "/starry-night-demo.jpg",
                     info: {
-                      title: "",
-                      artist: "",
-                      year: "",
-                      medium: "",
+                      title: "The Starry Night",
+                      artist: "Vincent van Gogh",
+                      year: "1889",
+                      medium: "Oil on canvas",
                       ui_message: ""
                     },
                     color: {
-                      dominant_colors: [],
-                      warm_color_ratio: 0,
-                      cool_color_ratio: 0,
-                      average_brightness: 0,
-                      brightness_label: "",
-                      average_saturation: 0,
-                      saturation_label: "",
-                      contrast_level: 0,
-                      contrast_label: "",
-                      color_moods_ko: []
+                      dominant_colors: [
+                        { rgb: [29, 97, 137],   name: "코발트 블루",   percentage: 0.26 },
+                        { rgb: [18, 26, 48],    name: "미드나이트 네이비", percentage: 0.23 },
+                        { rgb: [42, 126, 142],  name: "틸 블루",       percentage: 0.21 },
+                        { rgb: [88, 154, 150],  name: "세이지 틸",     percentage: 0.16 },
+                        { rgb: [152, 182, 115], name: "올리브 그린",   percentage: 0.14 },
+                      ],
+                      warm_color_ratio: 0.14,
+                      cool_color_ratio: 0.70,
+                      average_brightness: 0.38,
+                      brightness_label: "보통",
+                      average_saturation: 0.55,
+                      saturation_label: "보통",
+                      contrast_level: 0.50,
+                      contrast_label: "보통",
+                      dark_ratio: 0,
+                      color_moods_ko: ["거리감", "차분함", "신비로움", "무거움", "사색적", "기다림"]
                     },
                     comp: {
-                      composition_analysis: "",
-                      composition_score: 0
+                      main_subject_position: "중간 중앙",
+                      dominant_orientation: "균형",
+                      negative_space_ratio: 0,
+                      symmetry_score: 0.53,
+                      composition_analysis: "소용돌이치는 하늘이 화면 전체를 압도하며, 왼쪽 사이프러스 나무가 수직 리듬을 형성하고 아래쪽 마을이 안정감을 부여하는 삼분할 구도입니다.",
+                      composition_score: 78
                     },
                     person: {
                       detected_people_count: 0,
                       poses: [],
-                      emotional_posture_ko: []
+                      emotional_posture_ko: [],
+                      posture_ko: "차분한 자세",
+                      bright_position: "",
                     },
-                    scores: {},
-                    evidence: [],
+                    scores: {
+                      "안정감": 60, "고독감": 58, "생동감": 58,
+                      "긴장감": 50, "따뜻함": 50, "슬픔": 50,
+                    },
+                    evidence: [
+                      { emotion: "안정감", reason: "전반적 시각 요소" },
+                      { emotion: "고독감", reason: "전반적 시각 요소" },
+                      { emotion: "생동감", reason: "전반적 시각 요소" },
+                      { emotion: "긴장감", reason: "전반적 시각 요소" },
+                    ],
                     essay: {
-                      title: "",
-                      body: [],
-                      questions: [],
-                      comfort: ""
+                      title: "격동하는 고요 속으로 초대하는 밤",
+                      body: [
+                        "혼자 있는 시간이 길어질수록, 아무렇지 않은 풍경도 때로는 더 깊은 의미로 다가올 때가 있습니다. 빈센트 반 고흐의 명작 <별이 빛나는 밤>을 마주할 때, 우리는 단순히 밤하늘을 넘어선 하나의 거대한 감각을 느끼게 됩니다. 이 그림은 반 고흐가 자신의 내면의 격동과 싸우면서도 밤하늘에서 위안을 찾았던 시기에 그려진 것으로, 밤이 낮보다 더 풍부한 색채를 지녔다고 고백했던 그의 시선이 고스란히 담겨 있습니다.",
+                        "화면 전체를 지배하는 것은 차가운 청색과 청회색 계열의 색채(64%)입니다. 이 깊고 푸른색은 보통 명도와 채도로 표현되어, 밤의 신비로움과 동시에 고요한 무게감을 전달합니다. 특히 화면 상단 중앙에 집중된 밝은 영역은 강렬하게 빛나는 달과 별들을 통해 마치 살아 움직이는 듯한 에너지를 발산합니다. 이 소용돌이치는 붓 터치는 시각적으로 압도적인 몰입감을 주며, 우리 마음속에서 때때로 일렁이는 복잡한 감정의 파동과 닮아 느껴질 수 있습니다.",
+                        "화면 왼쪽에서 불꽃처럼 위로 솟아오른 어두운 사이프러스 나무는 격렬한 밤하늘과 대비를 이룹니다. 이 거대한 형상은 밤의 에너지를 붙잡아두려는 듯 굳건히 서 있으며, 땅과 하늘을 잇는 묵직한 연결점처럼 느껴집니다. 그 존재감은 때로는 견고한 지지대처럼, 때로는 깊은 사색으로 이끄는 길잡이처럼 다가와, 우리 내면의 어떤 갈망이나 영원한 것에 대한 물음을 조용히 던져볼 시간을 줄 수 있습니다.",
+                        "하늘의 격렬함 아래로는 작고 고요한 마을의 풍경이 펼쳐집니다. 이 대비적인 구도는 광활한 우주적 스케일과 인간의 소박한 삶을 한 화면에 담아내며, 우리에게 깊은 거리감과 동시에 묘한 안정감을 선사합니다. 우리의 일상이 아무리 분주하더라도, 이 밤하늘처럼 거대한 어떤 흐름 속에 고요히 놓여 있음을 잠시 상기시켜 주며, 마음을 조금은 평온하게 내려놓을 여지를 만들어줄 수 있습니다.",
+                        "화면의 밀도는 매우 높고 여백이 거의 없지만, 그림 전체를 가득 채운 역동적인 리듬감은 답답함 대신 생생한 활력을 느끼게 합니다. 진한 코발트 블루와 강렬한 황금색의 조화는 밤의 어둠 속에서도 희망의 빛이 존재함을 은은히 이야기하는 듯합니다. 이는 우리가 살면서 마주하는 고독하고 긴장된 순간들 속에서도, 우리 안의 생동하는 에너지와 잠재된 빛을 발견할 수 있다는 속삭임처럼 느껴질 수 있습니다.",
+                        "이처럼 빈센트 반 고흐의 <별이 빛나는 밤>은 단순히 밤 풍경을 그린 것이 아니라, 그의 내면의 소리를 우리에게 전하고 있습니다. 잠시 눈을 감았다 뜨고, 이 그림 속 가장 강렬한 빛이나 가장 고요한 어둠에 시선을 머물러 보세요. 그리고 그 색과 흐름이 지금 당신의 마음과 어떻게 만나는지 가만히 느껴보는 시간을 가져보세요.",
+                      ],
+                      questions: [
+                        "이 그림의 소용돌이치는 밤하늘이 당신의 어떤 감정과 가장 가깝게 느껴지나요?",
+                        "그림 속 고요한 마을이나 굳건한 사이프러스 나무처럼, 당신을 흔들림 없이 지탱해 주는 것은 무엇인가요?",
+                        "밤의 어둠 속에서도 빛을 발하는 별들처럼, 당신의 일상 속에서 작지만 분명한 희망의 불빛은 무엇인가요?",
+                      ],
+                      comfort: "소용돌이치는 밤하늘 속에서도 묵묵히 제자리를 지키는 별빛들처럼, 당신의 오늘 하루도 저마다의 고유한 빛으로 충만하기를 바랍니다."
                     },
                     quality: {},
-                    candidates: [],
-                    identification_status: "unknown",
+                    candidates: [{ title: "The Starry Night", artist: "Vincent van Gogh", year: "1889", score: 1.0 }],
+                    identification_status: "confirmed",
                     ocr_info: {},
                     figure: {},
                     similar: []
                   });
                   nav('/results');
                 }} style={{ marginTop: 8, height: 34, fontSize: 10, letterSpacing: '1.5px', background: 'rgba(194,166,136,0.05)', color: 'var(--gold2)' }}>
-                  데모 명화로 즉시 분석하기 (검증용)
+                  데모 명화로 즉시 분석하기
                 </button>
               </>
             )}
