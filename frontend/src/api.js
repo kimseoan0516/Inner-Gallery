@@ -328,3 +328,8 @@ export async function getArtistQuote() {
   const { data } = await api.get('/api/artist-quote')
   return data
 }
+
+export async function getDemoResult() {
+  const { data } = await api.get('/api/demo-result')
+  return data
+}
