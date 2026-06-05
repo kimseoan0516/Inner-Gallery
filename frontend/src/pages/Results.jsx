@@ -243,29 +243,50 @@ export default function Results() {
   const displayInfo = correctedInfo || info
   const activeEssay = correctedEssay || essay
 
-  // 한줄 요약(제목)이 본문 첫 줄에 중복으로 들어오는 경우를 완벽히 분리
+  // 한줄 요약(제목)이 본문 첫 줄에 들어오는 모든 패턴을 분리
   const { derivedEssayTitle, essayDisplayBody } = (() => {
     let title = (activeEssay.title || '').trim()
     let body = [...(activeEssay.body || [])]
-    
+
+    const stripMd = s => s.replace(/\*\*/g, '').replace(/^\*|\*$/g, '').trim()
+    const isSentenceEnding = s => /[.。!?]$/.test(s) || /[다요어아죠네요]$/.test(stripMd(s))
+
     if (body.length > 0) {
-      let first = body[0].trim()
-      let m = first.match(/^\*\*(.*?)\*\*$/)
-      if (m) {
-        if (!title) title = m[1].trim()
+      const first = body[0].trim()
+      const clean = stripMd(first)
+
+      // ① 마크다운 볼드: **제목**
+      const boldMatch = first.match(/^\*\*(.*?)\*\*$/)
+      // ② 이탤릭: *제목*
+      const italicMatch = !boldMatch && first.match(/^\*(.*?)\*$/)
+      // ③ 레이블 접두어: 한줄 요약: / 요약: / 제목:
+      const labelMatch = /^\*\*?(한\s*줄\s*요\s*약|요\s*약|제\s*목)\s*:\s*\*\*?/i.test(first) ||
+                         /^(한\s*줄\s*요\s*약|요\s*약|제\s*목)\s*:/i.test(first)
+      // ④ 짧은 시적 표현 — 35자 이하 & 문장종결어미로 끝나지 않음
+      const isShortTitle = !title && clean.length > 0 && clean.length <= 35 && !isSentenceEnding(clean)
+
+      if (boldMatch) {
+        if (!title) title = boldMatch[1].trim()
         body = body.slice(1)
-      } else if (/^\*\*?(한\s*줄\s*요\s*약|요\s*약|제\s*목)\s*:\s*\*\*?/i.test(first)) {
-        if (!title) title = first.replace(/^\*\*?(한\s*줄\s*요\s*약|요\s*약|제\s*목)\s*:\s*\*\*?/i, '').replace(/\*\*/g, '').trim()
+      } else if (italicMatch) {
+        if (!title) title = italicMatch[1].trim()
         body = body.slice(1)
-      } else if (/^(한\s*줄\s*요\s*약|요\s*약|제\s*목)\s*:/i.test(first)) {
-        if (!title) title = first.replace(/^(한\s*줄\s*요\s*약|요\s*약|제\s*목)\s*:/i, '').replace(/\*\*/g, '').trim()
+      } else if (labelMatch) {
+        if (!title) title = first
+          .replace(/^\*\*?(한\s*줄\s*요\s*약|요\s*약|제\s*목)\s*:\s*\*\*?/i, '')
+          .replace(/^(한\s*줄\s*요\s*약|요\s*약|제\s*목)\s*:/i, '')
+          .replace(/\*\*/g, '').trim()
+        body = body.slice(1)
+      } else if (isShortTitle) {
+        title = clean
         body = body.slice(1)
       }
-      
-      if (body.length > 0) {
-        let cleanFirst = body[0].replace(/\*\*/g, '').trim()
-        let cleanTitle = title.replace(/\*\*/g, '').trim()
-        if (cleanTitle && cleanFirst && (cleanFirst === cleanTitle || (cleanFirst.includes(cleanTitle) && cleanFirst.length < cleanTitle.length + 15))) {
+
+      // 중복 제거: body 남은 첫 줄이 title과 동일하면 제거
+      if (title && body.length > 0) {
+        const cleanFirst = stripMd(body[0].trim())
+        const cleanTitle = stripMd(title)
+        if (cleanFirst === cleanTitle || (cleanFirst.includes(cleanTitle) && cleanFirst.length < cleanTitle.length + 15)) {
           body = body.slice(1)
         }
       }
@@ -552,11 +573,13 @@ export default function Results() {
                 이름을 알 수 없는 작품
               </p>
             )}
-            {/* 한줄 평 — identityConfirmed 여부와 무관하게 항상 표시 */}
+            {/* 한줄 감상 제목 — 작품 정보와 명확히 분리 */}
             {derivedEssayTitle && (
-              <p style={{ fontSize: 13, color: 'var(--gold2)', lineHeight: 1.6, letterSpacing: 0.1, marginTop: 6 }}>
-                {derivedEssayTitle}
-              </p>
+              <div style={{ marginTop: 12, paddingTop: 10, borderTop: '1px solid rgba(184,145,42,0.15)' }}>
+                <p style={{ fontSize: 13, color: 'var(--gold2)', lineHeight: 1.65, letterSpacing: 0.2, fontFamily: "'Noto Serif KR', serif", fontStyle: 'italic' }}>
+                  {derivedEssayTitle}
+                </p>
+              </div>
             )}
             {safeInfo.year && (
               <p style={{ fontSize: 11, color: 'rgba(70,52,40,0.38)', marginTop: 8 }}>{safeInfo.year}</p>
