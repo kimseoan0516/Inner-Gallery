@@ -443,7 +443,7 @@ function ArtistWords() {
 
       <div style={{ padding: '32px 28px 24px' }}>
         {/* 오픈 쿼트 */}
-        <div style={{ fontSize: 72, color: 'rgba(184,145,42,0.22)', fontFamily: 'Georgia, serif', lineHeight: 0.8, marginBottom: 2, userSelect: 'none' }}>”</div>
+        <div style={{ fontSize: 72, color: 'rgba(184,145,42,0.22)', fontFamily: 'Georgia, serif', lineHeight: 0.8, marginBottom: -8, userSelect: 'none' }}>”</div>
 
         {/* 명언 텍스트 */}
         <p style={{
