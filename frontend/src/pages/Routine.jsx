@@ -412,8 +412,8 @@ function ArtistWords() {
       <div style={{ height: 2, background: 'linear-gradient(to right, transparent, rgba(184,145,42,0.35), transparent)' }} />
 
       <div style={{ padding: '32px 28px 24px' }}>
-        {/* 오픈 쿼트 — 텍스트 왼쪽 위에 작게 */}
-        <div style={{ fontSize: 40, color: 'rgba(184,145,42,0.18)', fontFamily: 'Georgia, serif', lineHeight: 1, marginBottom: 8, userSelect: 'none' }}>“</div>
+        {/* 오픈 쿼트 */}
+        <div style={{ fontSize: 72, color: 'rgba(184,145,42,0.22)', fontFamily: 'Georgia, serif', lineHeight: 0.8, marginBottom: 12, userSelect: 'none' }}>”</div>
 
         {/* 명언 텍스트 */}
         <p style={{
@@ -443,17 +443,30 @@ function ArtistWords() {
         )}
 
         {/* 하단 — 작가명 + 텍스트 링크 */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-          <p style={{
-            margin: 0,
-            fontSize: 13,
-            fontWeight: 700,
-            color: '#8C692A',
-            fontFamily: "'Noto Serif KR', serif",
-            letterSpacing: 1.2,
-          }}>
-            — {quote.artist}{quote.artist_en ? ` (${quote.artist_en})` : ''}
-          </p>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 }}>
+          <div>
+            <p style={{
+              margin: 0,
+              fontSize: 11,
+              fontWeight: 400,
+              color: 'rgba(140,105,42,0.55)',
+              fontFamily: "'Cormorant Garamond', 'Noto Serif KR', serif",
+              letterSpacing: 2.5,
+              textTransform: 'uppercase',
+            }}>
+              {quote.artist_en || ''}
+            </p>
+            <p style={{
+              margin: '2px 0 0',
+              fontSize: 14,
+              fontWeight: 600,
+              color: 'rgba(90,65,30,0.85)',
+              fontFamily: "'Noto Serif KR', serif",
+              letterSpacing: 0.5,
+            }}>
+              {quote.artist}
+            </p>
+          </div>
 
           <button
             onClick={fetchQuote}
@@ -461,17 +474,16 @@ function ArtistWords() {
               background: 'none',
               border: 'none',
               padding: 0,
-              fontSize: 11,
-              color: 'rgba(140,105,42,0.55)',
+              fontSize: 10,
+              color: 'rgba(184,145,42,0.4)',
               cursor: 'pointer',
-              letterSpacing: 0.3,
-              fontFamily: "'Noto Serif KR', serif",
-              textDecoration: 'none',
+              letterSpacing: 1.5,
+              fontFamily: 'monospace',
               flexShrink: 0,
               marginLeft: 16,
             }}
           >
-            다른 문장 ›
+            NEXT ›
           </button>
         </div>
       </div>
@@ -542,28 +554,34 @@ export default function Routine() {
                 ))}
               </div>
               
-              {/* 페이지네이션 컨덕터 */}
-              {exhibitions.length > exPerPage && (
-                <div style={{ display: 'flex', justifyContent: 'center', gap: 8, marginTop: 16 }}>
-                  <button 
-                    onClick={() => setExPage(p => Math.max(1, p - 1))}
-                    disabled={exPage === 1}
-                    style={{ background: 'transparent', border: '1px solid var(--line)', padding: '4px 12px', borderRadius: 4, color: exPage === 1 ? 'rgba(0,0,0,0.1)' : 'var(--text)', cursor: exPage === 1 ? 'default' : 'pointer' }}
-                  >
-                    &lt;
-                  </button>
-                  <span style={{ fontSize: 12, color: 'var(--sub)', alignSelf: 'center', margin: '0 8px' }}>
-                    {exPage} / {Math.ceil(exhibitions.length / exPerPage)}
-                  </span>
-                  <button 
-                    onClick={() => setExPage(p => Math.min(Math.ceil(exhibitions.length / exPerPage), p + 1))}
-                    disabled={exPage === Math.ceil(exhibitions.length / exPerPage)}
-                    style={{ background: 'transparent', border: '1px solid var(--line)', padding: '4px 12px', borderRadius: 4, color: exPage === Math.ceil(exhibitions.length / exPerPage) ? 'rgba(0,0,0,0.1)' : 'var(--text)', cursor: exPage === Math.ceil(exhibitions.length / exPerPage) ? 'default' : 'pointer' }}
-                  >
-                    &gt;
-                  </button>
-                </div>
-              )}
+              {/* 페이지네이션 */}
+              {exhibitions.length > exPerPage && (() => {
+                const totalPages = Math.ceil(exhibitions.length / exPerPage)
+                const atFirst = exPage === 1
+                const atLast  = exPage === totalPages
+                const btn = (disabled, onClick, label) => (
+                  <button
+                    onClick={onClick}
+                    disabled={disabled}
+                    style={{
+                      background: 'none', border: 'none', padding: '4px 6px',
+                      fontSize: 16, lineHeight: 1,
+                      color: disabled ? 'rgba(184,145,42,0.18)' : 'rgba(184,145,42,0.65)',
+                      cursor: disabled ? 'default' : 'pointer',
+                      fontFamily: 'Georgia, serif',
+                    }}
+                  >{label}</button>
+                )
+                return (
+                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 4, marginTop: 14 }}>
+                    {btn(atFirst,  () => setExPage(p => p - 1), '‹')}
+                    <span style={{ fontSize: 10, color: 'rgba(184,145,42,0.5)', letterSpacing: 1.5, fontFamily: 'monospace', minWidth: 36, textAlign: 'center' }}>
+                      {exPage} / {totalPages}
+                    </span>
+                    {btn(atLast, () => setExPage(p => p + 1), '›')}
+                  </div>
+                )
+              })()}
             </>
           )}
         </section>
