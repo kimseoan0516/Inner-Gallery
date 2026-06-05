@@ -513,7 +513,7 @@ function ArtistWords() {
               marginLeft: 16,
             }}
           >
-            NEXT ›
+            다음 문장 ›
           </button>
         </div>
       </div>
