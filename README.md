@@ -657,6 +657,16 @@ pip install -r requirements.txt
 uvicorn backend.main:app --reload --port 8000
 ```
 
+### Docker (Recommended for Deployment)
+
+```bash
+docker build -t inner-gallery .
+docker run -p 7860:7860 \
+  -e GEMINI_API_KEY=your-key \
+  -e SECRET_KEY=your-jwt-secret \
+  inner-gallery
+```
+
 ### Frontend
 
 ```bash
