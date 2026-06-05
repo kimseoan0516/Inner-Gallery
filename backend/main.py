@@ -1915,4 +1915,9 @@ if os.path.exists(_dist):
 
     @app.get("/{full_path:path}", include_in_schema=False)
     async def serve_frontend(full_path: str):
+        # dist 내 실제 파일(아이콘, manifest 등)이면 그 파일을 직접 반환
+        _dist_real = os.path.realpath(_dist)
+        candidate = os.path.realpath(os.path.join(_dist, full_path))
+        if candidate.startswith(_dist_real + os.sep) and os.path.isfile(candidate):
+            return FileResponse(candidate)
         return FileResponse(os.path.join(_dist, "index.html"))
