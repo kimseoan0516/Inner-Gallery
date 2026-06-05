@@ -1661,17 +1661,17 @@ async def demo_result():
         "info": {
             "title": "The Starry Night",
             "artist": "Vincent van Gogh",
-            "year": "1889",
+            "year": "",
             "medium": "Oil on canvas",
             "ui_message": ""
         },
         "color": {
             "dominant_colors": [
-                {"rgb": [29, 97, 137],   "name": "코발트 블루",      "percentage": 0.26},
-                {"rgb": [18, 26, 48],    "name": "미드나이트 네이비", "percentage": 0.23},
-                {"rgb": [42, 126, 142],  "name": "틸 블루",          "percentage": 0.21},
-                {"rgb": [88, 154, 150],  "name": "세이지 틸",        "percentage": 0.16},
-                {"rgb": [152, 182, 115], "name": "올리브 그린",      "percentage": 0.14},
+                {"rgb": [27,  67, 140],  "name": "코발트 블루",      "percentage": 0.26},
+                {"rgb": [14,  24,  50],  "name": "프러시안 네이비",   "percentage": 0.23},
+                {"rgb": [57, 108, 168],  "name": "세룰리안 블루",     "percentage": 0.21},
+                {"rgb": [35,  68,  40],  "name": "다크 포레스트 그린", "percentage": 0.16},
+                {"rgb": [215, 170,  42], "name": "황금 앰버",         "percentage": 0.14},
             ],
             "warm_color_ratio": 0.14,
             "cool_color_ratio": 0.70,
@@ -1727,7 +1727,7 @@ async def demo_result():
             "comfort": "소용돌이치는 밤하늘 속에서도 묵묵히 제자리를 지키는 별빛들처럼, 당신의 오늘 하루도 저마다의 고유한 빛으로 충만하기를 바랍니다.",
         },
         "quality": {},
-        "candidates": [{"title": "The Starry Night", "artist": "Vincent van Gogh", "year": "1889", "score": 1.0}],
+        "candidates": [],
         "identification_status": "confirmed",
         "ocr_info": {},
         "figure": {},

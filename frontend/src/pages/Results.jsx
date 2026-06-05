@@ -583,9 +583,6 @@ export default function Results() {
                 </p>
               </div>
             )}
-            {safeInfo.year && (
-              <p style={{ fontSize: 11, color: 'rgba(70,52,40,0.38)', marginTop: 8 }}>{safeInfo.year}</p>
-            )}
           </div>
           {/* Archive badge */}
           <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, paddingLeft: 16, borderLeft: '1px solid rgba(184,145,42,0.18)' }}>
@@ -882,7 +879,7 @@ export default function Results() {
         {activeEssay.questions?.length > 0 && (
           <div className="card" style={{ padding: '18px 18px' }}>
             <SectionHead icon="○" title="감상 질문" en="Reflection Questions" />
-            <p style={{ fontSize: 11, color: 'var(--sub)', marginTop: 6, marginBottom: 14, lineHeight: 1.6 }}>
+            <p style={{ fontSize: 11, color: 'var(--sub)', marginTop: 6, marginBottom: 14, lineHeight: 1.6, paddingLeft: 22 }}>
               질문을 눌러 나의 대답을 남겨보세요
             </p>
             <div style={{ display: 'flex', flexDirection: 'column' }}>
