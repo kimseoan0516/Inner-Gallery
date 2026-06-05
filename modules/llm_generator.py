@@ -536,9 +536,6 @@ def generate_sketch_reflection(
     api_key: str,
     mode: str = "short",
 ) -> str:
-    from google import genai as _new_genai
-    from google.genai import types as _gtypes
-
     system_instruction = (
         "너는 미술 감상 보조 AI다. 사용자가 명화 감상 후 그린 마음 스케치를 함께 읽어주는 회고 안내자다.\n"
         "규칙:\n"
@@ -571,21 +568,19 @@ def generate_sketch_reflection(
         f"{instruction}"
     )
 
-    client = _new_genai.Client(api_key=api_key)
+    genai.configure(api_key=api_key)
+    model = genai.GenerativeModel(
+        "gemini-2.0-flash",
+        system_instruction=system_instruction,
+    )
 
     for attempt in range(2):
         try:
-            resp = client.models.generate_content(
-                model="gemini-2.0-flash",
-                contents=[
-                    _gtypes.Part.from_bytes(data=sketch_bytes, mime_type="image/jpeg"),
-                    _gtypes.Part.from_text(prompt),
-                ],
-                config=_gtypes.GenerateContentConfig(
-                    system_instruction=system_instruction,
-                ),
-            )
-            return resp.text.strip()
+            response = model.generate_content([
+                {"mime_type": "image/jpeg", "data": sketch_bytes},
+                prompt,
+            ])
+            return response.text.strip()
         except ValueError:
             return "마음 스케치를 자세히 살펴보기 어렵습니다. 하지만 당신만의 색깔과 선이 담긴 멋진 스케치네요. 어떤 마음으로 선을 그었는지 스스로 되돌아보는 것도 좋은 감상이 될 거예요."
         except Exception as e:
