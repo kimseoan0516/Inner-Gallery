@@ -290,10 +290,12 @@ export default function Upload({ mode: pageMode }) {
     setFile(activeFile)
     setPreview(URL.createObjectURL(activeFile))
 
-    // 화질 체크 — 분석 전에 즉시 실행
-    quickQuality(activeFile).then(res => {
-      if (res?.warnings?.length > 0) setQualityWarnings(res.warnings)
-    }).catch(() => {})
+    // 화질 체크 — 카메라 촬영 시에만 실행
+    if (pageMode === 'camera') {
+      quickQuality(activeFile).then(res => {
+        if (res?.warnings?.length > 0) setQualityWarnings(res.warnings)
+      }).catch(() => {})
+    }
 
     if (opts.preCands) {
       if (opts.preCands.length > 0) {
@@ -309,9 +311,9 @@ export default function Upload({ mode: pageMode }) {
     try {
       const [resMatch, resQual] = await Promise.all([
         quickMatch(activeFile).catch(() => null),
-        quickQuality(activeFile).catch(() => null)
+        pageMode === 'camera' ? quickQuality(activeFile).catch(() => null) : Promise.resolve(null),
       ])
-      
+
       if (resQual && resQual.warnings) {
         setQualityWarnings(resQual.warnings)
       }
