@@ -1099,6 +1099,7 @@ class JournalEntry(BaseModel):
     sketch_guide:      str       = ""
     sketch_reflection: str       = ""
     era_data:         str       = ""
+    question_answers: str       = "{}"
 
 
 @app.post("/api/journal")

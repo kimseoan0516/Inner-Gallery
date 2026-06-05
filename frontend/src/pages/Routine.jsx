@@ -65,6 +65,9 @@ function DailyArtworkSection() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved]   = useState(false)
   const [showLogin, setShowLogin] = useState(false)
+  const [toast, setToast]   = useState('')
+
+  const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 2500) }
 
   const load = (fetcher) => {
     setLoading(true)
@@ -102,32 +105,41 @@ function DailyArtworkSection() {
     setTranslating(false)
   }
 
-  const handleSave = async () => {
-    if (!user) { setShowLogin(true); return }
-    if (!qAnswer.trim() || saving || saved) return
+  const doSave = async (entry) => {
     setSaving(true)
     try {
-      const now = new Date()
-      const p = n => String(n).padStart(2, '0')
-      await saveJournal({
-        date: `${now.getFullYear()}-${p(now.getMonth()+1)}-${p(now.getDate())} ${p(now.getHours())}:${p(now.getMinutes())}`,
-        artwork_title:  art.title,
-        artwork_artist: art.artist,
-        artwork_year:   art.date,
-        entry_type:     'routine',
-        essay_title:    '오늘의 명화 감상',
-        essay_body:     [],
-        questions:      [art.question],
-        question_answers: JSON.stringify({ '0': qAnswer }),
-        reflection:     qAnswer,
-        thumbnail:      art.image_url || '',
-        pre_emotions: [], post_emotions: [],
-        mood_color: '', mood_color_name: '', mood_note: '',
-        moods: [], dominant_colors: [],
-      })
+      await saveJournal(entry)
       setSaved(true)
-    } catch {}
-    setSaving(false)
+      showToast('감상이 저장되었어요')
+    } catch {
+      showToast('저장에 실패했어요. 다시 시도해주세요.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleSave = () => {
+    if (!qAnswer.trim() || saving || saved) return
+    const now = new Date()
+    const p = n => String(n).padStart(2, '0')
+    const entry = {
+      date: `${now.getFullYear()}-${p(now.getMonth()+1)}-${p(now.getDate())} ${p(now.getHours())}:${p(now.getMinutes())}`,
+      artwork_title:    art.title,
+      artwork_artist:   art.artist,
+      artwork_year:     art.date,
+      entry_type:       'routine',
+      essay_title:      '오늘의 명화 감상',
+      essay_body:       [],
+      questions:        [art.question],
+      question_answers: JSON.stringify({ '0': qAnswer }),
+      reflection:       qAnswer,
+      thumbnail:        art.image_url || '',
+      pre_emotions: [], post_emotions: [],
+      mood_color: '', mood_color_name: '', mood_note: '',
+      moods: [], dominant_colors: [],
+    }
+    if (!user) { setShowLogin(true); return }
+    doSave(entry)
   }
 
   if (loading) return <ArtworkSkeleton />
@@ -145,6 +157,19 @@ function DailyArtworkSection() {
   return (
     <>
       {showLogin && <LoginModal onSuccess={() => { setShowLogin(false); handleSave() }} onClose={() => setShowLogin(false)} />}
+
+      {/* 토스트 */}
+      {toast && (
+        <div style={{
+          position: 'fixed', bottom: 80, left: '50%', transform: 'translateX(-50%)',
+          background: 'rgba(30,22,14,0.88)', color: '#E8D9B0',
+          fontSize: 12, padding: '10px 20px', borderRadius: 20,
+          letterSpacing: 0.4, zIndex: 9999, pointerEvents: 'none',
+          fontFamily: "'Noto Serif KR', serif",
+          boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
+        }}>{toast}</div>
+      )}
+
       <div style={{ borderRadius: 12, overflow: 'hidden', border: '1px solid var(--line)', background: 'var(--card)' }}>
 
         {/* 이미지 — contain으로 전체 표시 */}
