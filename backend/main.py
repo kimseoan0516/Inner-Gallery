@@ -1655,9 +1655,9 @@ async def translate_text(req: TranslateRequest):
 async def demo_result():
     """별이 빛나는 밤 — 사전 저장된 데모 분석 결과."""
     return {
-        "artwork_image": "/starry-night-demo.jpg",
+        "artwork_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/ea/Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg/1280px-Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg",
         "saliency_image": "",
-        "thumbnail": "/starry-night-demo.jpg",
+        "thumbnail": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/ea/Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg/400px-Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg",
         "info": {
             "title": "The Starry Night",
             "artist": "Vincent van Gogh",
