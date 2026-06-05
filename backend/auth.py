@@ -52,7 +52,6 @@ def get_current_user(creds: Optional[HTTPAuthorizationCredentials] = Depends(_be
         user_id = int(payload["sub"])
     except (JWTError, KeyError, ValueError):
         raise HTTPException(401, "토큰이 유효하지 않습니다")
-    init_db()
     with conn() as c:
         row = c.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
     if not row:
@@ -72,7 +71,6 @@ class LoginForm(BaseModel):
 
 @router.post("/register")
 def register(form: RegisterForm):
-    init_db()
     if len(form.username.strip()) < 2:
         raise HTTPException(400, "이름은 2자 이상이어야 합니다")
     if len(form.password) < 6:
@@ -91,7 +89,6 @@ def register(form: RegisterForm):
 
 @router.post("/login")
 def login(form: LoginForm):
-    init_db()
     with conn() as c:
         row = c.execute("SELECT * FROM users WHERE username = ?",
                         (form.username.strip(),)).fetchone()
@@ -125,7 +122,6 @@ class ResetPasswordForm(BaseModel):
 
 @router.post("/reset-password")
 def reset_password(form: ResetPasswordForm):
-    init_db()
     with conn() as c:
         row = c.execute("SELECT * FROM users WHERE email = ?", (form.email.strip(),)).fetchone()
     if not row:
