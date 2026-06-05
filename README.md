@@ -22,7 +22,6 @@ short_description: AI-powered art reflection journal with computer vision and gr
 **Computer Vision · Multimodal AI · Grounded AI Docent · Art Reflection Journal**
 
 <br />
-
 [![Python](https://img.shields.io/badge/Python-3.11+-3776AB?style=flat-square&logo=python&logoColor=white)](https://python.org)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![React](https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react&logoColor=black)](https://react.dev)
@@ -31,9 +30,9 @@ short_description: AI-powered art reflection journal with computer vision and gr
 [![FAISS](https://img.shields.io/badge/FAISS-Vector_Search-4B8BBE?style=flat-square)](https://faiss.ai)
 [![Gemini](https://img.shields.io/badge/Gemini-2.0_Flash-4285F4?style=flat-square&logo=google&logoColor=white)](https://ai.google.dev)
 [![Supabase](https://img.shields.io/badge/Supabase-PostgreSQL-3FCF8E?style=flat-square&logo=supabase&logoColor=white)](https://supabase.com)
+[![Docker](https://img.shields.io/badge/Docker-Deployment-2496ED?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com/)
 [![PWA](https://img.shields.io/badge/PWA-Installable-5A0FC8?style=flat-square&logo=pwa&logoColor=white)](https://web.dev/progressive-web-apps/)
 [![License](https://img.shields.io/badge/License-MIT-C9A84C?style=flat-square)](LICENSE)
-
 <br />
 
 **Inner Gallery is a multimodal AI art reflection journal that recognizes artworks, analyzes visual elements, and turns the viewing experience into a grounded personal reflection archive.**
