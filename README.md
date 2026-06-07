@@ -27,7 +27,7 @@ short_description: AI art reflection journal with computer vision
 
 <br />
 
-**Inner Gallery is not an artwork identifier. It's a personal reflection journal — one that uses computer vision and multimodal AI to help you turn the experience of looking at art into a lasting emotional archive.**
+**Inner Gallery is an AI-powered art journal. It identifies artworks, analyzes their visual elements, and guides users through an emotion-based reflection flow — capturing the experience as a personal archive.**
 
 **작품을 촬영하거나 업로드하면, 작품 인식부터 색채·구도 분석, 감정 회고, 마음색 선택, 마음 스케치, 전시 티켓 형태의 저널 저장까지 이어지는 감상 흐름을 경험할 수 있습니다.**
 
@@ -84,13 +84,6 @@ Inner Gallery는 다른 질문에서 출발했습니다.
 2. **감상 이후의 마음 변화가 사라지지 않게 기록화할 것.**  
    작품 정보, 감정 키워드, 마음색, 감상 질문, 마음 스케치, AI 회고문을 하나의 전시 티켓으로 저장해 개인 아카이브로 남기도록 설계했습니다.
 
-<div align="center">
-
-**Inner Gallery는 작품을 설명하는 AI가 아니라,**  
-**작품을 통해 나를 돌아보게 하는 AI입니다.**
-
-</div>
-
 > [!NOTE]
 > 본 프로젝트는 의료적 치료나 심리 진단을 제공하지 않습니다. 아트테라피의 감상 방식에서 영감을 받아, 작품의 시각 요소를 통해 감정을 언어화하고 기록하는 경험을 제공합니다.
 
@@ -98,7 +91,7 @@ Inner Gallery는 다른 질문에서 출발했습니다.
 
 ## What Makes This Different
 
-미술 정보 앱과 Inner Gallery의 차이는 **종착점**에 있습니다.
+기존 미술 앱과의 차이는 작품 식별 이후 사용자에게 무엇을 돌려주느냐에 있습니다.
 
 | | 기존 미술 정보 앱 | Inner Gallery |
 |---|---|---|
@@ -108,13 +101,13 @@ Inner Gallery는 다른 질문에서 출발했습니다.
 | **사용자 흔적** | 남지 않음 | 전시 티켓 아카이브로 영구 저장 |
 | **핵심 질문** | "이 그림이 뭐야?" | "이 그림 앞에서 나는 지금 어떤 상태야?" |
 
-작품 식별은 Inner Gallery에서 시작점일 뿐입니다. 식별이 끝난 뒤에 비로소 이 서비스의 본질이 시작됩니다. 색채 분석에서 감정을 읽고, 마음색으로 오늘의 기분을 기록하고, HTML5 Canvas 위에 마음의 흔적을 스케치하고, AI가 그 선과 색을 읽어 회고문을 써줍니다. 그리고 그 모든 것이 전시 티켓 한 장으로 저장됩니다.
+작품 식별은 파이프라인의 첫 단계입니다. 이후 색채·구도 분석 결과를 감정 벡터로 변환하고, 사용자는 마음색을 선택하고 HTML5 Canvas에 스케치를 남깁니다. Gemini Vision이 스케치를 읽어 회고문을 생성하고, 전 과정이 전시 티켓 형식으로 저장됩니다.
 
 ---
 
 ## The Reflection Journey
 
-Inner Gallery의 사용자 경험은 **감정의 흐름**을 따라 설계되었습니다.
+사용자 흐름은 감상 전 감정 기록에서 시작해 저널 저장으로 끝납니다.
 
 ```
 감상 전 감정 선택          지금 어떤 마음인지 키워드로 기록
@@ -136,13 +129,11 @@ AI 스케치 회고문           스케치의 선과 색을 AI가 읽고 쓰는 
 전시 티켓으로 저장         모든 기록이 No. IG-YYMMDD-XXXX 티켓에 담김
 ```
 
-이 흐름은 단순한 UX 설계가 아닙니다. **감상 전후의 감정 변화를 추적하고, 시각 요소를 감정 언어로 번역하며, 마음의 상태를 스케치와 색으로 표현하게 하는** 일련의 경험 설계입니다.
-
 ---
 
 ## What I Built
 
-Inner Gallery는 단순히 외부 API를 호출하는 데모가 아닙니다. 명화 감상이라는 도메인에 맞춘 **데이터 자산, 컴퓨터 비전 파이프라인, LLM grounding 전략, 감정 회고 UX, 풀스택 저널 시스템**을 직접 설계하고 구현한 서비스입니다.
+미술 감상 도메인에 맞춘 데이터 자산, 컴퓨터 비전 파이프라인, LLM grounding 전략, 감정 회고 UX, 풀스택 저널 시스템을 직접 설계하고 구현했습니다.
 
 | Area | Implementation |
 |---|---|
@@ -270,7 +261,7 @@ flowchart TD
 
 ### 1. Reflection Journal UX
 
-Inner Gallery의 핵심은 저장 기능이 아닙니다. **감상 경험 전체를 하나의 개인 아카이브로 전환하는 감정 여정**입니다.
+감상 전 감정 선택부터 전시 티켓 저장까지, 작품 경험 전체를 개인 아카이브로 기록합니다.
 
 #### 감상 전/후 감정 키워드
 
@@ -304,7 +295,7 @@ Inner Gallery의 핵심은 저장 기능이 아닙니다. **감상 경험 전체
 | 색으로 채우기 | 감정에 가까운 색으로 캔버스를 채움 |
 | 문장 쓰기 | 작품이 건넨 말을 짧게 기록 |
 
-스케치가 완성되면 **Gemini Vision이 선, 색, 여백을 읽고** 2~3문장 또는 4항목의 회고문을 생성합니다. 사용자의 감정이 텍스트로 돌아오는 순간입니다.
+스케치가 완성되면 Gemini Vision이 선, 색, 여백의 밀도와 분포를 분석해 2~3문장 또는 4항목의 회고문을 생성합니다.
 
 #### 전시 티켓 아카이브 (Ticket Archive)
 
