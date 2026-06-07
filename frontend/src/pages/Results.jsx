@@ -603,40 +603,6 @@ export default function Results() {
           </div>
         )}
 
-        {/* Figure / expression */}
-        {figure?.has_person && (
-          <div className="card" style={{ padding: '18px 20px' }}>
-            <SectionHead
-              icon={
-                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ verticalAlign: 'middle', marginRight: 4 }}>
-                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                  <circle cx="12" cy="7" r="4" />
-                </svg>
-              }
-              title="인물 표정 분석"
-              en="Figure Analysis"
-            />
-            <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {[
-                ['표정',   figure.expression_ko],
-                ['시선',   figure.gaze],
-                ['자세',   figure.posture_ko],
-                ['시선 방향', figure.face_direction],
-              ].filter(([, v]) => v).map(([lbl, val]) => (
-                <div key={lbl} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: 8, borderBottom: '1px solid var(--line)' }}>
-                  <span style={{ fontSize: 11, color: 'var(--sub)' }}>{lbl}</span>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text)' }}>{val}</span>
-                </div>
-              ))}
-              {figure.impression_ko && (
-                <p style={{ fontSize: 12, color: 'var(--sub)', lineHeight: 1.8, fontStyle: 'italic', marginTop: 2 }}>
-                  {figure.impression_ko}
-                </p>
-              )}
-            </div>
-          </div>
-        )}
-
         {/* Color palette */}
         <div className="card" style={{ padding: '18px 18px' }}>
           <SectionHead icon="⊙" title="색채 분석" en="Color Analysis" />
@@ -695,6 +661,7 @@ export default function Results() {
                 ['어두운 영역', `${Math.round((color.dark_area_ratio||0)*100)}%`],
                 ['밝은 위치', color.bright_area_position || '—'],
                 ...(person.human_detected ? [['자세', person.pose || '—']] : []),
+                ...(figure?.has_person && figure?.expression_ko ? [['표정', figure.expression_ko]] : []),
               ]
             },
           ].map(({ icon, title, en, items }) => {

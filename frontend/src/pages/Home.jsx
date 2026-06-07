@@ -122,9 +122,9 @@ function AiExplainCard() {
       {open && (
         <div style={{ background: 'rgba(0,0,0,0.02)', padding: '16px 14px', display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-          <Step num="1" title="Roboflow — 회화 영역 객체 탐지 & 크롭">
+          <Step num="1" title="Roboflow — 작품 영역 감지 & 크롭">
             <p style={{ fontSize: 10.5, color: 'var(--sub)', lineHeight: 1.8 }}>
-              <span style={{ color: 'var(--body)', fontWeight: 600 }}>Roboflow Painting Detection</span> 모델이 회화 바운딩 박스를 추출하고, 8% 패딩 크롭으로 액자·벽면 노이즈를 제거한 순수 작품 영역(ROI)을 분리합니다.
+              <span style={{ color: 'var(--body)', fontWeight: 600 }}>Roboflow</span> 모델이 이미지에서 작품 위치를 찾아 액자와 벽면을 제거하고 그림만 잘라냅니다.
             </p>
             <Code lines={[
               'input image  →  Roboflow Painting Detector',
@@ -134,9 +134,9 @@ function AiExplainCard() {
 
           <div style={{ height: '0.5px', background: `${BRZ}0.12)` }} />
 
-          <Step num="2" title="OpenCV — LAB 색공간 · 구도 · 인물 병렬 분석">
+          <Step num="2" title="OpenCV — 색상 · 구도 · 인물 분석">
             <p style={{ fontSize: 10.5, color: 'var(--sub)', lineHeight: 1.8 }}>
-              ROI를 3개 모듈이 병렬 처리합니다. CIE LAB K-Means로 지배색 5종과 무드 태그를 추출하고, 3분할 구도·대칭도·여백 비율을 수치화하며, HOG + Haar Cascade로 인물 자세를 태깅합니다.
+              3가지 분석을 동시에 진행합니다. 주조색 5가지와 분위기를 추출하고, 구도·대칭·여백을 수치화하며, 인물이 있다면 자세와 분위기를 분류합니다.
             </p>
             <Code lines={[
               'analyze_colors()       →  LAB K-Means  →  지배색 5 · 무드 태그',
@@ -149,7 +149,7 @@ function AiExplainCard() {
 
           <Step num="3" title="CLIP ViT-B/32 + FAISS — 벡터 유사도 작품 매칭">
             <p style={{ fontSize: 10.5, color: 'var(--sub)', lineHeight: 1.8 }}>
-              <span style={{ color: 'var(--body)', fontWeight: 600 }}>CLIP ViT-B/32</span>로 512차원 임베딩을 생성하고, L2 정규화 후 <span style={{ color: 'var(--body)', fontWeight: 600 }}>FAISS IndexFlatIP</span>로 k=60 후보를 검색합니다. cosine ≥ 0.78이고 동일 작가 vote ≥ 2인 경우에만 매칭을 확정하는 <b>multi-vote</b> 방식으로 오탐을 줄입니다.
+              <span style={{ color: 'var(--body)', fontWeight: 600 }}>CLIP ViT-B/32</span> 모델로 이미지를 벡터로 변환해 18,455개 명화 데이터베이스에서 유사 작품을 검색합니다. 유사도 0.78 이상이고 같은 작가 후보가 2개 이상 일치할 때만 매칭을 확정해 오탐을 줄입니다.
             </p>
             <Code lines={[
               'image  →  CLIP ViT-B/32  →  emb[512] / L2-norm',
@@ -160,9 +160,9 @@ function AiExplainCard() {
 
           <div style={{ height: '0.5px', background: `${BRZ}0.12)` }} />
 
-          <Step num="4" title="Gemini Vision + Google Cloud Vision — 멀티모달 교차 검증">
+          <Step num="4" title="Gemini Vision + Google Cloud Vision — 교차 검증">
             <p style={{ fontSize: 10.5, color: 'var(--sub)', lineHeight: 1.8 }}>
-              <span style={{ color: 'var(--body)', fontWeight: 600 }}>Gemini 2.0 Flash</span>가 작품명·작가·OCR 캡션을 추출하고, <span style={{ color: 'var(--body)', fontWeight: 600 }}>Google Cloud Vision Web Detection</span>이 웹 역검색으로 보완합니다. 2개 이상 소스 교차 일치 시 <b>confirmed</b>로 확정되며, OCR 강힌트는 단독 확정이 가능합니다.
+              <span style={{ color: 'var(--body)', fontWeight: 600 }}>Gemini</span>가 작품명·작가를 분석하고, <span style={{ color: 'var(--body)', fontWeight: 600 }}>Google Cloud Vision</span>이 웹 역검색으로 교차 확인합니다. 2개 이상 경로가 일치하면 confirmed로 확정되며, 전시 라벨 텍스트가 명확히 일치하면 단독 확정됩니다.
             </p>
             <Code lines={[
               'Gemini Vision  →  [후보 작품명 · 작가 · OCR · figure]',
@@ -175,7 +175,7 @@ function AiExplainCard() {
 
           <Step num="5" title="감정 스코어링 → 도슨트 에세이 실시간 생성">
             <p style={{ fontSize: 10.5, color: 'var(--sub)', lineHeight: 1.8 }}>
-              색채·구도·인물 분석값을 가중 합산해 <span style={{ color: 'var(--body)', fontWeight: 600 }}>6차원 감정 벡터</span>(안정감·고독감·긴장감·따뜻함·슬픔·생동감)를 산출합니다. 작품 메타데이터와 감정 벡터를 컨텍스트로 Gemini에 전달해 도슨트 에세이·성찰 질문·위로 메시지를 생성합니다.
+              색채·구도·인물 분석값으로 <span style={{ color: 'var(--body)', fontWeight: 600 }}>6가지 감정 점수</span>(안정감·고독감·긴장감·따뜻함·슬픔·생동감)를 계산합니다. 작품 정보와 감정 점수를 Gemini에 전달해 도슨트 에세이·성찰 질문·위로 메시지를 생성합니다.
             </p>
             <Code lines={[
               'color + composition + person  →  calculate_emotion_scores()  →  vec[6]',
