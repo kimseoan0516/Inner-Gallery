@@ -315,15 +315,14 @@ flowchart TD
 
 #### 식별 결과 신뢰도 분류
 
-신뢰도가 낮은 경우 작품명을 억지로 단정하지 않고, 색채·구도 중심의 감상 경험으로 전환합니다.  
-우선순위 순서로 평가하며, 상위 상태가 확정되면 하위 경로는 건너뜁니다.
+신뢰도가 낮은 경우 작품명을 억지로 단정하지 않고, 색채·구도 중심의 감상 경험으로 전환합니다.
 
-| Priority | Status | Condition | Downstream Behavior |
-|:---:|---|---|---|
-| 1 | `confirmed` | OCR strong 힌트 (제목 + 작가명 동시 검출) | 작품명 확정, 메타데이터·시대 DB 즉시 조회 |
-| 2 | `internal_match` | CLIP cosine ≥ 0.78 + vote ≥ 2 | FAISS 인덱스 기반 작가·장르 식별 |
-| 3 | `web_confirmed` | Google Web Detection 신뢰 도메인 일치 | 웹 교차 검증 성공 → 작품명 보강 |
-| — | `unknown` | 전체 경로 임계값 미달 | 작품명 미단정, 시각 분석·감정 중심 감상으로 전환 |
+| Status | Condition | Downstream Behavior |
+|---|---|---|
+| `confirmed` | OCR strong 힌트 (제목 + 작가명 동시 검출) | 작품명 확정, 메타데이터·시대 DB 즉시 조회 |
+| `internal_match` | CLIP cosine ≥ 0.78 + vote ≥ 2 | FAISS 인덱스 기반 작가·장르 식별 |
+| `web_confirmed` | Google Web Detection 신뢰 도메인 일치 | 웹 교차 검증 성공 → 작품명 보강 |
+| `unknown` | 전체 경로 임계값 미달 | 작품명 미단정, 시각 분석·감정 중심 감상으로 전환 |
 
 ---
 
@@ -372,8 +371,8 @@ warped = cv2.warpPerspective(img, M, (target_w, target_h))
 
 ### 3. Emotion Map — 6D Visual Emotion Scoring
 
-색채, 구도, 인물, saliency 분석 결과와 사용자 감정 키워드를 조합해 6개 차원의 감정 스코어를 계산합니다.  
-각 차원은 초기값 **0.5**, 범위 **[0.0, 1.0]** 의 연속값으로, 시각 신호별 가중치가 누적 적용됩니다.
+색채, 구도, 인물, saliency 분석 결과와 사용자가 선택한 감정 키워드를 조합해 6가지 감정 차원을 계산합니다.  
+각 차원은 초기값 **0.5**, 범위 **[0.0, 1.0]** 의 연속 스코어로 표현됩니다.
 
 #### 감정 차원 및 주요 시각 신호
 

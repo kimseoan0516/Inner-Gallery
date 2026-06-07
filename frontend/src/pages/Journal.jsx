@@ -223,7 +223,7 @@ function TicketCard({ rec, onClick, onUpdateNote, onUpdateExhibition }) {
     }
   }
 
-  let snippet = rec.reflection || rec.ticket_memo || '기록된 감상 메모가 없습니다.'
+  let snippet = rec.ticket_memo || ''
   if (snippet.length > 70 && !isEditing) snippet = snippet.substring(0, 70) + '...'
 
   return (
@@ -369,13 +369,13 @@ function TicketCard({ rec, onClick, onUpdateNote, onUpdateExhibition }) {
               </div>
             </div>
           ) : (
-            <p 
+            <p
               onClick={() => setIsEditing(true)}
-              style={{ fontSize: 12, color: '#524A44', lineHeight: 1.8, fontStyle: 'italic', fontFamily: "'Noto Serif KR', serif", cursor: 'text', padding: '4px 6px', margin: '-4px -6px', borderRadius: 4, transition: 'background 0.2s', minHeight: '28px' }}
+              style={{ fontSize: 12, color: snippet ? '#524A44' : '#B4A99C', lineHeight: 1.8, fontStyle: 'italic', fontFamily: "'Noto Serif KR', serif", cursor: 'text', padding: '4px 6px', margin: '-4px -6px', borderRadius: 4, transition: 'background 0.2s', minHeight: '28px' }}
               onMouseEnter={e => e.currentTarget.style.background = 'rgba(0,0,0,0.03)'}
               onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
             >
-              "{snippet}"
+              {snippet ? `"${snippet}"` : '메모를 남겨보세요...'}
             </p>
           )}
         </div>
