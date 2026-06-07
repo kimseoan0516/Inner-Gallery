@@ -141,7 +141,7 @@ Inner Gallery는 다른 질문에서 출발했습니다.
 | **CV Pipeline Engineering** | 작품 프레임 검출, 화질 검사, 원근 보정, 색채·구도·saliency·인물 분석 파이프라인 직접 구현 |
 | **Multimodal AI Integration** | CLIP/FAISS, Gemini Vision, Google Web Detection, OCR 힌트를 결합한 4-Way 작품 식별 로직 구현 |
 | **LLM Grounding** | 불확실한 시각 주장 차단, 검증된 visual facts 기반 해설 생성, unsupported claim 검증 설계 |
-| **Data Engineering** | 18,455개 작품 FAISS 인덱스, 6,905줄 규모 작품 맥락 DB, 120+ 작가 명언 데이터 직접 구축 |
+| **Data Engineering** | **18,455개 작품 FAISS 인덱스, 6,905줄 규모 작품 맥락 DB, 120+ 작가 명언 데이터 직접 구축** |
 | **Full-stack Development** | FastAPI API 서버, React SPA/PWA, JWT 인증, 저널 CRUD, 이미지 저장·공유 기능 구현 |
 | **Deployment** | Docker 기반 Hugging Face Spaces 배포, SQLite/Supabase PostgreSQL 자동 전환 구조 설계 |
 
