@@ -60,7 +60,11 @@ short_description: AI art reflection journal with computer vision
 
 ## Demo
 
+### 전체 시연
 [![Demo Video](https://img.youtube.com/vi/kLzndynXKZA/maxresdefault.jpg)](https://youtu.be/kLzndynXKZA)
+
+### 데모 명화 분석
+[![데모 명화 분석](https://img.youtube.com/vi/wrQptAdsiXo/hqdefault.jpg)](https://youtube.com/shorts/wrQptAdsiXo)
 
 ---
 
