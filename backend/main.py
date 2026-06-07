@@ -1642,7 +1642,7 @@ async def translate_text(req: TranslateRequest):
         "다음 미술 작품 설명 영어 텍스트를 자연스러운 한국어로 번역해주세요. "
         "번역문만 출력하세요 (설명, 주석 없이):\n\n" + req.text
     )
-    for model_name in ["gemini-1.5-flash", "gemini-2.0-flash"]:
+    for model_name in ["gemini-2.0-flash", "gemini-2.0-flash-lite"]:
         try:
             model = _genai.GenerativeModel(model_name)
             resp = model.generate_content(prompt)

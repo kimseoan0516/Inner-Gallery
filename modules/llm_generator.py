@@ -191,8 +191,6 @@ _MODELS = [
     "gemini-2.0-flash",
     "gemini-2.0-flash-lite",
     "gemini-2.5-flash",
-    "gemini-1.5-flash",
-    "gemini-1.5-flash-8b",
 ]
 
 
@@ -209,6 +207,9 @@ def _generate_with_retry(model_fn, prompt: str, api_key: str, system: str) -> st
             return model.generate_content(prompt).text
         except Exception as e:
             msg = str(e)
+            if "404" in msg or "NotFound" in msg or "not found" in msg.lower():
+                print(f"[LLM] {model_name} not available (404), trying next model …")
+                continue
             if "429" in msg or "ResourceExhausted" in msg:
                 # Extract retry delay if present, wait up to 30s then try next model
                 delay = 30
