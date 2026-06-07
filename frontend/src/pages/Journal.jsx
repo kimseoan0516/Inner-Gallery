@@ -54,7 +54,7 @@ export default function Journal() {
           <p style={{
             fontFamily: "'Noto Serif KR', serif",
             fontSize: 13, color: 'var(--sub)',
-            fontStyle: 'italic', lineHeight: 1.9, letterSpacing: 0.5,
+            lineHeight: 1.9, letterSpacing: 0.5,
           }}>티켓을 열어 그날의 감상을 다시 만나보세요</p>
         </div>
 

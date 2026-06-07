@@ -422,6 +422,8 @@ export default function Upload({ mode: pageMode }) {
   }, [])
 
   // 액자 오버레이 영역(top:7% left:5% right:5% bottom:7%)만 잘라서 캔버스 반환
+  // objectFit:cover로 인해 실제 표시되는 영역과 원본 영상 크기가 다르므로
+  // 컨테이너 크기 기준으로 가시 영역을 역산해서 정확히 크롭
   const captureFramedCanvas = (v) => {
     const vw = v.videoWidth, vh = v.videoHeight
     const full = document.createElement('canvas')
@@ -429,8 +431,21 @@ export default function Upload({ mode: pageMode }) {
     const fCtx = full.getContext('2d')
     if (!isMobile) { fCtx.translate(vw, 0); fCtx.scale(-1, 1) }
     fCtx.drawImage(v, 0, 0)
-    const x = Math.round(vw * 0.05), y = Math.round(vh * 0.07)
-    const w = Math.round(vw * 0.90), h = Math.round(vh * 0.86)
+
+    // objectFit:cover 역산: 컨테이너 기준으로 실제 보이는 영역 계산
+    const cw = v.clientWidth || vw
+    const ch = v.clientHeight || vh
+    const scale = Math.max(cw / vw, ch / vh)
+    const visW = cw / scale   // 가시 영역 너비 (영상 원본 픽셀 단위)
+    const visH = ch / scale   // 가시 영역 높이 (영상 원본 픽셀 단위)
+    const offX = (vw - visW) / 2
+    const offY = (vh - visH) / 2
+
+    // 액자 오버레이 퍼센트를 가시 영역에 적용
+    const x = Math.round(offX + visW * 0.05)
+    const y = Math.round(offY + visH * 0.07)
+    const w = Math.round(visW * 0.90)
+    const h = Math.round(visH * 0.86)
     const crop = document.createElement('canvas')
     crop.width = w; crop.height = h
     crop.getContext('2d').drawImage(full, x, y, w, h, 0, 0, w, h)

@@ -110,7 +110,7 @@ Inner Gallery는 단순히 외부 API를 호출하는 데모가 아니라, **명
 | **Artwork Recognition** | CLIP ViT-B/32 + FAISS, Gemini Vision, Google Web Detection, OCR 힌트를 조합한 4-Way hybrid validation |
 | **Computer Vision** | 작품 프레임 감지, perspective warp, LAB KMeans 색채 분석, 구도·여백·대칭성·saliency·인물 분석 |
 | **Grounded AI Docent** | `safe_visual_facts`와 검증된 작품 맥락 DB를 기반으로 도슨트 해설 생성 |
-| **Emotion Reflection UX** | 감상 전/후 감정 키워드, 8차원 감정 벡터, 마음색, 마음 스케치, 감상 질문 |
+| **Emotion Reflection UX** | 감상 전/후 감정 키워드, 6차원 시각 감정 벡터, 마음색, 마음 스케치, 감상 질문 |
 | **Journal Archive** | 감상 결과를 전시 티켓 형태로 저장하고 이미지로 저장·공유 |
 | **Daily Curation** | AIC Public Domain API 기반 오늘의 명화, 국내외 전시 정보, 예술가 명언 큐레이션 |
 | **Full-stack Delivery** | React + Vite PWA, FastAPI backend, SQLite/Supabase PostgreSQL, Docker, Hugging Face Spaces 배포 |
@@ -199,7 +199,7 @@ flowchart TD
     F --> F1[LAB KMeans Color]
     F --> F2[Composition & Saliency]
     F --> F3[Person & Posture]
-    F --> G[8D Emotion Vector]
+    F --> G[6D Emotion Scoring]
     G --> H[Grounded AI Docent]
     H --> I[Reflection Questions]
     H --> J[Docent Chat]
@@ -315,14 +315,15 @@ flowchart TD
 
 #### 식별 결과 신뢰도 분류
 
-신뢰도가 낮은 경우 작품명을 억지로 단정하지 않고, 색채·구도 중심의 감상 경험으로 전환합니다.
+신뢰도가 낮은 경우 작품명을 억지로 단정하지 않고, 색채·구도 중심의 감상 경험으로 전환합니다.  
+우선순위 순서로 평가하며, 상위 상태가 확정되면 하위 경로는 건너뜁니다.
 
-| Status | Condition | Downstream Behavior |
-|---|---|---|
-| `confirmed` | OCR strong 힌트 (제목 + 작가명 동시 검출) | 작품명 확정, 메타데이터·시대 DB 즉시 조회 |
-| `internal_match` | CLIP cosine ≥ 0.78 + vote ≥ 2 | FAISS 인덱스 기반 작가·장르 식별 |
-| `web_confirmed` | Google Web Detection 신뢰 도메인 일치 | 웹 교차 검증 성공 → 작품명 보강 |
-| `unknown` | 전체 경로 임계값 미달 | 작품명 미단정, 시각 분석·감정 중심 감상으로 전환 |
+| Priority | Status | Condition | Downstream Behavior |
+|:---:|---|---|---|
+| 1 | `confirmed` | OCR strong 힌트 (제목 + 작가명 동시 검출) | 작품명 확정, 메타데이터·시대 DB 즉시 조회 |
+| 2 | `internal_match` | CLIP cosine ≥ 0.78 + vote ≥ 2 | FAISS 인덱스 기반 작가·장르 식별 |
+| 3 | `web_confirmed` | Google Web Detection 신뢰 도메인 일치 | 웹 교차 검증 성공 → 작품명 보강 |
+| — | `unknown` | 전체 경로 임계값 미달 | 작품명 미단정, 시각 분석·감정 중심 감상으로 전환 |
 
 ---
 
@@ -369,10 +370,10 @@ warped = cv2.warpPerspective(img, M, (target_w, target_h))
 
 ---
 
-### 3. Emotion Map — 8D Emotion Vector
+### 3. Emotion Map — 6D Visual Emotion Scoring
 
-색채, 구도, 인물, saliency 분석 결과와 사용자가 선택한 감정 키워드를 조합해 6가지 감정 차원을 계산합니다.  
-각 차원은 초기값 **0.5**, 범위 **[0.0, 1.0]** 의 연속 스코어로 표현됩니다.
+색채, 구도, 인물, saliency 분석 결과와 사용자 감정 키워드를 조합해 6개 차원의 감정 스코어를 계산합니다.  
+각 차원은 초기값 **0.5**, 범위 **[0.0, 1.0]** 의 연속값으로, 시각 신호별 가중치가 누적 적용됩니다.
 
 #### 감정 차원 및 주요 시각 신호
 
@@ -408,7 +409,7 @@ AI 도슨트는 다음 정보를 기반으로 해설을 생성합니다.
 - `safe_visual_facts`: 신뢰도 높은 시각 분석 결과
 - `blocked_uncertain_facts`: 추측이 금지된 불확실한 항목
 - 직접 구축한 작품 맥락 DB (`artwork_era_db.json`)
-- 8차원 감정 벡터 및 사용자 감정 상태
+- 6차원 시각 감정 벡터 및 사용자 감정 상태
 - 사용자가 선택한 해설 스타일 및 분석 포커스
 
 해설은 항상 다음 구조를 따릅니다.
@@ -768,7 +769,7 @@ inner-gallery/
 │   ├── color_analyzer.py       # LAB KMeans color extraction, mood tagging
 │   ├── composition_analyzer.py # composition, negative space, symmetry
 │   ├── person_analyzer.py      # HOG + fallback person and posture analysis
-│   ├── emotion_scorer.py       # 8D emotion vector calculation
+│   ├── emotion_scorer.py       # 6D visual emotion scoring
 │   ├── llm_generator.py        # docent essays, chat, era, sketch reflection
 │   ├── artwork_matcher.py      # CLIP ViT-B/32 + FAISS matching pipeline
 │   ├── era_lookup.py           # artwork_era_db.json lookup
@@ -805,7 +806,7 @@ inner-gallery/
 | 전시장 사진은 기울어짐, 반사광, 흐림, 프레임 누락이 자주 발생함 | 카메라 모드 전용 quality check, Roboflow frame detection, OpenCV perspective warp, fallback crop 적용 |
 | 단일 이미지 인식 모델은 오탐 가능성이 큼 | CLIP/FAISS, Gemini Vision, Google Web Detection, OCR 힌트를 조합한 4-Way validation 설계 |
 | LLM이 보이지 않는 표정이나 배경을 상상할 수 있음 | `safe_visual_facts`와 `blocked_uncertain_facts`를 분리하고 unsupported claim 검증 로직 추가 |
-| 감정 해석이 단순 색상 매핑으로 보일 수 있음 | 색채, 구도, 여백, 대칭성, saliency, 인물 정보를 조합한 8D emotion vector 설계 |
+| 감정 해석이 단순 색상 매핑으로 보일 수 있음 | 색채, 구도, 여백, 대칭성, saliency, 인물 정보를 조합한 6차원 시각 감정 스코어링 설계 |
 | 감상 서비스가 치료·진단으로 오해될 수 있음 | 의료적 효능 표현 금지, 자기 회고 중심 UX, 완곡한 표현 정책 적용 |
 | 티켓 이미지 저장 시 외부 이미지 CORS 문제가 발생할 수 있음 | 저장 전 외부 이미지를 data URL로 변환해 `html-to-image` 렌더링 안정화 |
 | Hugging Face Spaces 환경에서 데이터 영구성이 제한될 수 있음 | SQLite 기본값 + `DATABASE_URL` 설정 시 Supabase PostgreSQL 자동 전환 구조 구현 |
