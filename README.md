@@ -60,12 +60,7 @@ short_description: AI art reflection journal with computer vision
 
 ## Demo
 
-<!-- 데모 영상을 여기에 추가해주세요 -->
-<!-- 예시: YouTube 링크 -->
-<!-- [![Demo Video](https://img.youtube.com/vi/VIDEO_ID/maxresdefault.jpg)](https://youtu.be/VIDEO_ID) -->
-
-<!-- 예시: GitHub에 직접 업로드한 영상 -->
-<!-- <video src="https://github.com/user-attachments/assets/VIDEO_ASSET_ID" controls width="100%"></video> -->
+[![Demo Video](https://img.youtube.com/vi/2qvbrLx5YVc/maxresdefault.jpg)](https://youtu.be/2qvbrLx5YVc)
 
 ---
 
