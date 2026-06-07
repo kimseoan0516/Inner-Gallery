@@ -19,7 +19,7 @@ short_description: AI art reflection journal with computer vision
 
 ### 작품을 통해 오늘의 마음을 기록하는 AI 아트 저널
 
-**Computer Vision · Multimodal AI · Grounded AI Docent · Art Reflection Journal**
+**Web App · Computer Vision · Multimodal AI · Grounded AI Docent · Art Reflection Journal**
 
 <br />
 
