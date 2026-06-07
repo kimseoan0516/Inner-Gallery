@@ -37,6 +37,7 @@ short_description: AI art reflection journal with computer vision
 
 ## Table of Contents
 
+- [Demo](#demo)
 - [Project Intent](#project-intent)
 - [What I Built](#what-i-built)
 - [Why It Matters](#why-it-matters)
@@ -54,6 +55,17 @@ short_description: AI art reflection journal with computer vision
 - [Engineering Challenges](#engineering-challenges)
 - [Future Improvements](#future-improvements)
 - [References & Licenses](#references--licenses)
+
+---
+
+## Demo
+
+<!-- 데모 영상을 여기에 추가해주세요 -->
+<!-- 예시: YouTube 링크 -->
+<!-- [![Demo Video](https://img.youtube.com/vi/VIDEO_ID/maxresdefault.jpg)](https://youtu.be/VIDEO_ID) -->
+
+<!-- 예시: GitHub에 직접 업로드한 영상 -->
+<!-- <video src="https://github.com/user-attachments/assets/VIDEO_ASSET_ID" controls width="100%"></video> -->
 
 ---
 
@@ -272,7 +284,41 @@ flowchart TD
 | **Google Cloud Vision Web Detection** | 미술관, 위키피디아 등 웹상의 신뢰 도메인 기반 교차 검증 |
 | **OCR Hint Injection** | 전시장 작품 라벨의 제목·작가 텍스트를 추출해 strong / partial / rejected 힌트로 분류 |
 
-식별 결과는 `confirmed`, `internal_match`, `web_confirmed`, `unknown` 상태로 분류됩니다. 신뢰도가 낮은 경우 작품명을 억지로 단정하지 않고, 색채·구도 중심의 감상 경험으로 전환합니다.
+#### CLIP ViT-B/32 공개 벤치마크 (OpenAI, 2021)
+
+작품 식별의 핵심 임베딩 모델인 CLIP ViT-B/32의 공식 벤치마크 수치입니다.
+
+| Benchmark | Metric | Score |
+|---|---|---|
+| ImageNet Zero-shot Classification | Top-1 Accuracy | **63.2%** |
+| ImageNet Zero-shot Classification | Top-5 Accuracy | **88.5%** |
+| Flickr30k Image→Text Retrieval | Recall@1 | **88.0%** |
+| Flickr30k Text→Image Retrieval | Recall@1 | **65.6%** |
+
+> 위 수치는 OpenAI CLIP 논문(Radford et al., 2021)의 범용 태스크 기준입니다. Inner Gallery는 이 모델을 18,455개 명화 도메인 FAISS 인덱스와 다중 검증 파이프라인에 결합해 미술 도메인 특화 인식을 구현했습니다.
+
+#### 시스템 인식 임계값 파라미터
+
+| Parameter | Value | Description |
+|---|---|---|
+| FAISS cosine similarity (확인 매칭) | **≥ 0.78** | 작품 동일성 인정 최소 유사도 |
+| FAISS vote minimum | **≥ 2 hits** | 동일 작가 중복 검출 최소 수 (노이즈 필터) |
+| FAISS vote range threshold | top_sim × **0.88** | 투표 참여 하한 (상위 12% 범위 내) |
+| Quick-match preview similarity | **≥ 0.55** | Top-5 미리보기 후보 임계값 |
+| Candidate pool size | **60개** | 작가 집계용 최대 검색 수 |
+| OCR title max length | **≤ 80자** | 초과 시 설명문으로 판단, 힌트 거부 |
+| OCR artist max length | **≤ 50자** | 초과 시 작가명 힌트만 차단 |
+
+#### 식별 결과 신뢰도 분류
+
+신뢰도가 낮은 경우 작품명을 억지로 단정하지 않고, 색채·구도 중심의 감상 경험으로 전환합니다.
+
+| Status | Condition | Downstream Behavior |
+|---|---|---|
+| `confirmed` | OCR strong 힌트 (제목 + 작가명 동시 검출) | 작품명 확정, 메타데이터·시대 DB 즉시 조회 |
+| `internal_match` | CLIP cosine ≥ 0.78 + vote ≥ 2 | FAISS 인덱스 기반 작가·장르 식별 |
+| `web_confirmed` | Google Web Detection 신뢰 도메인 일치 | 웹 교차 검증 성공 → 작품명 보강 |
+| `unknown` | 전체 경로 임계값 미달 | 작품명 미단정, 시각 분석·감정 중심 감상으로 전환 |
 
 ---
 
@@ -321,20 +367,33 @@ warped = cv2.warpPerspective(img, M, (target_w, target_h))
 
 ### 3. Emotion Map — 8D Emotion Vector
 
-색채, 구도, 인물, saliency 분석 결과와 사용자가 선택한 감정 키워드를 조합해 8가지 감정 차원을 계산합니다.
+색채, 구도, 인물, saliency 분석 결과와 사용자가 선택한 감정 키워드를 조합해 6가지 감정 차원을 계산합니다.  
+각 차원은 초기값 **0.5**, 범위 **[0.0, 1.0]** 의 연속 스코어로 표현됩니다.
 
-| Emotion | Main Signals |
+#### 감정 차원 및 주요 시각 신호
+
+| Emotion | Key Visual Signals |
 |---|---|
-| 안정감 | 저채도, 높은 대칭성, 적절한 여백 |
-| 고독감 | 어두운 톤, 차가운 색, 넓은 여백, 작은 피사체 |
-| 긴장감 | 높은 명암 대비, 고채도, 비대칭 구도 |
-| 따뜻함 | 따뜻한 색 비율, 높은 밝기 |
-| 슬픔 | 어두움, 저채도, 차가운 색, 위축된 자세 |
-| 생동감 | 밝음, 고채도, 따뜻한 색, 활기 있는 자세 |
-| 경이로움 | 강한 saliency 집중, 복잡한 구도, 넓은 색조 범위 |
-| 멜랑콜리 | 낮은 채도 + 부드러운 색 + 인물 고독 자세 조합 |
+| 안정감 (calmness) | 저채도(< 0.15), 대칭성(> 0.65), 낮은 명암 대비(< 0.25) |
+| 고독감 (loneliness) | 어두운 색온도(cool > 40% + brightness < 0.40), 넓은 여백(> 60%) + 작은 피사체(< 30%) + 어두움 |
+| 긴장감 (tension) | 명암 대비(> 0.65), 채도(> 0.62), 비대칭 구도(symmetry < 0.30) |
+| 따뜻함 (warmth) | 따뜻한 색 비율(> 0.45), 밝기(> 0.55) |
+| 슬픔 (sadness) | 명도(< 0.30), 저채도(< 0.15), 위축된 자세(withdrawn/self-protective) |
+| 생동감 (energy) | 밝음(> 0.72), 고채도(> 0.62), 따뜻한 색(> 0.35), 활기 있는 자세(resilient/upright) |
 
-감정 판단은 단순 임계값이 아니라 복합 조건으로 보정했습니다. 예를 들어 밝고 차가운 색은 고독감이 아니라 평온함으로 해석하고, 밝고 열린 여백은 고독이 아닌 해방감으로 반영합니다.
+#### 시각 신호 레이어 구성
+
+| Layer | Signal Source | Weight Modifier |
+|---|---|---|
+| 명도 (brightness) | OpenCV gray mean / 255 | ±0.06 ~ ±0.25 |
+| 채도 (saturation) | HSV 채널 평균 | ±0.06 ~ ±0.18 |
+| 색온도 (warm/cool ratio) | CIE LAB KMeans | ±0.08 ~ ±0.22 |
+| 명암 대비 (contrast) | LAB L채널 분산 | ±0.08 ~ ±0.18 |
+| 구도·여백·대칭 | 구도 분석기 복합값 | ±0.05 ~ ±0.24 |
+| 인물 자세 (OpenCV) | HOG + Haar 기반 posture | ±0.08 ~ ±0.18 |
+| 표정 (Gemini Vision) | expression_confidence 가중치 | × 0.35 ~ 1.0 |
+
+감정 판단은 단순 임계값이 아니라 복합 조건으로 보정했습니다. 예를 들어 밝고 차가운 색(brightness > 0.55, cool > 0.40)은 고독감 대신 평온함으로 해석하고, 밝고 열린 여백(brightness > 0.55, neg_space > 0.50)은 고독이 아닌 개방감으로 반영합니다.
 
 ---
 
@@ -475,13 +534,23 @@ Inner Gallery는 LLM의 감성적 글쓰기가 근거 없는 해설로 흐르지
 
 ## Data Assets
 
-| Asset | Description |
-|---|---|
-| `artwork_era_db.json` | 작품별 사조, 제작 배경, 시대 맥락, 작가 생애, 시각적 연결 정보를 담은 6,905줄 규모의 큐레이션 DB |
-| `index.faiss` | 18,455개 명화 이미지를 CLIP ViT-B/32로 임베딩한 로컬 벡터 검색 인덱스 |
-| `metadata.json` | FAISS 검색 결과와 연결되는 작품명, 작가, 장르, 연도 등 메타데이터 |
-| `artist_quotes` | 세계 주요 예술가 120+명의 명언 데이터. 한국어·영문 병행 수록 |
-| `backend/scripts/` | 데이터셋 전처리, FAISS 인덱스 빌드, 작가 정보 임포트, DB 검증 및 마이그레이션 스크립트 |
+| Asset | Scale | Description |
+|---|---|---|
+| `index.faiss` | **18,455개** 임베딩 | CLIP ViT-B/32 (512-dim) 벡터 인덱스 (IndexFlatIP, L2-normalized cosine) |
+| `metadata.json` | **18,455개** 레코드 | 작품명, 작가, 장르, 연도, 국적 메타데이터 |
+| `artwork_era_db.json` | **6,905줄** | 작품별 사조, 제작 배경, 시대 맥락, 작가 생애, 시각적 연결 큐레이션 DB |
+| `artist_quotes` | **120+명** 예술가 | 세계 주요 예술가 명언. 한국어·영문 병행 수록 |
+| `backend/scripts/` | — | 데이터셋 전처리, FAISS 인덱스 빌드, DB 검증·마이그레이션 스크립트 |
+
+```text
+FAISS 인덱스 사양
+  Model   : CLIP ViT-B/32 (sentence-transformers)
+  Dim     : 512
+  Index   : IndexFlatIP (exact cosine search, L2-normalized)
+  Size    : 18,455 artworks
+  Match   : cosine similarity ≥ 0.78, vote ≥ 2
+  Preview : cosine similarity ≥ 0.55, top-60 candidate pool
+```
 
 > 원본 Kaggle 이미지 데이터셋은 저장소에 포함하지 않고, 스크립트를 통해 로컬에서 FAISS 인덱스를 재현할 수 있도록 구성했습니다.
 
