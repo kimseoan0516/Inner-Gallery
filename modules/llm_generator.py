@@ -187,7 +187,13 @@ _SOURCE_NOTE = """
 """
 
 
-_MODELS = ["gemini-2.0-flash", "gemini-2.0-flash-lite", "gemini-2.5-flash"]
+_MODELS = [
+    "gemini-2.0-flash",
+    "gemini-2.0-flash-lite",
+    "gemini-2.5-flash",
+    "gemini-1.5-flash",
+    "gemini-1.5-flash-8b",
+]
 
 
 def _get_model(api_key: str, system: str, model_name: str = _MODELS[0]) -> genai.GenerativeModel:
@@ -373,7 +379,6 @@ _EMPTY_VISION = {
 def analyze_artwork_vision(img_bytes: bytes, api_key: str, original_img_bytes: bytes = None) -> dict:
     """Single Gemini Vision call: recognition + OCR + face/expression."""
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel("gemini-2.0-flash")
 
     # Google Web Detection 결과를 Gemini 프롬프트에 RAG 방식으로 주입
     web_info = detect_web_artwork(img_bytes)
@@ -427,38 +432,41 @@ def analyze_artwork_vision(img_bytes: bytes, api_key: str, original_img_bytes: b
             "- 두 번째 이미지에서 실제 가구, 벽면 대비 작품의 배치 스케일과 공간적 분위기를 읽어내어 분석에 활용해 주세요."
         )
 
-    for attempt in range(2):
-        try:
-            inputs = []
-            inputs.append({"mime_type": "image/jpeg", "data": img_bytes})
-            if original_img_bytes:
-                inputs.append({"mime_type": "image/jpeg", "data": original_img_bytes})
-            inputs.append(prompt)
+    inputs = []
+    inputs.append({"mime_type": "image/jpeg", "data": img_bytes})
+    if original_img_bytes:
+        inputs.append({"mime_type": "image/jpeg", "data": original_img_bytes})
+    inputs.append(prompt)
 
-            response = model.generate_content(inputs)
-            text = response.text.strip()
-            if "```" in text:
-                for chunk in text.split("```"):
-                    chunk = chunk.strip().lstrip("json").strip()
-                    if not chunk:
-                        continue
-                    try:
-                        r = json.loads(chunk)
-                        if isinstance(r, dict):
-                            return _normalize_vision(r)
-                    except Exception:
-                        continue
-            else:
-                r = json.loads(text)
-                if isinstance(r, dict):
-                    return _normalize_vision(r)
-        except Exception as e:
-            if "429" in str(e) and attempt == 0:
-                print("[LLM] vision rate-limited, waiting 30s …")
-                time.sleep(30)
-                continue
-            print(f"[LLM] vision error: {e}")
-            break
+    for model_name in _MODELS:
+        model = genai.GenerativeModel(model_name)
+        for attempt in range(2):
+            try:
+                response = model.generate_content(inputs)
+                text = response.text.strip()
+                if "```" in text:
+                    for chunk in text.split("```"):
+                        chunk = chunk.strip().lstrip("json").strip()
+                        if not chunk:
+                            continue
+                        try:
+                            r = json.loads(chunk)
+                            if isinstance(r, dict):
+                                return _normalize_vision(r)
+                        except Exception:
+                            continue
+                else:
+                    r = json.loads(text)
+                    if isinstance(r, dict):
+                        return _normalize_vision(r)
+                break
+            except Exception as e:
+                if ("429" in str(e) or "ResourceExhausted" in str(e)) and attempt == 0:
+                    print(f"[LLM] vision {model_name} rate-limited, waiting 30s …")
+                    time.sleep(30)
+                    continue
+                print(f"[LLM] vision {model_name} error: {e}")
+                break
     return _EMPTY_VISION
 
 
@@ -569,25 +577,23 @@ def generate_sketch_reflection(
     )
 
     genai.configure(api_key=api_key)
-    model = genai.GenerativeModel(
-        "gemini-2.0-flash",
-        system_instruction=system_instruction,
-    )
+    sketch_inputs = [{"mime_type": "image/jpeg", "data": sketch_bytes}, prompt]
 
-    for attempt in range(2):
-        try:
-            response = model.generate_content([
-                {"mime_type": "image/jpeg", "data": sketch_bytes},
-                prompt,
-            ])
-            return response.text.strip()
-        except ValueError:
-            return "마음 스케치를 자세히 살펴보기 어렵습니다. 하지만 당신만의 색깔과 선이 담긴 멋진 스케치네요. 어떤 마음으로 선을 그었는지 스스로 되돌아보는 것도 좋은 감상이 될 거예요."
-        except Exception as e:
-            if ("429" in str(e) or "ResourceExhausted" in str(e)) and attempt == 0:
-                time.sleep(20)
-                continue
-            raise
+    for model_name in _MODELS:
+        model = genai.GenerativeModel(model_name, system_instruction=system_instruction)
+        for attempt in range(2):
+            try:
+                response = model.generate_content(sketch_inputs)
+                return response.text.strip()
+            except ValueError:
+                return "마음 스케치를 자세히 살펴보기 어렵습니다. 하지만 당신만의 색깔과 선이 담긴 멋진 스케치네요. 어떤 마음으로 선을 그었는지 스스로 되돌아보는 것도 좋은 감상이 될 거예요."
+            except Exception as e:
+                if ("429" in str(e) or "ResourceExhausted" in str(e)) and attempt == 0:
+                    print(f"[LLM] sketch {model_name} rate-limited, waiting 20s …")
+                    time.sleep(20)
+                    continue
+                print(f"[LLM] sketch {model_name} error: {e}")
+                break
     return ""
 
 
@@ -1772,18 +1778,24 @@ def _gemini_era_from_artist(artist: str, title: str, api_key: str) -> Dict[str, 
         "historical_context는 화가 활동 당시 시대상 2문장. "
         "artist_context는 화가의 대표 화풍·특징 2문장."
     )
-    try:
-        model = genai.GenerativeModel("gemini-2.0-flash")
-        raw = model.generate_content(prompt).text.strip()
-        if "```" in raw:
-            for chunk in raw.split("```"):
-                chunk = chunk.strip().lstrip("json").strip()
-                if chunk.startswith("{"):
-                    return json.loads(chunk)
-        return json.loads(raw)
-    except Exception as e:
-        print(f"[LLM] gemini_era_from_artist error: {e}")
-        return {}
+    genai.configure(api_key=api_key)
+    for model_name in _MODELS:
+        try:
+            model = genai.GenerativeModel(model_name)
+            raw = model.generate_content(prompt).text.strip()
+            if "```" in raw:
+                for chunk in raw.split("```"):
+                    chunk = chunk.strip().lstrip("json").strip()
+                    if chunk.startswith("{"):
+                        return json.loads(chunk)
+            return json.loads(raw)
+        except Exception as e:
+            if "429" in str(e) or "ResourceExhausted" in str(e):
+                print(f"[LLM] era {model_name} rate-limited, trying next …")
+                continue
+            print(f"[LLM] gemini_era_from_artist error: {e}")
+            return {}
+    return {}
 
 
 def generate_artwork_era(
