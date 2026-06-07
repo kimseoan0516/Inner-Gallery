@@ -60,7 +60,7 @@ short_description: AI art reflection journal with computer vision
 
 ## Demo
 
-[![Demo Video](https://img.youtube.com/vi/2qvbrLx5YVc/maxresdefault.jpg)](https://youtu.be/2qvbrLx5YVc)
+[![Demo Video](https://img.youtube.com/vi/kLzndynXKZA/maxresdefault.jpg)](https://youtu.be/kLzndynXKZA)
 
 ---
 
