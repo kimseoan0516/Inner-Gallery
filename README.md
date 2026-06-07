@@ -66,6 +66,9 @@ short_description: AI art reflection journal with computer vision
 ### 데모 명화 분석
 [![데모 명화 분석](https://img.youtube.com/vi/wrQptAdsiXo/hqdefault.jpg)](https://youtube.com/shorts/wrQptAdsiXo)
 
+### 작품 촬영 & 스캔 (모바일)
+[![작품 촬영 & 스캔 (모바일)](https://img.youtube.com/vi/z7EAtsrZ2IU/hqdefault.jpg)](https://youtube.com/shorts/z7EAtsrZ2IU)
+
 ---
 
 ## Project Intent
