@@ -1325,7 +1325,7 @@ async def daily_artwork():
         return {"title": "—", "artist": "—", "year": "", "movement": "", "description": "API 키가 필요합니다"}
     import google.generativeai as genai
     genai.configure(api_key=_API_KEY)
-    model = genai.GenerativeModel("gemini-2.0-flash")
+    model = genai.GenerativeModel("gemini-2.5-flash")
     prompt = (
         f"오늘({today}) 날짜와 계절에 어울리는 서양 고전 명화 한 점을 추천해주세요. "
         "JSON 객체만 반환하고 다른 텍스트는 절대 포함하지 마세요:\n"
@@ -1501,7 +1501,7 @@ async def quick_match(image: UploadFile = File(...)):
         try:
             import google.generativeai as genai
             genai.configure(api_key=_API_KEY)
-            model = genai.GenerativeModel("gemini-2.0-flash")
+            model = genai.GenerativeModel("gemini-2.5-flash")
 
             import PIL.Image, io
             pil_img = PIL.Image.open(io.BytesIO(raw))
@@ -1642,7 +1642,7 @@ async def translate_text(req: TranslateRequest):
         "다음 미술 작품 설명 영어 텍스트를 자연스러운 한국어로 번역해주세요. "
         "번역문만 출력하세요 (설명, 주석 없이):\n\n" + req.text
     )
-    for model_name in ["gemini-2.0-flash", "gemini-2.0-flash-lite"]:
+    for model_name in ["gemini-2.5-flash", "gemini-2.5-flash-lite"]:
         try:
             model = _genai.GenerativeModel(model_name)
             resp = model.generate_content(prompt)
