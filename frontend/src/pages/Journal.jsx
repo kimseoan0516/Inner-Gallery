@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useApp } from '../context/AppContext.jsx'
-import { toPng } from 'html-to-image'
+import { toPng, getFontEmbedCSS } from 'html-to-image'
 
 import { getJournal, getJournalThumbs, updateJournalNote, updateJournalExhibition } from '../api.js'
 import GoldDivider from '../components/GoldDivider.jsx'
@@ -130,14 +130,15 @@ function TicketCard({ rec, onClick, onUpdateNote, onUpdateExhibition }) {
 
     await document.fonts.ready
 
-    // 외부 HTTP 이미지를 data URL로 변환 (CORS 우회)
+    // 외부 HTTP 이미지를 백엔드 프록시로 data URL 변환 (CORS 우회)
     const imgs = [...el.querySelectorAll('img')]
     const restored = []
     await Promise.all(imgs.map(async (img) => {
       const src = img.getAttribute('src') || ''
       if (src.startsWith('http')) {
         try {
-          const resp = await fetch(src, { mode: 'cors', cache: 'force-cache' })
+          const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(src)}`
+          const resp = await fetch(proxyUrl)
           const blob = await resp.blob()
           const dataUrl = await new Promise(r => {
             const reader = new FileReader()
@@ -158,9 +159,10 @@ function TicketCard({ rec, onClick, onUpdateNote, onUpdateExhibition }) {
     }))
 
     try {
+      const fontEmbedCSS = await getFontEmbedCSS(el).catch(() => undefined)
       return await toPng(el, {
         pixelRatio: 2,
-        skipFonts: false,
+        fontEmbedCSS,
         filter: node => node.nodeType !== 1 || !node.dataset?.noCapture,
       })
     } finally {

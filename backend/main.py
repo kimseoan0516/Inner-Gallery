@@ -1656,6 +1656,21 @@ async def translate_text(req: TranslateRequest):
     raise HTTPException(429, "번역 서비스가 일시적으로 한도에 도달했습니다. 잠시 후 다시 시도해주세요.")
 
 
+# ── 이미지 프록시 ──────────────────────────────────────────────────────────────
+
+@app.get("/api/proxy-image")
+async def proxy_image(url: str):
+    import urllib.request
+    try:
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            data = resp.read()
+            content_type = resp.headers.get("Content-Type", "image/jpeg")
+        return Response(content=data, media_type=content_type)
+    except Exception as e:
+        raise HTTPException(400, f"이미지를 가져올 수 없습니다: {str(e)}")
+
+
 # ── 명언 ─────────────────────────────────────────────────────────────────────
 
 @app.get("/api/demo-result")
