@@ -60,14 +60,14 @@ short_description: AI art reflection journal with computer vision
 
 ## Demo
 
-### 전체 시연
-[![Demo Video](https://img.youtube.com/vi/kLzndynXKZA/maxresdefault.jpg)](https://youtu.be/kLzndynXKZA)
+### 작품 촬영 & 스캔 (모바일)
+[![작품 촬영 & 스캔 (모바일)](https://img.youtube.com/vi/sEPMZB3cuiw/hqdefault.jpg)](https://youtu.be/sEPMZB3cuiw?si=aOXxZzKY0NL6rkKQ)
 
 ### 데모 명화 분석
 [![데모 명화 분석](https://img.youtube.com/vi/wrQptAdsiXo/hqdefault.jpg)](https://youtube.com/shorts/wrQptAdsiXo)
 
-### 작품 촬영 & 스캔 (모바일)
-[![작품 촬영 & 스캔 (모바일)](https://img.youtube.com/vi/z7EAtsrZ2IU/hqdefault.jpg)](https://youtube.com/shorts/z7EAtsrZ2IU)
+### 전체 시연
+[![Demo Video](https://img.youtube.com/vi/kLzndynXKZA/maxresdefault.jpg)](https://youtu.be/kLzndynXKZA)
 
 ---
 
@@ -339,6 +339,10 @@ flowchart TD
 | `internal_match` | CLIP cosine ≥ 0.78 + vote ≥ 2 | FAISS 인덱스 기반 작가·장르 식별 |
 | `web_confirmed` | Google Web Detection 신뢰 도메인 일치 | 웹 교차 검증 성공 → 작품명 보강 |
 | `unknown` | 전체 경로 임계값 미달 | 작품명 미단정, 시각 분석·감정 중심 감상으로 전환 |
+
+#### 비슷한 명화 추천
+
+작품 식별 완료 후 분석 결과 화면에서, 인식된 작품과 시각적으로 유사한 명화 5점을 함께 보여줍니다. CLIP ViT-B/32로 추출한 이미지 임베딩을 FAISS 인덱스에서 cosine similarity 기준으로 검색해 동일 인덱스에서 nearest neighbor를 반환합니다. 인식된 작품 자체는 결과에서 제외하고, 같은 화가의 다른 작품 또는 유사한 화풍·주제의 작품이 우선 추천됩니다.
 
 ---
 
