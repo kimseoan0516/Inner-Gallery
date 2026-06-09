@@ -131,7 +131,6 @@ function TicketCard({ rec, onClick, onUpdateNote, onUpdateExhibition }) {
     await document.fonts.ready
 
     // Noto Serif KR을 same-origin <style>로 주입 → getFontEmbedCSS가 @font-face 읽기 가능
-    // (Google Fonts는 cross-origin 스타일시트라 JS에서 직접 읽지 못함)
     let injectedStyle = null
     try {
       const fontsCssUrl = 'https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;600;700&display=swap'
@@ -145,11 +144,10 @@ function TicketCard({ rec, onClick, onUpdateNote, onUpdateExhibition }) {
     const imgs = [...el.querySelectorAll('img')]
     const restored = []
 
+    // crossOrigin 제거 + HTTP URL → data URL (proxy)
     await Promise.all(imgs.map(async (img) => {
       const origSrc = img.getAttribute('src') || ''
       const origCrossOrigin = img.getAttribute('crossorigin')
-
-      // data: URL 포함 모든 img에서 crossorigin 제거 (canvas taint 방지)
       img.removeAttribute('crossorigin')
 
       if (origSrc.startsWith('http')) {
@@ -165,13 +163,56 @@ function TicketCard({ rec, onClick, onUpdateNote, onUpdateExhibition }) {
           if (!img.complete) {
             await new Promise(r => { img.onload = r; img.onerror = r })
           }
-        } catch { /* 프록시 실패 시 원본 src 유지 */ }
+        } catch { /* 원본 src 유지 */ }
       }
 
       restored.push({ img, src: origSrc, crossOrigin: origCrossOrigin })
     }))
 
-    // 수정된 DOM을 브라우저가 실제로 페인트하도록 대기
+    // img → canvas 교체: html-to-image가 img를 SVG foreignObject로 재처리할 때
+    // CORS 오류로 빈칸이 되는 문제를 근본 차단. canvas는 픽셀 데이터를 직접 읽음.
+    const canvasSwaps = []
+    for (const { img } of restored) {
+      if (!img.complete || img.naturalWidth === 0) continue
+      const w = img.offsetWidth
+      const h = img.offsetHeight
+      if (w <= 0 || h <= 0) continue
+      try {
+        const canvas = document.createElement('canvas')
+        canvas.width = w
+        canvas.height = h
+        canvas.style.cssText = img.style.cssText
+        canvas.style.objectFit = ''
+        canvas.style.objectPosition = ''
+        canvas.style.width = w + 'px'
+        canvas.style.height = h + 'px'
+
+        const ctx = canvas.getContext('2d')
+        const nw = img.naturalWidth
+        const nh = img.naturalHeight
+        const fit = img.style.objectFit
+
+        if (fit === 'cover' && nw > 0 && nh > 0) {
+          const ia = nw / nh, ca = w / h
+          let sx, sy, sw, sh
+          if (ia > ca) { sh = nh; sw = nh * ca; sx = (nw - sw) / 2; sy = 0 }
+          else         { sw = nw; sh = nw / ca; sx = 0; sy = (nh - sh) / 2 }
+          ctx.drawImage(img, sx, sy, sw, sh, 0, 0, w, h)
+        } else if (fit === 'contain' && nw > 0 && nh > 0) {
+          const ia = nw / nh, ca = w / h
+          let dx, dy, dw, dh
+          if (ia > ca) { dw = w; dh = w / ia; dx = 0; dy = (h - dh) / 2 }
+          else         { dh = h; dw = h * ia; dx = (w - dw) / 2; dy = 0 }
+          ctx.drawImage(img, dx, dy, dw, dh)
+        } else {
+          ctx.drawImage(img, 0, 0, w, h)
+        }
+
+        img.parentNode.replaceChild(canvas, img)
+        canvasSwaps.push({ canvas, img })
+      } catch { /* canvas 그리기 실패 시 원본 img 유지 */ }
+    }
+
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))
 
     try {
@@ -182,6 +223,7 @@ function TicketCard({ rec, onClick, onUpdateNote, onUpdateExhibition }) {
         filter: node => node.nodeType !== 1 || !node.dataset?.noCapture,
       })
     } finally {
+      canvasSwaps.forEach(({ canvas, img }) => canvas.parentNode?.replaceChild(img, canvas))
       restored.forEach(({ img, src, crossOrigin }) => {
         img.src = src
         if (crossOrigin !== null) img.setAttribute('crossorigin', crossOrigin)
