@@ -344,7 +344,7 @@ flowchart TD
 
 작품 식별 완료 후 분석 결과 화면에서, 인식된 작품과 유사한 고전 명화 4점을 함께 보여줍니다. 식별된 작품의 제목·작가와 색채 분석에서 추출한 주요 색상·분위기 키워드를 Gemini에 전달해, 실존하는 유명 고전 명화만을 대상으로 큐레이션을 요청합니다. 작품명 식별에 실패한 경우에도 색감 정보만으로 추천이 이루어집니다. 각 추천 결과는 제목·작가·연도와 함께 유사한 이유를 한 문장으로 제공합니다.
 
-<img width="360" alt="비슷한 명화" src="https://github.com/user-attachments/assets/5b38b9d2-c3b9-4e7b-830b-7518e28ebefc" />
+<img width="360" alt="recommend" src="https://github.com/user-attachments/assets/2b42ed87-8de9-49cd-9075-376f4ffeeb3d" />
 
 ---
 
