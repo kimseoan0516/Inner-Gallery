@@ -140,73 +140,44 @@ function TicketCard({ rec, onClick, onUpdateNote, onUpdateExhibition }) {
       document.head.appendChild(injectedStyle)
     } catch {}
 
-    const toDataUrl = blob => new Promise(r => {
-      const fr = new FileReader(); fr.onloadend = () => r(fr.result); fr.readAsDataURL(blob)
+    const blobToDataUrl = b => new Promise(r => {
+      const fr = new FileReader(); fr.onloadend = () => r(fr.result); fr.readAsDataURL(b)
     })
 
+    // img 태그를 background-image CSS div로 교체
+    // html-to-image는 <img> SVG foreignObject 렌더링 시 버그가 있지만
+    // CSS background-image는 별도 경로로 처리되어 정상 임베드됨
     const imgs = [...el.querySelectorAll('img')]
-    // 원본 정보 저장 (복구용)
-    const originals = imgs.map(img => ({
-      img,
-      src: img.getAttribute('src') || '',
-      crossOrigin: img.getAttribute('crossorigin'),
-      replacement: null,
-    }))
+    const swaps = []
 
-    for (const entry of originals) {
-      const { img } = entry
-      img.removeAttribute('crossorigin')
+    for (const img of imgs) {
+      const origSrc = img.getAttribute('src') || ''
+      const origCrossOrigin = img.getAttribute('crossorigin')
+      const w = img.offsetWidth, h = img.offsetHeight
+      if (w <= 0 || h <= 0) { swaps.push({ img, div: null, origSrc, origCrossOrigin }); continue }
 
-      // HTTP URL이면 proxy로 data URL 변환 (CORS taint 방지)
-      if (entry.src.startsWith('http')) {
+      let dataUrl = null
+      if (origSrc.startsWith('data:')) {
+        dataUrl = origSrc
+      } else if (origSrc.startsWith('http')) {
         try {
-          const blob = await fetch(`/api/proxy-image?url=${encodeURIComponent(entry.src)}`).then(r => r.blob())
-          img.src = await toDataUrl(blob)
-          if (!img.complete) await new Promise(r => { img.onload = r; img.onerror = r })
+          const blob = await fetch(`/api/proxy-image?url=${encodeURIComponent(origSrc)}`).then(r => r.blob())
+          dataUrl = await blobToDataUrl(blob)
         } catch {}
       }
 
-      // img → canvas.toDataURL() → 새 img 교체
-      // html-to-image가 SVG foreignObject 직렬화 시 canvas 픽셀은 날아가지만
-      // data URL src를 가진 img는 그대로 임베드됨 → 이미지 보임
-      if (!img.complete || img.naturalWidth === 0) continue
-      const w = img.offsetWidth, h = img.offsetHeight
-      if (w <= 0 || h <= 0) continue
+      if (!dataUrl) { swaps.push({ img, div: null, origSrc, origCrossOrigin }); continue }
 
-      try {
-        if (img.decode) await img.decode().catch(() => {})
-        const cvs = document.createElement('canvas')
-        cvs.width = w; cvs.height = h
-        const ctx = cvs.getContext('2d')
-        const nw = img.naturalWidth, nh = img.naturalHeight
-        const fit = img.style.objectFit
+      const fit = img.style.objectFit || 'fill'
+      const bgSize = fit === 'cover' ? 'cover' : fit === 'contain' ? 'contain' : '100% 100%'
 
-        if (fit === 'cover' && nw > 0 && nh > 0) {
-          const ia = nw/nh, ca = w/h
-          let sx, sy, sw, sh
-          if (ia > ca) { sh=nh; sw=nh*ca; sx=(nw-sw)/2; sy=0 }
-          else         { sw=nw; sh=nw/ca; sx=0; sy=(nh-sh)/2 }
-          ctx.drawImage(img, sx, sy, sw, sh, 0, 0, w, h)
-        } else if (fit === 'contain' && nw > 0 && nh > 0) {
-          const ia = nw/nh, ca = w/h
-          let dx, dy, dw, dh
-          if (ia > ca) { dw=w; dh=w/ia; dx=0; dy=(h-dh)/2 }
-          else         { dh=h; dw=h*ia; dx=(w-dw)/2; dy=0 }
-          ctx.drawImage(img, dx, dy, dw, dh)
-        } else {
-          ctx.drawImage(img, 0, 0, w, h)
-        }
+      const div = document.createElement('div')
+      div.style.cssText = `width:${w}px;height:${h}px;display:block;` +
+        `background-image:url("${dataUrl}");background-size:${bgSize};` +
+        `background-position:center;background-repeat:no-repeat;`
 
-        const newImg = document.createElement('img')
-        newImg.src = cvs.toDataURL('image/jpeg', 0.92)
-        newImg.style.cssText = img.style.cssText
-        newImg.style.objectFit = 'fill'
-        newImg.style.width = w + 'px'
-        newImg.style.height = h + 'px'
-
-        img.parentNode.replaceChild(newImg, img)
-        entry.replacement = newImg
-      } catch { /* SecurityError 등 — 원본 img 유지 */ }
+      img.parentNode.replaceChild(div, img)
+      swaps.push({ img, div, origSrc, origCrossOrigin })
     }
 
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))
@@ -219,10 +190,10 @@ function TicketCard({ rec, onClick, onUpdateNote, onUpdateExhibition }) {
         filter: node => node.nodeType !== 1 || !node.dataset?.noCapture,
       })
     } finally {
-      originals.forEach(({ img, src, crossOrigin, replacement }) => {
-        if (replacement?.parentNode) replacement.parentNode.replaceChild(img, replacement)
-        img.src = src
-        if (crossOrigin !== null) img.setAttribute('crossorigin', crossOrigin)
+      swaps.forEach(({ img, div, origSrc, origCrossOrigin }) => {
+        if (div?.parentNode) div.parentNode.replaceChild(img, div)
+        img.src = origSrc
+        if (origCrossOrigin !== null) img.setAttribute('crossorigin', origCrossOrigin)
       })
       if (injectedStyle) document.head.removeChild(injectedStyle)
     }
