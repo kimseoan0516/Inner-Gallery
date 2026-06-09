@@ -130,43 +130,66 @@ function TicketCard({ rec, onClick, onUpdateNote, onUpdateExhibition }) {
 
     await document.fonts.ready
 
-    // 외부 HTTP 이미지를 백엔드 프록시로 data URL 변환 (CORS 우회)
-    const imgs = [...el.querySelectorAll('img')]
-    const restored = []
-    await Promise.all(imgs.map(async (img) => {
-      const src = img.getAttribute('src') || ''
-      if (src.startsWith('http')) {
-        try {
-          const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(src)}`
-          const resp = await fetch(proxyUrl)
-          const blob = await resp.blob()
-          const dataUrl = await new Promise(r => {
-            const reader = new FileReader()
-            reader.onloadend = () => r(reader.result)
-            reader.readAsDataURL(blob)
-          })
-          restored.push({ img, src })
-          img.removeAttribute('crossOrigin')
-          img.src = dataUrl
-          await new Promise(r => { img.complete ? r() : (img.onload = r, img.onerror = r) })
-        } catch { /* 실패 시 원본 유지 */ }
-      } else if (src && !img.complete) {
-        await new Promise(r => {
-          img.addEventListener('load', r, { once: true })
-          img.addEventListener('error', r, { once: true })
-        })
-      }
-    }))
+    // Google Fonts CSS를 프록시로 가져와 same-origin <style>로 주입
+    // → getFontEmbedCSS가 cross-origin 제한 없이 @font-face 규칙을 읽을 수 있게 됨
+    let injectedStyle = null
+    try {
+      const fontsCssUrl = 'https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;600;700&display=swap'
+      const cssResp = await fetch(`/api/proxy-image?url=${encodeURIComponent(fontsCssUrl)}`)
+      const css = await cssResp.text()
+      injectedStyle = document.createElement('style')
+      injectedStyle.textContent = css
+      document.head.appendChild(injectedStyle)
+    } catch { /* 폰트 임베드 실패 시 시스템 폰트로 대체 */ }
+
+    // 원본 DOM을 clone해서 React re-render 간섭 차단
+    const clone = el.cloneNode(true)
+    Object.assign(clone.style, {
+      position: 'fixed',
+      top: '0',
+      left: '-9999px',
+      width: el.offsetWidth + 'px',
+      pointerEvents: 'none',
+    })
+    document.body.appendChild(clone)
 
     try {
-      const fontEmbedCSS = await getFontEmbedCSS(el).catch(() => undefined)
-      return await toPng(el, {
+      // 저장 이미지에서 버튼 영역 제거
+      clone.querySelectorAll('[data-no-capture]').forEach(n => n.remove())
+
+      // clone의 img: crossOrigin 제거 + HTTP URL → data URL 변환
+      const imgs = [...clone.querySelectorAll('img')]
+      await Promise.all(imgs.map(async (img) => {
+        img.removeAttribute('crossorigin')
+        const src = img.getAttribute('src') || ''
+        if (src.startsWith('http')) {
+          try {
+            const resp = await fetch(`/api/proxy-image?url=${encodeURIComponent(src)}`)
+            const blob = await resp.blob()
+            const dataUrl = await new Promise(r => {
+              const reader = new FileReader()
+              reader.onloadend = () => r(reader.result)
+              reader.readAsDataURL(blob)
+            })
+            img.src = dataUrl
+            if (!img.complete) {
+              await new Promise(r => { img.onload = r; img.onerror = r })
+            }
+          } catch { /* 원본 유지 */ }
+        }
+      }))
+
+      // 브라우저가 clone을 실제로 페인트할 시간 확보
+      await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))
+
+      const fontEmbedCSS = await getFontEmbedCSS(clone).catch(() => undefined)
+      return await toPng(clone, {
         pixelRatio: 2,
         fontEmbedCSS,
-        filter: node => node.nodeType !== 1 || !node.dataset?.noCapture,
       })
     } finally {
-      restored.forEach(({ img, src }) => { img.src = src; img.setAttribute('crossOrigin', 'anonymous') })
+      document.body.removeChild(clone)
+      if (injectedStyle) document.head.removeChild(injectedStyle)
     }
   }
 
