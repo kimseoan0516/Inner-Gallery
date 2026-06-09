@@ -343,6 +343,7 @@ flowchart TD
 #### 비슷한 명화 추천
 
 작품 식별 완료 후 분석 결과 화면에서, 인식된 작품과 시각적으로 유사한 명화 5점을 함께 보여줍니다. CLIP ViT-B/32로 추출한 이미지 임베딩을 FAISS 인덱스에서 cosine similarity 기준으로 검색해 동일 인덱스에서 nearest neighbor를 반환합니다. 인식된 작품 자체는 결과에서 제외하고, 같은 화가의 다른 작품 또는 유사한 화풍·주제의 작품이 우선 추천됩니다.
+<img width="1170" height="1996" alt="비슷한 명화" src="https://github.com/user-attachments/assets/5b38b9d2-c3b9-4e7b-830b-7518e28ebefc" />
 
 ---
 
