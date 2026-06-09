@@ -74,6 +74,7 @@ short_description: AI art reflection journal with computer vision
 ## Project Intent
 
 수천 개의 말로도 지금의 감정 하나를 붙잡지 못할 때가 있습니다. </br>
+
 하지만 어떤 그림 앞에서는 이상하리만큼 마음이 오래 머무릅니다. <br/>
 어떤 색은 나를 진정시키고, 어떤 여백은 지금의 감정을 다시 바라보게 만듭니다.
 
