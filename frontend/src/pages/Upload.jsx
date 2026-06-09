@@ -135,7 +135,7 @@ function CameraView({ videoRef, cameraStream, flashActive, scanPhase, scanMatch,
                     display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
                   }}>
                     <span style={{ fontSize: 8, color: 'var(--gold3)', fontWeight: 700, letterSpacing: 2 }}>작품 인식됨</span>
-                    <span style={{ fontSize: 11, color: 'var(--body)', fontFamily: "'Noto Serif KR', serif" }}>
+                    <span style={{ fontSize: 11, color: 'rgba(255,248,235,0.95)', fontFamily: "'Noto Serif KR', serif" }}>
                       {scanMatch.titleKo || scanMatch.title || scanMatch.artistKo || scanMatch.artist}
                     </span>
                   </div>
