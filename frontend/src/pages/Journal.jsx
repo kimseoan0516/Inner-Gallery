@@ -130,7 +130,6 @@ function TicketCard({ rec, onClick, onUpdateNote, onUpdateExhibition }) {
 
     await document.fonts.ready
 
-    // Noto Serif KR을 same-origin <style>로 주입 → getFontEmbedCSS가 @font-face 읽기 가능
     let injectedStyle = null
     try {
       const cssResp = await fetch(`/api/proxy-image?url=${encodeURIComponent('https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@400;600;700&display=swap')}`)
@@ -140,63 +139,124 @@ function TicketCard({ rec, onClick, onUpdateNote, onUpdateExhibition }) {
       document.head.appendChild(injectedStyle)
     } catch {}
 
-    const blobToDataUrl = b => new Promise(r => {
-      const fr = new FileReader(); fr.onloadend = () => r(fr.result); fr.readAsDataURL(b)
-    })
+    const PR = 2
 
-    // img 태그를 background-image CSS div로 교체
-    // html-to-image는 <img> SVG foreignObject 렌더링 시 버그가 있지만
-    // CSS background-image는 별도 경로로 처리되어 정상 임베드됨
-    const imgs = [...el.querySelectorAll('img')]
-    const swaps = []
-
-    for (const img of imgs) {
-      const origSrc = img.getAttribute('src') || ''
-      const origCrossOrigin = img.getAttribute('crossorigin')
-      const w = img.offsetWidth, h = img.offsetHeight
-      if (w <= 0 || h <= 0) { swaps.push({ img, div: null, origSrc, origCrossOrigin }); continue }
-
-      let dataUrl = null
-      if (origSrc.startsWith('data:')) {
-        dataUrl = origSrc
-      } else if (origSrc.startsWith('http')) {
+    // rec.thumbnail(저장된 원본 데이터)로 직접 이미지 로드 → DOM 렌더링 경로 완전 우회
+    let artworkImg = null
+    if (imgSrc) {
+      let artSrc = imgSrc
+      if (artSrc.startsWith('http')) {
         try {
-          const blob = await fetch(`/api/proxy-image?url=${encodeURIComponent(origSrc)}`).then(r => r.blob())
-          dataUrl = await blobToDataUrl(blob)
+          const blob = await fetch(`/api/proxy-image?url=${encodeURIComponent(artSrc)}`).then(r => r.blob())
+          artSrc = await new Promise(r => { const fr = new FileReader(); fr.onloadend = () => r(fr.result); fr.readAsDataURL(blob) })
         } catch {}
       }
+      artworkImg = await new Promise(res => {
+        const i = new Image()
+        i.onload = () => res(i)
+        i.onerror = () => res(null)
+        i.src = artSrc
+      })
+      if (artworkImg?.naturalWidth === 0) artworkImg = null
+    }
 
-      if (!dataUrl) { swaps.push({ img, div: null, origSrc, origCrossOrigin }); continue }
-
-      const fit = img.style.objectFit || 'fill'
-      const bgSize = fit === 'cover' ? 'cover' : fit === 'contain' ? 'contain' : '100% 100%'
-
-      const div = document.createElement('div')
-      div.style.cssText = `width:${w}px;height:${h}px;display:block;` +
-        `background-image:url("${dataUrl}");background-size:${bgSize};` +
-        `background-position:center;background-repeat:no-repeat;`
-
-      img.parentNode.replaceChild(div, img)
-      swaps.push({ img, div, origSrc, origCrossOrigin })
+    // img 위치 정보 수집 후 컨테이너 배경 투명화 + img 숨김
+    const imgEl = el.querySelector('img')
+    let imgInfo = null
+    if (imgEl) {
+      const elRect = el.getBoundingClientRect()
+      const imgRect = imgEl.getBoundingClientRect()
+      const containerEl = imgEl.parentElement
+      const contRect = containerEl.getBoundingClientRect()
+      imgInfo = {
+        x: imgRect.left - elRect.left,
+        y: imgRect.top - elRect.top,
+        w: imgRect.width,
+        h: imgRect.height,
+        cx: contRect.left - elRect.left,
+        cy: contRect.top - elRect.top,
+        cw: contRect.width,
+        ch: contRect.height,
+        fit: imgEl.style.objectFit || 'cover',
+        containerEl,
+        origBg: containerEl.style.background,
+      }
+      containerEl.style.background = 'transparent'
+      imgEl.style.visibility = 'hidden'
     }
 
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))
 
+    let baseUrl
     try {
       const fontEmbedCSS = await getFontEmbedCSS(el).catch(() => undefined)
-      return await toPng(el, {
-        pixelRatio: 2,
+      baseUrl = await toPng(el, {
+        pixelRatio: PR,
         fontEmbedCSS,
         filter: node => node.nodeType !== 1 || !node.dataset?.noCapture,
       })
     } finally {
-      swaps.forEach(({ img, div, origSrc, origCrossOrigin }) => {
-        if (div?.parentNode) div.parentNode.replaceChild(img, div)
-        img.src = origSrc
-        if (origCrossOrigin !== null) img.setAttribute('crossorigin', origCrossOrigin)
-      })
+      if (imgEl) imgEl.style.visibility = ''
+      if (imgInfo) imgInfo.containerEl.style.background = imgInfo.origBg
       if (injectedStyle) document.head.removeChild(injectedStyle)
     }
+
+    if (!baseUrl) return null
+    if (!artworkImg || !imgInfo) return baseUrl
+
+    // 베이스 PNG(텍스트/레이아웃) + 작품 이미지 합성
+    const baseImg = await new Promise((res, rej) => {
+      const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = baseUrl
+    })
+
+    const out = document.createElement('canvas')
+    out.width = baseImg.naturalWidth
+    out.height = baseImg.naturalHeight
+    const ctx = out.getContext('2d')
+
+    const { x, y, w, h, fit, cx, cy, cw, ch } = imgInfo
+    const dx = x * PR, dy = y * PR, dw = w * PR, dh = h * PR
+    const cdx = cx * PR, cdy = cy * PR, cdw = cw * PR, cdh = ch * PR
+    const r = 12 * PR
+
+    // 이미지 컨테이너 상단 둥근 모서리 클리핑
+    ctx.save()
+    ctx.beginPath()
+    ctx.moveTo(cdx + r, cdy)
+    ctx.lineTo(cdx + cdw - r, cdy)
+    ctx.arcTo(cdx + cdw, cdy, cdx + cdw, cdy + r, r)
+    ctx.lineTo(cdx + cdw, cdy + cdh)
+    ctx.lineTo(cdx, cdy + cdh)
+    ctx.lineTo(cdx, cdy + r)
+    ctx.arcTo(cdx, cdy, cdx + r, cdy, r)
+    ctx.closePath()
+    ctx.clip()
+
+    const nw = artworkImg.naturalWidth, nh = artworkImg.naturalHeight
+    try {
+      if (fit === 'cover' && nw > 0 && nh > 0) {
+        const ia = nw / nh, ca = w / h
+        let sx, sy, sw, sh
+        if (ia > ca) { sh = nh; sw = nh * ca; sx = (nw - sw) / 2; sy = 0 }
+        else { sw = nw; sh = nw / ca; sx = 0; sy = (nh - sh) / 2 }
+        ctx.drawImage(artworkImg, sx, sy, sw, sh, dx, dy, dw, dh)
+      } else if (fit === 'contain' && nw > 0 && nh > 0) {
+        const ia = nw / nh, ca = w / h
+        let ddx, ddy, ddw, ddh
+        if (ia > ca) { ddw = dw; ddh = dw / ia; ddx = dx; ddy = dy + (dh - ddh) / 2 }
+        else { ddh = dh; ddw = dh * ia; ddy = dy; ddx = dx + (dw - ddw) / 2 }
+        ctx.drawImage(artworkImg, ddx, ddy, ddw, ddh)
+      } else {
+        ctx.drawImage(artworkImg, dx, dy, dw, dh)
+      }
+    } catch {}
+
+    ctx.restore()
+
+    // 티켓 구조(그라디언트·배지·텍스트) 위에 덮어 그리기
+    ctx.drawImage(baseImg, 0, 0)
+
+    return out.toDataURL('image/png')
   }
 
   const handleSave = async (e) => {
