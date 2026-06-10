@@ -1,0 +1,34 @@
+=================================================================
+Full Pipeline Evaluation  —  2026-06-10 17:36
+Samples : 100  |  Valid: 100  |  Errors: 0  |  Timeouts: 0
+APIs    : Gemini Vision=OFF (credits depleted, stubbed) | Roboflow=ON | GCV WebDetect=OFF (cache only)
+Wall time: 8.1 min  |  Avg/image: 4.9s
+=================================================================
+
+── Top-1 Artist Accuracy (valid samples only) ──
+  전체          : 82/100 (82.0%)
+
+── 판정 상태별 분포 및 정확도 ──
+  confirmed             : 17/17 (100.0%)
+  internal_match        : 65/81 (80.2%)
+  unknown               : 0/2 (0.0%)
+
+── 오답 케이스 ──
+  [internal_match]  true=Claude Monet                  pred=Vincent van Gogh
+  [unknown]  true=El Greco                      pred=
+  [internal_match]  true=Salvador Dali                 pred=Rene Magritte
+  [internal_match]  true=El Greco                      pred=Mikhail Vrubel
+  [internal_match]  true=Albrecht DuΓòá├¬rer           pred=Albrecht Du╠êrer
+  [internal_match]  true=Paul Cezanne                  pred=Francisco Goya
+  [internal_match]  true=Salvador Dali                 pred=Rembrandt
+  [internal_match]  true=Frida Kahlo                   pred=Salvador Dali
+  [internal_match]  true=Henri de Toulouse-Lautrec     pred=Edgar Degas
+  [internal_match]  true=Raphael                       pred=Sandro Botticelli
+  [internal_match]  true=Rene Magritte                 pred=Vincent van Gogh
+  [internal_match]  true=Paul Gauguin                  pred=Vincent van Gogh
+  [internal_match]  true=Edvard Munch                  pred=Edgar Degas
+  [internal_match]  true=Claude Monet                  pred=Alfred Sisley
+  [unknown]  true=Titian                        pred=
+  [internal_match]  true=Michelangelo                  pred=Hieronymus Bosch
+  [internal_match]  true=Peter Paul Rubens             pred=Rembrandt
+  [internal_match]  true=Albrecht DuΓòá├¬rer           pred=Albrecht Du╠êrer
