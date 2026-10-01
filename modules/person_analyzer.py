@@ -73,10 +73,16 @@ def _build_result(image: np.ndarray, bbox: Tuple, img_h: int, img_w: int, people
     height_pos = "하단" if cy > 0.62 else ("상단" if cy < 0.38 else "중간")
 
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    faces = cv2.CascadeClassifier(
-        cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
-    ).detectMultiScale(gray, 1.1, 4, minSize=(20, 20))
-    face_visible = len(faces) > 0
+    face_visible = False
+    try:
+        cascade = cv2.CascadeClassifier(
+            cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+        )
+        if not cascade.empty():
+            faces = cascade.detectMultiScale(gray, 1.1, 4, minSize=(20, 20))
+            face_visible = len(faces) > 0
+    except Exception:
+        pass  # cascade 미존재(OpenCV 버전 차이 등) 시 얼굴 감지만 건너뜀
 
     if people_count >= 2:
         pose        = "다양한 군상의 역동적 얽힘" if people_count >= 3 else "어우러진 이중주 구도"
