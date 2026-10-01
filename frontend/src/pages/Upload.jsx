@@ -404,7 +404,9 @@ export default function Upload({ mode: pageMode }) {
               const res = await quickMatch(f, { localOnly: true })
               // 응답을 기다리는 사이 수동 촬영 등으로 사진이 확정됐으면 결과 무시
               if (committedRef.current || !autoScanRef.current) { resolve(); return }
-              if (res?.candidates?.length > 0 && res.candidates[0].confidence >= 62) {
+              // CLIP 유사도는 그림이 아닌 장면에서도 80~85%가 나오므로, 90% 이상(그림이 화면을 채우고
+              // 데이터셋 작품과 실제로 일치)일 때만 자동 촬영. 그 외엔 사용자가 셔터로 직접 촬영.
+              if (res?.candidates?.length > 0 && res.candidates[0].confidence >= 90) {
                 clearInterval(autoScanRef.current)
                 autoScanRef.current = null
                 const expanded = expandCands(res.candidates)
