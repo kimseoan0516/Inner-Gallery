@@ -759,6 +759,8 @@ def analyze(
     artwork_type:        str = Form("자동"),
     analysis_focus:      str = Form("전체"),
     artwork_description: str = Form(""),
+    # 프론트가 /api/crop-artwork(Roboflow)로 이미 자른 경우: 재호출 없이 그 bbox(JSON) 사용
+    crop_bbox:           str = Form(""),
 ):
     raw = image.file.read()
     img = cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_COLOR)
@@ -782,8 +784,13 @@ def analyze(
     # 벽·바닥이 함께 찍힌 원본 사진에서 탐지 (이미 잘린 이미지에선 일부만 잡는 경우가 있음).
     # 실패하면 프론트에서 자른 이미지(없으면 원본)를 그대로 사용.
     best_pred = None
+    if crop_bbox:
+        try:
+            best_pred = json.loads(crop_bbox)
+        except Exception:
+            best_pred = None
     roboflow_key = os.environ.get("ROBOFLOW_API_KEY")
-    if roboflow_key:
+    if roboflow_key and not crop_bbox:
         try:
             cropped_bytes, pred = crop_painting_roboflow(original_raw, roboflow_key)
             best_pred = pred
@@ -1458,6 +1465,25 @@ def quick_quality(image: UploadFile = File(...)):
         }
     except Exception as e:
         return {"ok": False, "warnings": [f"\ud654\uc9c8 \ud655\uc778 \uc911 \uc624\ub958: {str(e)}"]}
+
+
+@app.post("/api/crop-artwork")
+def crop_artwork(image: UploadFile = File(...)):
+    """촬영/선택 직후 미리보기용: Roboflow로 그림 영역을 잘라(+기울기 보정) 돌려준다.
+    bbox는 분석 요청 때 그대로 돌려받아 Roboflow 재호출 없이 화질 판정에 사용."""
+    raw = image.file.read()
+    key = os.environ.get("ROBOFLOW_API_KEY")
+    if not key:
+        return {"cropped": False, "image": None, "bbox": None}
+    try:
+        cropped_bytes, pred = crop_painting_roboflow(raw, key)
+    except Exception as e:
+        print(f"[CropArtwork] failed: {e}", flush=True)
+        return {"cropped": False, "image": None, "bbox": None}
+    bbox = {k: float(pred[k]) for k in ("x", "y", "width", "height")} if pred else None
+    if cropped_bytes is None:
+        return {"cropped": False, "image": None, "bbox": bbox}
+    return {"cropped": True, "image": base64.b64encode(cropped_bytes).decode("ascii"), "bbox": bbox}
 
 
 @app.post("/api/quick-match")

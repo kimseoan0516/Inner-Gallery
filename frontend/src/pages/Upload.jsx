@@ -4,7 +4,7 @@ import { ARTWORK_DB } from '../data/artworks.js'
 import { cropToArtwork } from '../utils/detectArtwork.js'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useApp } from '../context/AppContext.jsx'
-import { analyzeImage, quickMatch, quickQuality, getDemoResult } from '../api.js'
+import { analyzeImage, quickMatch, quickQuality, cropArtwork, getDemoResult } from '../api.js'
 
 const EMOTION_CATEGORIES = [
   { label: '가라앉음',         emotions: ['슬픔', '우울감', '외로움', '그리움', '공허함', '결핍', '상처', '자괴감', '후회', '자책', '절망', '무기력', '지침', '피곤', '부담감'] },
@@ -209,7 +209,8 @@ export default function Upload({ mode: pageMode }) {
   const [flashActive,   setFlashActive]   = useState(false)
   const [scanPhase,     setScanPhase]     = useState('idle')  // 'idle'|'scanning'|'locked'
   const [scanMatch,     setScanMatch]     = useState(null)
-  const [cropInfo,      setCropInfo]      = useState(null)    // { cropped, originalFile }
+  const [cropInfo,      setCropInfo]      = useState(null)    // { cropped, originalFile, bbox }
+  const [preparing,     setPreparing]     = useState(false)   // 촬영 직후 그림 영역 자르는 중
   const [autoMatchFailed, setAutoMatchFailed] = useState(false)
   const [showAllEmotions, setShowAllEmotions] = useState(false)
 
@@ -244,6 +245,9 @@ export default function Upload({ mode: pageMode }) {
   const streamRef   = useRef(null)
   const autoScanRef = useRef(null)
   const scanLockRef = useRef(false)
+  // 사진 확정 관리: 한 번 촬영/인식/선택된 사진은 늦게 도착한 자동 스캔 결과 등으로 바뀌지 않아야 함
+  const commitGenRef = useRef(0)       // 사진을 새로 확정할 때마다 증가 → 이전 비동기 작업 결과는 버림
+  const committedRef = useRef(false)   // 현재 확정된 사진이 있으면 true (자동 스캔 결과 무시)
 
   const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
 
@@ -267,70 +271,83 @@ export default function Upload({ mode: pageMode }) {
     return out
   }
 
-  // setImg: optionally auto-crop artwork region, then quickMatch
+  // 그림 영역 자르기: 서버 Roboflow(+기울기 보정) 우선, 실패하면 브라우저 엣지 기반 크롭
+  // bbox: 서버 응답이 있으면 탐지 결과(없으면 null)를 분석 요청에 넘겨 Roboflow 재호출 생략.
+  //       네트워크 오류 등으로 서버 크롭을 못 했으면 undefined → 분석 때 서버가 다시 시도.
+  const prepareArtwork = async (f) => {
+    let res
+    try {
+      res = await cropArtwork(f)
+    } catch {
+      const local = await cropToArtwork(f)
+      return { file: local.file, cropped: local.cropped, originalFile: local.cropped ? f : null, bbox: undefined }
+    }
+    if (res?.cropped && res.image) {
+      const bytes = Uint8Array.from(atob(res.image), ch => ch.charCodeAt(0))
+      return { file: new File([bytes], 'artwork.jpg', { type: 'image/jpeg' }), cropped: true, originalFile: f, bbox: res.bbox }
+    }
+    if (res?.bbox) {
+      // 그림이 이미 화면을 거의 채움 → 자를 필요 없음
+      return { file: f, cropped: false, originalFile: null, bbox: res.bbox }
+    }
+    const local = await cropToArtwork(f)
+    return { file: local.file, cropped: local.cropped, originalFile: local.cropped ? f : null, bbox: null }
+  }
+
+  // setImg: 사진 확정 → 그림 영역 자르기 → 미리보기 → 후보 조회
+  // opts.scanCands: 자동 스캔에서 이미 얻은 후보 (정식 조회 실패 시 사용)
   const setImg = async (f, opts = {}) => {
     if (!f) return
+    const gen = ++commitGenRef.current
+    committedRef.current = true
     setError('')
     setQuickCands([])
     setCropInfo(null)
     setAutoMatchFailed(false)
     setQualityWarnings([])
+    setPreview(null)
+    setPreparing(true)
 
-    let activeFile = f
-
-    // Auto-crop artwork region from photo (skip if preCands already provided)
-    if (!opts.preCands && !opts.skipCrop) {
-      const result = await cropToArtwork(f)
-      if (result.cropped) {
-        activeFile = result.file
-        setCropInfo({ cropped: true, originalFile: f })
-      }
-    }
-
+    const prepared = await prepareArtwork(f)
+    if (gen !== commitGenRef.current) return   // 그 사이 다시 촬영/다른 사진 선택됨
+    const activeFile = prepared.file
+    setCropInfo({ cropped: prepared.cropped, originalFile: prepared.originalFile, bbox: prepared.bbox })
     setFile(activeFile)
     setPreview(URL.createObjectURL(activeFile))
+    setPreparing(false)
 
-    // 화질 체크 — 카메라 촬영 시에만 실행
-    if (pageMode === 'camera') {
-      quickQuality(activeFile).then(res => {
-        if (res?.warnings?.length > 0) setQualityWarnings(res.warnings)
-      }).catch(() => {})
-    }
-
-    if (opts.preCands) {
-      if (opts.preCands.length > 0) {
-        setQuickCands(opts.preCands)
-        setAutoMatchFailed(false)
-      } else {
-        setAutoMatchFailed(true)
-      }
-      return
-    }
     setQuickLoading(true)
-    setQualityWarnings([])
     try {
       const [resMatch, resQual] = await Promise.all([
         quickMatch(activeFile).catch(() => null),
+        // 화질 체크 — 카메라 촬영 시에만 실행
         pageMode === 'camera' ? quickQuality(activeFile).catch(() => null) : Promise.resolve(null),
       ])
+      if (gen !== commitGenRef.current) return
 
-      if (resQual && resQual.warnings) {
-        setQualityWarnings(resQual.warnings)
-      }
+      if (resQual?.warnings) setQualityWarnings(resQual.warnings)
 
       const expanded = resMatch?.candidates?.length > 0 ? expandCands(resMatch.candidates).slice(0, 5) : []
-      if (expanded.length > 0) {
-        setQuickCands(expanded)
-        setAutoMatchFailed(false)
-      } else {
-        setQuickCands([])
-        setAutoMatchFailed(true)
-      }
+      const cands = expanded.length > 0 ? expanded : (opts.scanCands || [])
+      setQuickCands(cands)
+      setAutoMatchFailed(cands.length === 0)
     } catch {
-      setAutoMatchFailed(true)
+      if (gen === commitGenRef.current) setAutoMatchFailed(true)
     } finally {
-      setQuickLoading(false)
+      if (gen === commitGenRef.current) setQuickLoading(false)
     }
+  }
+
+  // 다시 촬영/다른 이미지: 확정 해제 + 진행 중 작업 무효화
+  const resetImg = () => {
+    commitGenRef.current++
+    committedRef.current = false
+    setPreparing(false)
+    setPreview(null); setFile(null); setCropInfo(null)
+    setHintTitle(''); setHintArtist('')
+    setRawTitle(''); setRawArtist('')
+    setQuickCands([])
+    setQualityWarnings([])
   }
 
   const stopAutoScan = () => {
@@ -385,6 +402,8 @@ export default function Upload({ mode: pageMode }) {
             try {
               // 스캔 중엔 로컬 CLIP만 사용 (1.8초마다 Gemini를 부르면 할당량이 금방 소진됨)
               const res = await quickMatch(f, { localOnly: true })
+              // 응답을 기다리는 사이 수동 촬영 등으로 사진이 확정됐으면 결과 무시
+              if (committedRef.current || !autoScanRef.current) { resolve(); return }
               if (res?.candidates?.length > 0 && res.candidates[0].confidence >= 62) {
                 clearInterval(autoScanRef.current)
                 autoScanRef.current = null
@@ -392,26 +411,18 @@ export default function Upload({ mode: pageMode }) {
                 setScanPhase('locked')
                 setScanMatch(expanded[0])
                 // Brief pause so user sees the "locked" state, then auto-capture
-                setTimeout(async () => {
+                setTimeout(() => {
+                  if (committedRef.current) return   // 그 사이 수동 촬영됨
+                  committedRef.current = true
                   setFlashActive(true)
                   setTimeout(() => setFlashActive(false), 400)
-                  const cropResult = await cropToArtwork(f)
-                  const activeFile = cropResult.cropped ? cropResult.file : f
-                  if (cropResult.cropped) setCropInfo({ cropped: true, originalFile: f })
-                  setFile(activeFile)
-                  setPreview(URL.createObjectURL(activeFile))
-                  setError('')
-                  stopCam()
-                  // 잠금 후 1회만 Gemini 포함 정식 후보 조회 — 실패하면 스캔 때 얻은 CLIP 후보 사용
-                  setQuickLoading(true)
-                  try {
-                    const full = await quickMatch(activeFile)
-                    const fullCands = full?.candidates?.length > 0 ? expandCands(full.candidates).slice(0, 5) : []
-                    setQuickCands(fullCands.length > 0 ? fullCands : expanded.slice(0, 5))
-                  } catch {
-                    setQuickCands(expanded.slice(0, 5))
-                  } finally {
-                    setQuickLoading(false)
+                  // 잠금 순간의 화면을 고화질로 다시 캡처 (실패 시 스캔 프레임 사용)
+                  const v2 = videoRef.current
+                  const finish = (photo) => { stopCam(); setImg(photo, { scanCands: expanded.slice(0, 5) }) }
+                  if (v2 && v2.readyState >= 2 && v2.videoWidth > 0) {
+                    captureFramedCanvas(v2).toBlob(b => finish(b ? new File([b], 'capture.jpg', { type: 'image/jpeg' }) : f), 'image/jpeg', 0.92)
+                  } else {
+                    finish(f)
                   }
                 }, 750)
               }
@@ -465,11 +476,14 @@ export default function Upload({ mode: pageMode }) {
 
   const capture = () => {
     const v = videoRef.current; if (!v) return
+    if (committedRef.current) return   // 이미 확정된 사진이 있음 (자동 인식 직후 중복 셔터 방지)
+    // 셔터를 누른 즉시 확정 → 진행 중이던 자동 스캔 응답이 늦게 와도 이 사진을 덮어쓰지 않음
+    committedRef.current = true
     stopAutoScan()
     setFlashActive(true)
     setTimeout(() => setFlashActive(false), 400)
     const c = captureFramedCanvas(v)
-    c.toBlob(blob => { setImg(new File([blob], 'capture.jpg', { type: 'image/jpeg' })); stopCam() }, 'image/jpeg', 0.92)
+    c.toBlob(blob => { stopCam(); setImg(new File([blob], 'capture.jpg', { type: 'image/jpeg' })) }, 'image/jpeg', 0.92)
   }
 
   const onTitleChange = (val) => {
@@ -509,6 +523,7 @@ export default function Upload({ mode: pageMode }) {
       const data = await analyzeImage({
         file,
         originalFile: cropInfo?.originalFile || null,
+        cropBbox: cropInfo ? cropInfo.bbox : undefined,
         mode: selectedMode,
         hintTitle: title,
         hintArtist: artist,
@@ -568,7 +583,11 @@ export default function Upload({ mode: pageMode }) {
         )}
 
         {/* Camera / Upload zone */}
-        {pageMode === 'camera' && !preview ? (
+        {preparing ? (
+          <div style={{ border: '1px solid var(--line)', borderRadius: 4, padding: '48px 20px', textAlign: 'center' }}>
+            <p style={{ fontSize: 12, color: 'var(--sub)', letterSpacing: 1 }}>작품 영역을 찾는 중…</p>
+          </div>
+        ) : pageMode === 'camera' && !preview ? (
           <CameraView
             videoRef={videoRef}
             cameraStream={cameraStream}
@@ -604,10 +623,7 @@ export default function Upload({ mode: pageMode }) {
                   </span>
                   <button className="btn-ghost" style={{ fontSize: 11, padding: '5px 12px', height: 32 }}
                     onClick={() => {
-                      setPreview(null); setFile(null)
-                      setHintTitle(''); setHintArtist('')
-                      setRawTitle(''); setRawArtist('')
-                      setQuickCands([])
+                      resetImg()
                       if (pageMode === 'camera') setTimeout(startCam, 50)
                       else stopAutoScan()
                     }}>

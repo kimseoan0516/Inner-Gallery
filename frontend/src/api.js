@@ -51,11 +51,13 @@ export async function resetPassword(email, new_password) {
 
 // ── analysis ───────────────────────────────────────────────────────────────
 
-export async function analyzeImage({ file, originalFile = null, mode, hintTitle = '', hintArtist = '', userIdentityProvided = false, artworkType = '자동', analysisFocus = '전체', artworkDescription = '' }) {
+export async function analyzeImage({ file, originalFile = null, cropBbox, mode, hintTitle = '', hintArtist = '', userIdentityProvided = false, artworkType = '자동', analysisFocus = '전체', artworkDescription = '' }) {
   const form = new FormData()
   form.append('image',               file)
   // 프론트에서 작품 영역을 잘랐다면 자르기 전 원본도 함께 전송 (공간 맥락·매칭 fallback용)
   if (originalFile && originalFile !== file) form.append('original_image', originalFile)
+  // 서버(Roboflow) 크롭을 이미 시도했다면 결과 bbox 전달 → 분석 때 재호출 생략 (탐지 실패면 'null')
+  if (cropBbox !== undefined) form.append('crop_bbox', JSON.stringify(cropBbox))
   form.append('mode',                mode)
   form.append('hint_title',          hintTitle)
   form.append('hint_artist',         hintArtist)
@@ -73,6 +75,14 @@ export async function quickMatch(file, { localOnly = false } = {}) {
   form.append('image', file)
   if (localOnly) form.append('local_only', 'true')
   const { data } = await api.post('/api/quick-match', form)
+  return data
+}
+
+// 촬영/선택 직후 Roboflow로 그림 영역 크롭 (+기울기 보정). 응답: { cropped, image(base64 jpeg), bbox }
+export async function cropArtwork(file) {
+  const form = new FormData()
+  form.append('image', file)
+  const { data } = await api.post('/api/crop-artwork', form)
   return data
 }
 
