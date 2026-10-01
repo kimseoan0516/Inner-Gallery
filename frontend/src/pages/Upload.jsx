@@ -383,7 +383,8 @@ export default function Upload({ mode: pageMode }) {
             if (!blob) { resolve(); return }
             const f = new File([blob], 'scan.jpg', { type: 'image/jpeg' })
             try {
-              const res = await quickMatch(f)
+              // 스캔 중엔 로컬 CLIP만 사용 (1.8초마다 Gemini를 부르면 할당량이 금방 소진됨)
+              const res = await quickMatch(f, { localOnly: true })
               if (res?.candidates?.length > 0 && res.candidates[0].confidence >= 62) {
                 clearInterval(autoScanRef.current)
                 autoScanRef.current = null
@@ -400,8 +401,18 @@ export default function Upload({ mode: pageMode }) {
                   setFile(activeFile)
                   setPreview(URL.createObjectURL(activeFile))
                   setError('')
-                  setQuickCands(expanded.slice(0, 5))
                   stopCam()
+                  // 잠금 후 1회만 Gemini 포함 정식 후보 조회 — 실패하면 스캔 때 얻은 CLIP 후보 사용
+                  setQuickLoading(true)
+                  try {
+                    const full = await quickMatch(activeFile)
+                    const fullCands = full?.candidates?.length > 0 ? expandCands(full.candidates).slice(0, 5) : []
+                    setQuickCands(fullCands.length > 0 ? fullCands : expanded.slice(0, 5))
+                  } catch {
+                    setQuickCands(expanded.slice(0, 5))
+                  } finally {
+                    setQuickLoading(false)
+                  }
                 }, 750)
               }
             } catch { /* non-fatal */ }
@@ -497,6 +508,7 @@ export default function Upload({ mode: pageMode }) {
       const artworkDescription = (match?.description) || ''
       const data = await analyzeImage({
         file,
+        originalFile: cropInfo?.originalFile || null,
         mode: selectedMode,
         hintTitle: title,
         hintArtist: artist,

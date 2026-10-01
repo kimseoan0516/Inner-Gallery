@@ -49,7 +49,8 @@ def _load():
 
     print("[ArtworkMatcher] Loading CLIP model…", flush=True)
     _model = SentenceTransformer("clip-ViT-B-32")
-    _index = faiss.read_index(str(_INDEX_DIR / "index.faiss"))
+    # faiss.read_index는 Windows에서 비ASCII 경로(예: 한글 폴더)를 못 열어서 바이트로 읽어 역직렬화
+    _index = faiss.deserialize_index(np.fromfile(str(_INDEX_DIR / "index.faiss"), dtype=np.uint8))
 
     with open(_INDEX_DIR / "metadata.json", encoding="utf-8") as f:
         raw_meta = json.load(f)
@@ -150,6 +151,7 @@ def match_artwork(image_bytes: bytes, top_k: int = 12, threshold: float = 0.78, 
     vote_threshold = threshold * 0.88
     artist_score: dict[str, float] = {}
     artist_count: dict[str, int]   = {}
+    artist_best:  dict[str, float] = {}
     artist_info:  dict[str, dict]  = {}
 
     for sim, idx in zip(scores, indices):
@@ -161,14 +163,18 @@ def match_artwork(image_bytes: bytes, top_k: int = 12, threshold: float = 0.78, 
         artist = meta["artist"]
         artist_score[artist] = artist_score.get(artist, 0.0) + float(sim)
         artist_count[artist] = artist_count.get(artist, 0)   + 1
+        artist_best[artist]  = max(artist_best.get(artist, 0.0), float(sim))
         if artist not in artist_info:
             artist_info[artist] = meta
 
-    qualified = {a: s for a, s in artist_score.items() if artist_count[a] >= vote_min}
+    # 거의 동일한 이미지(≥0.95)는 1표여도 인정. 그 외엔 vote_min 이상 득표 필요.
+    qualified = [a for a in artist_score if artist_count[a] >= vote_min or artist_best[a] >= 0.95]
     if not qualified:
         return None
 
-    best   = max(qualified, key=lambda a: qualified[a])
+    # 유사도 합계로 고르면 데이터셋에 작품 수가 많은 작가(드가 등)가 정확히 일치한 작가를 이김
+    # → 작가별 최고 유사도 우선, 동률이면 득표 수
+    best   = max(qualified, key=lambda a: (artist_best[a], artist_count[a]))
     info   = artist_info[best]
 
     return {
@@ -177,6 +183,7 @@ def match_artwork(image_bytes: bytes, top_k: int = 12, threshold: float = 0.78, 
         "nationality": info["nationality"],
         "years":       info["years"],
         "bio_short":   (info.get("bio") or "")[:200],
-        "confidence":  round(float(scores[0]), 3),
+        # 선택된 작가의 최고 유사도 (전체 1위가 다른 작가일 수 있으므로 scores[0]이 아님)
+        "confidence":  round(artist_best[best], 3),
         "vote_count":  artist_count[best],
     }

@@ -51,9 +51,11 @@ export async function resetPassword(email, new_password) {
 
 // ── analysis ───────────────────────────────────────────────────────────────
 
-export async function analyzeImage({ file, mode, hintTitle = '', hintArtist = '', userIdentityProvided = false, artworkType = '자동', analysisFocus = '전체', artworkDescription = '' }) {
+export async function analyzeImage({ file, originalFile = null, mode, hintTitle = '', hintArtist = '', userIdentityProvided = false, artworkType = '자동', analysisFocus = '전체', artworkDescription = '' }) {
   const form = new FormData()
   form.append('image',               file)
+  // 프론트에서 작품 영역을 잘랐다면 자르기 전 원본도 함께 전송 (공간 맥락·매칭 fallback용)
+  if (originalFile && originalFile !== file) form.append('original_image', originalFile)
   form.append('mode',                mode)
   form.append('hint_title',          hintTitle)
   form.append('hint_artist',         hintArtist)
@@ -65,9 +67,11 @@ export async function analyzeImage({ file, mode, hintTitle = '', hintArtist = ''
   return data
 }
 
-export async function quickMatch(file) {
+// localOnly: Gemini 없이 로컬 CLIP만 사용 (카메라 자동 스캔처럼 반복 호출할 때 할당량 보호)
+export async function quickMatch(file, { localOnly = false } = {}) {
   const form = new FormData()
   form.append('image', file)
+  if (localOnly) form.append('local_only', 'true')
   const { data } = await api.post('/api/quick-match', form)
   return data
 }

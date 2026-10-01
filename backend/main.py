@@ -2,7 +2,8 @@
 Inner Gallery – FastAPI backend
 Run: uvicorn backend.main:app --reload
 """
-import sys, os, json, base64, datetime, requests
+import sys, os, re, json, base64, datetime, unicodedata, requests
+from concurrent.futures import ThreadPoolExecutor
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from dotenv import load_dotenv
@@ -15,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
-from typing import List, Any
+from typing import List, Any, Optional
 
 from modules.color_analyzer       import analyze_colors
 from modules.composition_analyzer import analyze_composition
@@ -679,9 +680,113 @@ def crop_painting_roboflow(img_bytes: bytes, api_key: str) -> tuple:
 _API_KEY = os.environ.get("GEMINI_API_KEY", "")
 
 
+# ── 작가명 비교 / 식별 헬퍼 ──────────────────────────────────────────────────────
+
+def _norm_name(s: str) -> str:
+    """악센트·구두점 제거 + 소문자 (Dürer == Durer, Pierre-Auguste == pierre auguste)."""
+    s = unicodedata.normalize("NFKD", s or "")
+    s = "".join(ch for ch in s if not unicodedata.combining(ch))
+    return " ".join(re.sub(r"[^\w\s]", " ", s.lower()).split())
+
+
+def _artist_aliases(name: str) -> set:
+    """영문명 + 한국어명(_ARTIST_KO)을 정규화한 별칭 집합."""
+    out = {_norm_name(name)}
+    n = _norm_name(name)
+    for en, ko in _ARTIST_KO.items():
+        en_n, ko_n = _norm_name(en), _norm_name(ko)
+        if n and (n == en_n or n == ko_n or n in en_n or en_n in n):
+            out.update({en_n, ko_n})
+    out.discard("")
+    return out
+
+
+def _same_artist(a: str, b: str) -> bool:
+    """두 작가명이 같은 인물인지 (영/한, 전체/성만 표기 차이 허용)."""
+    if not a or not b:
+        return False
+    for x in _artist_aliases(a):
+        for y in _artist_aliases(b):
+            if x == y or x in y or y in x:
+                return True
+            # 성(last name) 등 4글자 이상 토큰 공유
+            if any(len(t) >= 4 for t in set(x.split()) & set(y.split())):
+                return True
+    return False
+
+
+def _text_overlap(a: str, b: str) -> bool:
+    """제목 비교용 포함 관계 (짧은 일반어 오매칭 방지 위해 4글자 이상만)."""
+    a, b = _norm_name(a), _norm_name(b)
+    if len(a) < 4 or len(b) < 4:
+        return False
+    return a in b or b in a
+
+
+def _db_description(info: dict, db_entry: dict) -> str:
+    return f"""
+[작품 배경 정보 - DB에서 직접 조회된 신뢰 사실]
+- 작품명: {info['title']}
+- 화가명: {info['artist']}
+- 제작 시기: {db_entry.get('creation_period', '')}
+- 미술 사조: {db_entry.get('art_movement', '')}
+- 시대적 배경: {db_entry.get('historical_context', '')}
+- 화가의 생애 맥락: {db_entry.get('artist_context', '')}
+- 구도 및 시각적 상징: {db_entry.get('visual_connection', '')}
+"""
+
+
+def _resolve_info(title: str, artist: str, cand: dict | None, fallback_medium: str, ui_message: str):
+    """DB 조회 후 info dict 구성. 반환: (info, db_entry)"""
+    db_entry = lookup_artwork(title=title, artist=artist) if (title or artist) else None
+    # lookup_artwork는 제목만으로도 매칭하므로 ("자화상" 등) 다른 작가의 작품이 걸릴 수 있음 → 작가 불일치면 폐기
+    if db_entry and artist and not _same_artist(db_entry.get("artist", ""), artist):
+        print(f"[DB Lookup] '{title}' 매칭 결과 작가 불일치({db_entry.get('artist')} ≠ {artist}) → 무시", flush=True)
+        db_entry = None
+    cand = cand or {}
+    info = {
+        "title":  (db_entry.get("title")  if db_entry else None) or title,
+        "artist": (db_entry.get("artist") if db_entry else None) or artist,
+        "year":   (db_entry.get("year")   if db_entry else None) or cand.get("year", ""),
+        "medium": (db_entry.get("art_movement") if db_entry else None) or cand.get("movement", "") or fallback_medium,
+        "ui_message": ui_message,
+    }
+    return info, db_entry
+
+
+def _match_with_fallback(crop_bytes: bytes, original_bytes: bytes):
+    """CLIP 매칭: 크롭 이미지 우선, 신뢰도 낮으면 원본으로 재시도."""
+    try:
+        m = match_artwork(crop_bytes)
+        if original_bytes is not crop_bytes and (not m or m.get("confidence", 0) < 0.80):
+            m2 = match_artwork(original_bytes)
+            if m2 and m2.get("confidence", 0) > (m.get("confidence", 0) if m else 0):
+                m = m2
+        return m
+    except Exception as e:
+        print(f"[CLIP Match] failed (non-fatal): {e}", flush=True)
+        return None
+
+
+def _web_with_fallback(crop_bytes: bytes, original_bytes: bytes) -> dict:
+    """Google Web Detection: 크롭 결과에 best_guess가 없으면 원본으로 재시도."""
+    empty = {"best_guess": "", "entities": [], "matching_pages": [], "has_trusted_domain": False}
+    try:
+        w = detect_web_artwork(crop_bytes) or empty
+        if not w.get("best_guess") and original_bytes is not crop_bytes:
+            w2 = detect_web_artwork(original_bytes)
+            if w2 and w2.get("best_guess"):
+                w = w2
+        return w
+    except Exception as e:
+        print(f"[WebDetection] failed (non-fatal): {e}", flush=True)
+        return empty
+
+
 @app.post("/api/analyze")
-async def analyze(
+def analyze(
     image:          UploadFile = File(...),
+    original_image: Optional[UploadFile] = File(None),
     mode:           str = Form("healing"),
     hint_title:     str = Form(""),
     hint_artist:    str = Form(""),
@@ -690,73 +795,73 @@ async def analyze(
     analysis_focus:      str = Form("전체"),
     artwork_description: str = Form(""),
 ):
-    raw = await image.read()
-    arr = np.frombuffer(raw, np.uint8)
-    img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    raw = image.file.read()
+    img = cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_COLOR)
     if img is None:
         raise HTTPException(400, "이미지를 읽을 수 없습니다")
+    if not _API_KEY:
+        raise HTTPException(500, "GEMINI_API_KEY가 설정되지 않았습니다. 프로젝트 루트의 .env 파일을 확인하세요.")
 
+    upload_size = img.shape[0] * img.shape[1]
+
+    # 프론트에서 이미 작품 영역을 잘라 보낸 경우, 자르기 전 원본 사진을 함께 받음
+    # (Gemini 공간 맥락 + 매칭 fallback 용). 없으면 업로드 이미지가 곧 원본.
     original_raw = raw
-    original_img = img
+    if original_image is not None:
+        ob = original_image.file.read()
+        if ob and cv2.imdecode(np.frombuffer(ob, np.uint8), cv2.IMREAD_COLOR) is not None:
+            original_raw = ob
 
     # ── Roboflow Painting Border Detection & Crop ──────────────────────────────
+    best_pred = None
     roboflow_key = os.environ.get("ROBOFLOW_API_KEY")
     if roboflow_key:
         try:
-            cropped_bytes, best_pred = crop_painting_roboflow(raw, roboflow_key)
+            cropped_bytes, pred = crop_painting_roboflow(raw, roboflow_key)
             if cropped_bytes is not None:
-                temp_arr = np.frombuffer(cropped_bytes, np.uint8)
-                temp_img = cv2.imdecode(temp_arr, cv2.IMREAD_COLOR)
+                temp_img = cv2.imdecode(np.frombuffer(cropped_bytes, np.uint8), cv2.IMREAD_COLOR)
                 if temp_img is not None:
-                    raw = cropped_bytes
-                    arr = temp_arr
-                    img = temp_img
+                    raw, img, best_pred = cropped_bytes, temp_img, pred
                     print("[Roboflow Crop] Successfully cropped painting border (with 8% padding)", flush=True)
                 else:
                     print("[Roboflow Crop Warning] Cropped image could not be decoded, falling back to original", flush=True)
         except Exception as e:
             print(f"[Roboflow Crop Warning] Fallback to original image due to error: {e}", flush=True)
 
-    if not _API_KEY:
-        raise HTTPException(500, "GEMINI_API_KEY가 설정되지 않았습니다. 프로젝트 루트의 .env 파일을 확인하세요.")
-
-    # ── Dataset image matching (uses CLIP index if built) ─────────────────────
-    db_match = None
-    if not hint_artist:   # only auto-match when user hasn't given a hint
-        try:
-            db_match = match_artwork(raw)
-            # fallback to original image if no match or confidence < 80%
-            if (not db_match or db_match.get("confidence", 0) < 0.80) and 'original_raw' in locals():
-                orig_match = match_artwork(original_raw)
-                if orig_match and orig_match.get("confidence", 0) > (db_match.get("confidence", 0) if db_match else 0):
-                    db_match = orig_match
-        except Exception:
-            pass   # matcher failure is non-fatal
-
     try:
-        quality = check_image_quality(
-            img,
-            best_pred if 'best_pred' in locals() else None,
-            original_size=(original_img.shape[0] * original_img.shape[1]) if 'original_img' in locals() else None
-        )
+        _, buf = cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 85])
+        crop_jpg = buf.tobytes()
 
-        color   = analyze_colors(img, 5)
-        comp    = analyze_composition(img)
-        # 사용자가 명시한 유형이 인물 제외인 경우 analyze_person 스킵
-        # (자동 감지는 Vision 호출 이후 결정되므로, 이 시점에서는 사용자 입력 기준)
-        _skip_person_initial = artwork_type in ("풍경", "추상", "정물", "건축")
-        person  = (
-            {"human_detected": False, "face_visible": False, "pose": "미감지",
-             "body_orientation": "미감지", "body_height_position": "미감지",
-             "size_ratio": 0.0, "emotional_posture": [], "emotional_posture_ko": []}
-            if _skip_person_initial else analyze_person(img)
-        )
-        sal     = create_saliency_overlay(img)
-        att_x, att_y = get_attention_center(img)
+        # ── 외부 호출(CLIP·Google Web)을 로컬 CV 분석과 병렬 실행 ─────────────────
+        with ThreadPoolExecutor(max_workers=2) as ex:
+            # 사용자가 화가를 직접 알려준 경우 CLIP 자동 매칭 불필요
+            f_match = ex.submit(_match_with_fallback, raw, original_raw) if not hint_artist else None
+            f_web   = ex.submit(_web_with_fallback, crop_jpg, original_raw)
+
+            quality = check_image_quality(img, best_pred, original_size=upload_size)
+            color   = analyze_colors(img, 5)
+            comp    = analyze_composition(img)
+            # 사용자가 명시한 유형이 인물 제외인 경우 analyze_person 스킵
+            # (자동 감지는 Vision 호출 이후 결정되므로, 이 시점에서는 사용자 입력 기준)
+            _skip_person_initial = artwork_type in ("풍경", "추상", "정물", "건축")
+            person  = (
+                {"human_detected": False, "face_visible": False, "pose": "미감지",
+                 "body_orientation": "미감지", "body_height_position": "미감지",
+                 "size_ratio": 0.0, "emotional_posture": [], "emotional_posture_ko": []}
+                if _skip_person_initial else analyze_person(img)
+            )
+            sal     = create_saliency_overlay(img)
+            att_x, att_y = get_attention_center(img)
+
+            db_match = f_match.result() if f_match else None
+            web_info = f_web.result()
 
         # Vision call before emotion scoring so figure expression feeds into scores
-        _, buf = cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 85])
-        vision   = analyze_artwork_vision(buf.tobytes(), _API_KEY, original_raw if 'original_raw' in locals() else None)
+        vision   = analyze_artwork_vision(
+            crop_jpg, _API_KEY,
+            original_raw if original_raw is not raw else None,
+            web_info=web_info,
+        )
         candidates = vision["recognition"]
         ocr_info   = vision["ocr"]
         figure     = vision["figure"]
@@ -764,61 +869,26 @@ async def analyze(
         scores  = calculate_emotion_scores(color, comp, person, figure)
         evidence = _make_evidence(color, comp, person, scores)
 
-        # ── 🌐 Google Cloud Vision Web Detection 지식 증강 & 조건부 호출 ─────────────────
-        web_info = {"best_guess": "", "entities": []}
         db_confidence = (db_match.get("confidence", 0) * 100) if db_match else 0
-        
-        # 비용/속도 절감을 위해 CLIP 매칭이 없거나 신뢰도가 애매할 때 조건부 기동
-        if not db_match or db_confidence < 85 or len(candidates) == 0:
-            try:
-                web_info = detect_web_artwork(buf.tobytes())
-                # fallback to original if web_info best_guess is blank
-                if (not web_info or not web_info.get("best_guess")) and 'original_raw' in locals():
-                    orig_web_info = detect_web_artwork(original_raw)
-                    if orig_web_info and orig_web_info.get("best_guess"):
-                        web_info = orig_web_info
-            except Exception:
-                pass
 
         # ── 🏷️ OCR → 힌트 자동 주입 ────────────────────────────────────────────
         # 사용자가 수동으로 힌트를 제공하지 않은 경우에만 OCR 힌트를 평가·주입
         ocr_hint = evaluate_ocr_hint(ocr_info)
         ocr_auto_injected = False
-        if not hint_title and not hint_artist and ocr_hint["ocr_confidence"] != "rejected":
-            ocr_title  = ocr_hint["hint_title"]
-            ocr_artist = ocr_hint["hint_artist"]
-
-            if ocr_hint["ocr_confidence"] == "strong":
-                # 강한 힌트: 제목+작가 둘 다 검출 → 다른 결과와 교차 검증 후 주입
-                # CLIP/Gemini/Google 중 하나라도 일치 방향이면 confirmed로 격상
-                all_titles  = [c.get("title",  "").lower() for c in candidates]
-                all_artists = [c.get("artist", "").lower() for c in candidates]
-                web_guess_lower = web_info.get("best_guess", "").lower()
-
-                title_consistent  = any(ocr_title.lower()  in t or t in ocr_title.lower()  for t in all_titles  if t)
-                artist_consistent = any(ocr_artist.lower() in a or a in ocr_artist.lower() for a in all_artists if a)
-                web_consistent    = (ocr_title.lower() in web_guess_lower or
-                                     ocr_artist.lower() in web_guess_lower or
-                                     web_guess_lower in ocr_title.lower())
-
-                if title_consistent or artist_consistent or web_consistent:
-                    # 교차 검증 성공 → 완전 확정 주입
-                    hint_title  = ocr_title
-                    hint_artist = ocr_artist
-                    ocr_auto_injected = True
-                    user_identity_provided = True
-                    print(f"[OCR AutoHint] STRONG+CROSS_VALIDATED → hint_title='{hint_title}', hint_artist='{hint_artist}'", flush=True)
-                else:
-                    # 교차 검증 실패해도 강한 힌트로 주입 (하지만 status는 ocr_confirmed 유지)
-                    hint_title  = ocr_title
-                    hint_artist = ocr_artist
-                    ocr_auto_injected = True
-                    print(f"[OCR AutoHint] STRONG (no cross-validation) → hint_title='{hint_title}', hint_artist='{hint_artist}'", flush=True)
-
-            elif ocr_hint["ocr_confidence"] == "partial":
-                # 부분 힌트: 제목 또는 작가 하나만 → 기존 판별 결과 보조용으로만 저장
-                # hint 변수 직접 치환하지 않고 식별 시스템에 별도로 전달
-                print(f"[OCR AutoHint] PARTIAL → 보조 힌트만 기록 (title='{ocr_hint['hint_title']}', artist='{ocr_hint['hint_artist']}')", flush=True)
+        if not hint_title and not hint_artist and ocr_hint["ocr_confidence"] == "strong":
+            # 강한 힌트(제목+작가 둘 다 검출)는 주입. 다른 소스와 일치하면 로그에 교차검증 표시.
+            ocr_title, ocr_artist = ocr_hint["hint_title"], ocr_hint["hint_artist"]
+            google_texts = [web_info.get("best_guess", "")] + [e["name"] for e in web_info.get("entities", [])]
+            cross_ok = (
+                any(_text_overlap(ocr_title, c.get("title", "")) or _same_artist(ocr_artist, c.get("artist", "")) for c in candidates)
+                or any(_text_overlap(ocr_title, g) or _same_artist(ocr_artist, g) for g in google_texts)
+            )
+            hint_title, hint_artist = ocr_title, ocr_artist
+            ocr_auto_injected = True
+            print(f"[OCR AutoHint] STRONG{'+CROSS_VALIDATED' if cross_ok else ' (no cross-validation)'} → hint_title='{hint_title}', hint_artist='{hint_artist}'", flush=True)
+        elif ocr_hint["ocr_confidence"] == "partial":
+            # 부분 힌트: 제목 또는 작가 하나만 → 아래 자율 판단의 보조 근거로만 사용
+            print(f"[OCR AutoHint] PARTIAL → 보조 힌트만 기록 (title='{ocr_hint['hint_title']}', artist='{ocr_hint['hint_artist']}')", flush=True)
 
         print(f"[OCR Evaluation] confidence={ocr_hint['ocr_confidence']}, source='{ocr_hint['ocr_source']}'", flush=True)
 
@@ -829,194 +899,121 @@ async def analyze(
                 artwork_type = detected_type
                 print(f"[ArtworkType] 자동 감지 결과: '{artwork_type}'", flush=True)
 
-        # ── 📐 하이브리드 크로스 발리데이션 최종 판단 분류 시스템 ──────────────────────
-        # ── 📐 하이브리드 크로스 발리데이션 최종 판단 분류 시스템 ──────────────────────
-        best_clip_artist = db_match["artist"] if db_match else ""
-        best_vision_title = candidates[0]["title"] if len(candidates) > 0 else ""
-        best_vision_artist = candidates[0]["artist"] if len(candidates) > 0 else ""
-
-        google_guess = web_info.get("best_guess", "").lower()
-        google_entities = [e["name"].lower() for e in web_info.get("entities", [])]
-
-        def _match_contains(target: str, source_list: list) -> bool:
-            if not target: return False
-            t = target.lower()
-            return any(t in s or s in t for s in source_list)
-
+        # ── 📐 하이브리드 크로스 발리데이션 최종 판단 ──────────────────────────────
+        # 원칙: 제목과 작가는 반드시 "같은 후보"에서 가져온다.
+        #       (CLIP 인덱스는 작가 단위라 제목이 없음 → 제목은 CLIP 작가와 일치하는 Gemini 후보에서만)
         identification_status = "unknown"
         info: dict = {"title": "", "artist": "", "year": "", "medium": "", "ui_message": ""}
-        is_abstract = False
         db_entry = None
+        chosen_cand = None
 
-        # 1) 수동 힌트 또는 OCR 자동 주입 힌트가 있는 경우
         if hint_title or hint_artist:
-            # OCR 자동 주입인지 수동 입력인지 구분
+            # 1) 수동 힌트 또는 OCR 자동 주입 힌트
             if ocr_auto_injected:
                 identification_status = "ocr_confirmed"
-                ui_msg_prefix = f"라벨 OCR로 자동 확인된 작품 정보입니다. ({ocr_hint['ocr_source']})"
+                ui_msg = f"라벨 OCR로 자동 확인된 작품 정보입니다. ({ocr_hint['ocr_source']})"
             else:
                 identification_status = "confirmed"
-                ui_msg_prefix = "사용자가 직접 선택해 확정된 검증 명화 정보입니다."
-
-            db_entry = lookup_artwork(title=hint_title, artist=hint_artist)
-            if db_entry:
-                info = {
-                    "title":  db_entry.get("title")  or hint_title,
-                    "artist": db_entry.get("artist") or hint_artist,
-                    "year":   db_entry.get("year")   or "",
-                    "medium": db_entry.get("art_movement") or "",
-                    "ui_message": ui_msg_prefix
-                }
-                artwork_description = f"""
-[작품 배경 정보 - DB에서 직접 조회된 신뢰 사실]
-- 작품명: {info['title']}
-- 화가명: {info['artist']}
-- 제작 시기: {db_entry.get('creation_period', '')}
-- 미술 사조: {db_entry.get('art_movement', '')}
-- 시대적 배경: {db_entry.get('historical_context', '')}
-- 화가의 생애 맥락: {db_entry.get('artist_context', '')}
-- 구도 및 시각적 상징: {db_entry.get('visual_connection', '')}
-"""
-            else:
-                info = {
-                    "title":  hint_title,
-                    "artist": hint_artist,
-                    "year":   "",
-                    "medium": "",
-                    "ui_message": ui_msg_prefix
-                }
+                ui_msg = "사용자가 직접 선택해 확정된 검증 명화 정보입니다."
+            info, db_entry = _resolve_info(hint_title, hint_artist, None, "", ui_msg)
         else:
-            # 2) 자율적 하이브리드 판단 (OCR 부분 힌트도 가중치로 활용)
-            ocr_partial_title  = ocr_hint["hint_title"]  if ocr_hint["ocr_confidence"] == "partial" else ""
-            ocr_partial_artist = ocr_hint["hint_artist"] if ocr_hint["ocr_confidence"] == "partial" else ""
+            # 2) 자율 판단
+            clip_artist  = db_match["artist"] if db_match else ""
+            clip_strong  = bool(db_match) and db_confidence >= 85
+            clip_cand    = next((c for c in candidates if _same_artist(c.get("artist", ""), clip_artist)), None) if clip_artist else None
+            top          = candidates[0] if candidates else None
 
-            clip_matches_google = _match_contains(best_clip_artist, google_entities) or (best_clip_artist.lower() in google_guess) if best_clip_artist else False
-            vision_matches_google = (best_vision_title.lower() in google_guess or google_guess in best_vision_title.lower()) if best_vision_title and google_guess else False
-            # OCR 부분 힌트가 Vision 결과와 일치하면 가중치 부여
-            ocr_matches_vision = (
-                (ocr_partial_title  and best_vision_title  and (ocr_partial_title.lower()  in best_vision_title.lower()  or best_vision_title.lower()  in ocr_partial_title.lower())) or
-                (ocr_partial_artist and best_vision_artist and (ocr_partial_artist.lower() in best_vision_artist.lower() or best_vision_artist.lower() in ocr_partial_artist.lower()))
-            ) if (ocr_partial_title or ocr_partial_artist) else False
-            
-            has_trusted = web_info.get("has_trusted_domain", False)
-            matching_pages = web_info.get("matching_pages", [])
+            google_guess    = web_info.get("best_guess", "")
+            google_entities = [e["name"] for e in web_info.get("entities", [])]
+            google_texts    = [g for g in [google_guess] + google_entities if g]
+            has_trusted     = web_info.get("has_trusted_domain", False)
+            matching_pages  = web_info.get("matching_pages", [])
 
-            # 규칙 1: confirmed (CLIP Top-1 유사도 높음 + Google Web 매치 + 신뢰 도메인 존재)
-            #            또는 OCR partial 힌트가 Vision 결과를 지지하는 경우 타이브레이커로 갰상
-            if db_match and db_confidence >= 85 and (clip_matches_google or vision_matches_google or ocr_matches_vision) and (has_trusted or ocr_matches_vision):
-                identification_status = "confirmed"
-                title_choice = best_vision_title or db_match.get("title") or "작품명 미정"
-                artist_choice = best_clip_artist or best_vision_artist
-                db_entry = lookup_artwork(title=title_choice, artist=artist_choice)
-                
-                info = {
-                    "title": db_entry.get("title") if db_entry else title_choice,
-                    "artist": db_entry.get("artist") if db_entry else artist_choice,
-                    "year": db_entry.get("year") if db_entry else (candidates[0].get("year", "") if len(candidates) > 0 else ""),
-                    "medium": db_entry.get("art_movement") if db_entry else (candidates[0].get("movement", "") if len(candidates) > 0 else ""),
-                    "ui_message": f"작품 정보가 완벽히 확인되었어요. 내부 데이터셋과 신뢰도 높은 기관 웹 매칭({', '.join(matching_pages)}) 결과가 수렴하여 일치합니다."
-                }
-                if db_entry:
-                    artwork_description = f"""
-[작품 배경 정보 - DB에서 직접 조회된 신뢰 사실]
-- 작품명: {info['title']}
-- 화가명: {info['artist']}
-- 제작 시기: {db_entry.get('creation_period', '')}
-- 미술 사조: {db_entry.get('art_movement', '')}
-- 시대적 배경: {db_entry.get('historical_context', '')}
-- 화가의 생애 맥락: {db_entry.get('artist_context', '')}
-- 구도 및 시각적 상징: {db_entry.get('visual_connection', '')}
-"""
-            # 규칙 2: internal_match (CLIP Top-1 유사도 높음 + Google 결과 애매)
-            elif db_match and db_confidence >= 85:
-                identification_status = "internal_match"
-                title_choice = best_vision_title or "작품명 미정"
-                artist_choice = best_clip_artist
-                db_entry = lookup_artwork(title=title_choice, artist=artist_choice)
-                
-                info = {
-                    "title": db_entry.get("title") if db_entry else title_choice,
-                    "artist": db_entry.get("artist") if db_entry else artist_choice,
-                    "year": db_entry.get("year") if db_entry else (candidates[0].get("year", "") if len(candidates) > 0 else ""),
-                    "medium": db_entry.get("art_movement") if db_entry else db_match.get("genre", ""),
-                    "ui_message": f"내부 미술관 데이터셋 매칭을 기반으로 가장 신뢰도 높게 일치하는 작품입니다. (유사도: {round(db_confidence, 1)}%)"
-                }
-                if db_entry:
-                    artwork_description = f"""
-[작품 배경 정보 - DB에서 직접 조회된 신뢰 사실]
-- 작품명: {info['title']}
-- 화가명: {info['artist']}
-- 제작 시기: {db_entry.get('creation_period', '')}
-- 미술 사조: {db_entry.get('art_movement', '')}
-- 시대적 배경: {db_entry.get('historical_context', '')}
-- 화가의 생애 맥락: {db_entry.get('artist_context', '')}
-- 구도 및 시각적 상징: {db_entry.get('visual_connection', '')}
-"""
-            # 규칙 3: web_confirmed (CLIP Top-1 애매함 + Google webEntities/웹페이지 명확함 또는 OCR partial 히트)
-            elif (
-                (best_vision_title and google_guess and (best_vision_title.lower() in google_guess or google_guess in best_vision_title.lower()) and has_trusted)
-                or (has_trusted and len(google_entities) > 0 and len(candidates) > 0)
-                or (ocr_matches_vision and len(candidates) > 0)   # OCR partial + Vision 일치
+            def _cand_backed_by_google(c) -> bool:
+                if not c:
+                    return False
+                return any(_text_overlap(c.get("title", ""), g) or _same_artist(c.get("artist", ""), g) for g in google_texts)
+
+            ocr_p_title  = ocr_hint["hint_title"]  if ocr_hint["ocr_confidence"] == "partial" else ""
+            ocr_p_artist = ocr_hint["hint_artist"] if ocr_hint["ocr_confidence"] == "partial" else ""
+
+            def _cand_backed_by_ocr(c) -> bool:
+                if not c or not (ocr_p_title or ocr_p_artist):
+                    return False
+                return _text_overlap(ocr_p_title, c.get("title", "")) or _same_artist(ocr_p_artist, c.get("artist", ""))
+
+            # 규칙 1: confirmed — CLIP 작가 강일치 + 같은 작가의 Gemini 후보 + (Google 신뢰도메인 or OCR) 지지
+            if clip_strong and clip_cand and (
+                (has_trusted and (_cand_backed_by_google(clip_cand) or any(_same_artist(clip_artist, g) for g in google_texts)))
+                or _cand_backed_by_ocr(clip_cand)
             ):
+                identification_status = "confirmed"
+                chosen_cand = clip_cand
+                src = f"신뢰도 높은 기관 웹 매칭({', '.join(matching_pages)})" if has_trusted else "작품 라벨 OCR"
+                info, db_entry = _resolve_info(
+                    clip_cand.get("title", ""), clip_cand.get("artist") or clip_artist, clip_cand, db_match.get("genre", ""),
+                    f"작품 정보가 확인되었어요. 내부 데이터셋과 {src} 결과가 같은 작품을 가리킵니다.",
+                )
+
+            # 규칙 2: web_confirmed — Gemini 후보가 Google 신뢰도메인 결과 또는 OCR로 뒷받침됨
+            elif (has_trusted and _cand_backed_by_google(top)) or _cand_backed_by_ocr(top):
                 identification_status = "web_confirmed"
-                title_choice = best_vision_title or web_info.get("best_guess") or "작품명 미정"
-                artist_choice = best_vision_artist or (google_entities[0] if len(google_entities) > 0 else "")
-                db_entry = lookup_artwork(title=title_choice, artist=artist_choice)
-                
-                info = {
-                    "title": db_entry.get("title") if db_entry else title_choice,
-                    "artist": db_entry.get("artist") if db_entry else artist_choice,
-                    "year": db_entry.get("year") if db_entry else (candidates[0].get("year", "") if len(candidates) > 0 else ""),
-                    "medium": db_entry.get("art_movement") if db_entry else (candidates[0].get("movement", "") if len(candidates) > 0 else ""),
-                    "ui_message": f"웹 교차 검증을 통해 작품 정보가 명확하게 식별되었습니다. (출처: {', '.join(matching_pages)})"
-                }
-                if db_entry:
-                    artwork_description = f"""
-[작품 배경 정보 - DB에서 직접 조회된 신뢰 사실]
-- 작품명: {info['title']}
-- 화가명: {info['artist']}
-- 제작 시기: {db_entry.get('creation_period', '')}
-- 미술 사조: {db_entry.get('art_movement', '')}
-- 시대적 배경: {db_entry.get('historical_context', '')}
-- 화가의 생애 맥락: {db_entry.get('artist_context', '')}
-- 구도 및 시각적 상징: {db_entry.get('visual_connection', '')}
-"""
-            # 규칙 4: unknown (둘 다 애매함)
+                chosen_cand = top
+                src = ', '.join(matching_pages) if has_trusted and matching_pages else "작품 라벨 OCR"
+                info, db_entry = _resolve_info(
+                    top.get("title", ""), top.get("artist", ""), top, "",
+                    f"웹 교차 검증을 통해 작품 정보가 식별되었습니다. (출처: {src})",
+                )
+
+            # 규칙 3: internal_match — CLIP 작가 강일치 (제목은 같은 작가 후보가 있을 때만)
+            elif clip_strong:
+                identification_status = "internal_match"
+                chosen_cand = clip_cand
+                if clip_cand:
+                    ui_msg = f"내부 미술관 데이터셋 매칭을 기반으로 가장 일치하는 작품입니다. (화풍 유사도: {round(db_confidence, 1)}%)"
+                    title_choice = clip_cand.get("title", "")
+                else:
+                    ui_msg = f"{_ARTIST_KO.get(clip_artist, clip_artist)}의 화풍과 가장 유사합니다. 정확한 작품명은 확인하지 못했어요. (화풍 유사도: {round(db_confidence, 1)}%)"
+                    title_choice = ""
+                info, db_entry = _resolve_info(title_choice, clip_artist, clip_cand, db_match.get("genre", ""), ui_msg)
+
+            # 규칙 4: unknown
             else:
-                identification_status = "unknown"
-                info = {
-                    "title": "",
-                    "artist": "",
-                    "year": "",
-                    "medium": "",
-                    "ui_message": "정확한 작품명을 확인하기 어렵습니다. 색채와 구도를 중심으로 감상해볼게요."
-                }
+                info = {"title": "", "artist": "", "year": "", "medium": "",
+                        "ui_message": "정확한 작품명을 확인하기 어렵습니다. 색채와 구도를 중심으로 감상해볼게요."}
+
+        if db_entry:
+            artwork_description = _db_description(info, db_entry)
 
         # Check abstract art
+        is_abstract = artwork_type == "추상"
         if db_entry:
-            movement = db_entry.get("art_movement", "").lower()
-            visual_conn = db_entry.get("visual_connection", "").lower()
-            creation_p = db_entry.get("creation_period", "").lower()
             abstract_keywords = ["추상", "abstract", "데 스테일", "신조형주의", "미니멀리즘", "minimalism", "올오버 구도", "액션 페인팅"]
-            if any(k in movement or k in visual_conn or k in creation_p for k in abstract_keywords):
+            fields = [db_entry.get(k, "").lower() for k in ("art_movement", "visual_connection", "creation_period")]
+            if any(k in f for k in abstract_keywords for f in fields):
                 is_abstract = True
 
-        if artwork_type == "추상" or is_abstract:
-            is_abstract = True
-
-        # LLM 해설 및 세부 바인딩용 후보 지정
-        payload_candidates = candidates if identification_status in ("confirmed", "ocr_confirmed", "internal_match", "web_confirmed") else []
+        # LLM에는 최종 판정과 같은 작가의 후보만 전달 (다른 작가 후보가 섞여 해설이 흔들리는 것 방지)
+        if identification_status == "unknown":
+            payload_candidates = []
+        elif info.get("artist"):
+            payload_candidates = [c for c in candidates if _same_artist(c.get("artist", ""), info["artist"])]
+        else:
+            payload_candidates = [chosen_cand] if chosen_cand else []
         user_provided_name = bool((hint_title or hint_artist) and not ocr_auto_injected)
 
-        payload   = _build_payload(info, color, comp, person, figure, scores, att_x, att_y, candidates=payload_candidates, identification_status=identification_status, artwork_type=artwork_type, is_abstract=is_abstract, user_provided_name=user_provided_name)
-        essay_raw = generate_interpretation(payload, _API_KEY, mode, artwork_type, analysis_focus, artwork_description)
-        essay     = _parse_essay(essay_raw)
+        payload = _build_payload(info, color, comp, person, figure, scores, att_x, att_y, candidates=payload_candidates, identification_status=identification_status, artwork_type=artwork_type, is_abstract=is_abstract, user_provided_name=user_provided_name)
 
         visual_for_similar = {
             "dominant_colors": [c.get("name", "") for c in color["dominant_colors"]],
             "color_moods":     color.get("color_moods_ko", []),
         }
-        similar = recommend_similar(info, visual_for_similar, _API_KEY)
+        # 해설 생성과 유사 작품 추천은 서로 독립 → 병렬 실행
+        with ThreadPoolExecutor(max_workers=2) as ex:
+            f_essay   = ex.submit(generate_interpretation, payload, _API_KEY, mode, artwork_type, analysis_focus, artwork_description)
+            f_similar = ex.submit(recommend_similar, info, visual_for_similar, _API_KEY)
+            essay   = _parse_essay(f_essay.result())
+            similar = f_similar.result()
     except Exception as e:
         import traceback
         traceback.print_exc()
@@ -1124,7 +1121,7 @@ class SketchReflectionRequest(BaseModel):
 
 
 @app.post("/api/sketch-reflection")
-async def sketch_reflection_api(req: SketchReflectionRequest):
+def sketch_reflection_api(req: SketchReflectionRequest):
     if not _API_KEY:
         raise HTTPException(500, "API 키가 설정되지 않았습니다")
     try:
@@ -1144,7 +1141,7 @@ class EssayTextRequest(BaseModel):
 
 
 @app.post("/api/essay-text")
-async def essay_text_api(req: EssayTextRequest):
+def essay_text_api(req: EssayTextRequest):
     """Generate an essay from artwork text info only (no image required).
     Used when user manually corrects artwork identification on the Results page."""
     if not _API_KEY:
@@ -1250,7 +1247,7 @@ _DAILY_QUESTIONS = [
 
 
 @app.get("/api/daily-artwork-aic")
-async def daily_artwork_aic():
+def daily_artwork_aic():
     """AIC GET + URL-encoded params (공식 권장) 방식으로 날짜 기반 퍼블릭 도메인 작품 추천."""
     today = datetime.date.today()
     cache_key = str(today)
@@ -1317,13 +1314,13 @@ async def daily_artwork_aic():
 
 
 @app.get("/api/daily-artwork")
-async def daily_artwork():
+def daily_artwork():
     today = str(datetime.date.today())
     if today in _daily_cache:
         return _daily_cache[today]
     if not _API_KEY:
         return {"title": "—", "artist": "—", "year": "", "movement": "", "description": "API 키가 필요합니다"}
-    import google.generativeai as genai
+    from modules import gemini_client as genai
     genai.configure(api_key=_API_KEY)
     model = genai.GenerativeModel("gemini-2.5-flash")
     prompt = (
@@ -1357,6 +1354,8 @@ async def daily_artwork():
 
 _ARTIST_KO = {
     "Vincent van Gogh": "빈센트 반 고흐",
+    "Joaquín Sorolla": "호아킨 소로야",
+    "Mikhail Vrubel": "미하일 브루벨",
     "Claude Monet": "클로드 모네",
     "Gustav Klimt": "구스타프 클림트",
     "Edvard Munch": "에드바르 뭉크",
@@ -1467,13 +1466,13 @@ class ArtworkEraRequest(BaseModel):
 
 # \u2500\u2500 \ud654\uc9c8 \uc0ac\uc804 \uccb4\ud06c \uc5d4\ub4dc\ud3ec\uc778\ud2b8 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
 @app.post("/api/quick-quality")
-async def quick_quality(image: UploadFile = File(...)):
+def quick_quality(image: UploadFile = File(...)):
     """
     \uc774\ubbf8\uc9c0 \uc120\ud0dd \uc990\uc2dc \ud654\uc9c8 \uccb4\ud06c\ub9cc \uc2e4\ud589\ud569\ub2c8\ub2e4 (AI \ud638\ucd9c \uc5c6\uc74c).
     \ubd84\uc11d \uc2dc\uc791 \uc804 \uc0ac\uc6a9\uc790\uc5d0\uac8c \ubc14\ub85c \ud654\uc9c8 \uacbd\uace0\ub97c \ud45c\uc2dc\ud558\uae30 \uc704\ud55c \uc6a9\ub3c4\uc785\ub2c8\ub2e4.
     """
     try:
-        raw = await image.read()
+        raw = image.file.read()
         arr = np.frombuffer(raw, np.uint8)
         img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
         if img is None:
@@ -1492,14 +1491,15 @@ async def quick_quality(image: UploadFile = File(...)):
 
 
 @app.post("/api/quick-match")
-async def quick_match(image: UploadFile = File(...)):
-    """이미지 업로드 즉시 Top-5 작품 후보 반환 (분석 전 미리보기용)"""
-    raw = await image.read()
-    
+def quick_match(image: UploadFile = File(...), local_only: bool = Form(False)):
+    """이미지 업로드 즉시 Top-5 작품 후보 반환 (분석 전 미리보기용).
+    local_only=True면 Gemini를 건너뛰고 로컬 CLIP만 사용 (카메라 자동 스캔처럼 반복 호출되는 경우)."""
+    raw = image.file.read()
+
     # 1. Try Gemini API first (only if key exists)
-    if _API_KEY:
+    if _API_KEY and not local_only:
         try:
-            import google.generativeai as genai
+            from modules import gemini_client as genai
             genai.configure(api_key=_API_KEY)
             model = genai.GenerativeModel("gemini-2.5-flash")
 
@@ -1557,8 +1557,13 @@ async def quick_match(image: UploadFile = File(...)):
         filtered = reliable if reliable else artist_cands[:3]
         if filtered:
             out = []
-            for ac in filtered[:4]:   # at most 4 artist candidates
+            for ac in filtered:
+                if len(out) >= 4:   # at most 4 artist candidates
+                    break
                 artist_name = ac["artist"]
+                # 인덱스에 같은 작가가 다른 표기로 들어간 경우("Van Gogh" / "Vincent van Gogh") 중복 제거
+                if any(_same_artist(artist_name, o["artist"]) for o in out):
+                    continue
                 ko = _ARTIST_KO.get(artist_name, "")
                 out.append({
                     "title":      "",
@@ -1582,7 +1587,7 @@ async def quick_match(image: UploadFile = File(...)):
 
 
 @app.post("/api/artwork-era")
-async def artwork_era_api(req: ArtworkEraRequest):
+def artwork_era_api(req: ArtworkEraRequest):
     if not _API_KEY:
         return {
             "_error": True,
@@ -1614,7 +1619,7 @@ class ChatRequest(BaseModel):
 
 
 @app.post("/api/docent-chat")
-async def docent_chat(req: ChatRequest):
+def docent_chat(req: ChatRequest):
     if not _API_KEY:
         raise HTTPException(500, "API 키가 설정되지 않았습니다")
     try:
@@ -1630,13 +1635,13 @@ class TranslateRequest(BaseModel):
     text: str
 
 @app.post("/api/translate")
-async def translate_text(req: TranslateRequest):
+def translate_text(req: TranslateRequest):
     """영어 텍스트 → 한국어 번역 (Gemini)."""
     if not req.text.strip():
         return {"translated": ""}
     if not _API_KEY:
         raise HTTPException(500, "GEMINI_API_KEY가 설정되지 않았습니다.")
-    import google.generativeai as _genai
+    from modules import gemini_client as _genai
     _genai.configure(api_key=_API_KEY)
     prompt = (
         "다음 미술 작품 설명 영어 텍스트를 자연스러운 한국어로 번역해주세요. "
@@ -1659,7 +1664,7 @@ async def translate_text(req: TranslateRequest):
 # ── 이미지 프록시 ──────────────────────────────────────────────────────────────
 
 @app.get("/api/proxy-image")
-async def proxy_image(url: str):
+def proxy_image(url: str):
     import urllib.request
     try:
         req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
@@ -1674,7 +1679,7 @@ async def proxy_image(url: str):
 # ── 명언 ─────────────────────────────────────────────────────────────────────
 
 @app.get("/api/demo-result")
-async def demo_result():
+def demo_result():
     """별이 빛나는 밤 — 사전 저장된 데모 분석 결과."""
     return {
         "artwork_image": "https://upload.wikimedia.org/wikipedia/commons/thumb/e/ea/Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg/1280px-Van_Gogh_-_Starry_Night_-_Google_Art_Project.jpg",
@@ -1759,7 +1764,7 @@ async def demo_result():
 
 
 @app.get("/api/artist-quote")
-async def artist_quote():
+def artist_quote():
     """DB에서 랜덤 명언 반환."""
     return get_random_quote()
 
@@ -1824,7 +1829,7 @@ def _parse_integ_item(item: dict) -> dict | None:
 
 
 @app.get("/api/exhibitions")
-async def get_exhibitions():
+def get_exhibitions():
     """
     ① 통합 전시정보 API (INTEG_API_KEY) — 27개 기관 통합, 현재 전시 필터링
     ② 국립현대미술관 개별 API (MOCA_API_KEY) — 보조

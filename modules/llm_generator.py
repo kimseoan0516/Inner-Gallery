@@ -2,9 +2,23 @@ import json
 import time
 import os
 import datetime
+import tempfile
+import threading
 from typing import Dict, Any
 
-import google.generativeai as genai
+from modules import gemini_client as genai
+
+# 배포 환경(HF Spaces)용: 서비스 계정 JSON 내용을 Secret(GOOGLE_CREDENTIALS_JSON)으로 받으면 임시 파일로 기록
+_creds_json = os.environ.get("GOOGLE_CREDENTIALS_JSON", "").strip()
+if _creds_json and not os.environ.get("GOOGLE_APPLICATION_CREDENTIALS"):
+    try:
+        json.loads(_creds_json)  # 형식 검증
+        _tmp = tempfile.NamedTemporaryFile("w", suffix=".json", delete=False, encoding="utf-8")
+        _tmp.write(_creds_json)
+        _tmp.close()
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = _tmp.name
+    except Exception as _e:
+        print(f"[GoogleVision] GOOGLE_CREDENTIALS_JSON 파싱 실패: {_e}", flush=True)
 
 # Google Cloud Service Account 자동 감지 (GOOGLE_APPLICATION_CREDENTIALS 없을 때 fallback)
 _key_name = "gen-lang-client-0314786043-47efd63839d9.json"
@@ -267,6 +281,7 @@ TRUSTED_DOMAINS = {
     "artic.edu", "wikipedia.org", "wikimedia.org"
 }
 
+_cache_lock = threading.Lock()
 _CACHE_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), "backend", "data", "web_detection_cache.json")
 
 def _load_web_cache() -> dict:
@@ -295,7 +310,8 @@ def detect_web_artwork(img_bytes: bytes) -> dict:
     img_hash = hashlib.md5(img_bytes).hexdigest()
     
     # 1) 캐시 조회 (Cache Hit Check)
-    cache = _load_web_cache()
+    with _cache_lock:
+        cache = _load_web_cache()
     if img_hash in cache:
         print(f"[WebDetection Cache Hit] Using cached web info for image hash: {img_hash}", flush=True)
         return cache[img_hash]
@@ -358,8 +374,10 @@ def detect_web_artwork(img_bytes: bytes) -> dict:
         }
         
         # 5) 캐시 저장
-        cache[img_hash] = result
-        _save_web_cache(cache)
+        with _cache_lock:
+            cache = _load_web_cache()
+            cache[img_hash] = result
+            _save_web_cache(cache)
         print(f"[WebDetection Cache Saved] API called successfully and cached for hash: {img_hash}", flush=True)
         return result
     except Exception as e:
@@ -376,18 +394,19 @@ _EMPTY_VISION = {
 }
 
 
-def analyze_artwork_vision(img_bytes: bytes, api_key: str, original_img_bytes: bytes = None) -> dict:
+def analyze_artwork_vision(img_bytes: bytes, api_key: str, original_img_bytes: bytes = None, web_info: dict = None) -> dict:
     """Single Gemini Vision call: recognition + OCR + face/expression."""
     genai.configure(api_key=api_key)
 
-    # Google Web Detection 결과를 Gemini 프롬프트에 RAG 방식으로 주입
-    web_info = detect_web_artwork(img_bytes)
+    # Google Web Detection 결과를 Gemini 프롬프트에 RAG 방식으로 주입 (호출부에서 이미 구했으면 재사용)
+    if web_info is None:
+        web_info = detect_web_artwork(img_bytes)
     web_context = ""
     if web_info.get("best_guess") or web_info.get("entities"):
-        entities_str = ", ".join([f"{e['name']}(유사도:{e['score']}%)" for e in web_info['entities']])
+        entities_str = ", ".join([f"{e['name']}(유사도:{e['score']}%)" for e in web_info.get('entities', [])])
         web_context = (
             "\n\n[Google Cloud Vision Web Detection 실시간 검색 참고 정보]\n"
-            f"- 이미지 최유사 웹 예측 명칭(Best Guess): {web_info['best_guess']}\n"
+            f"- 이미지 최유사 웹 예측 명칭(Best Guess): {web_info.get('best_guess', '')}\n"
             f"- 구글 이미지 인덱스 기반 연관 위키백과/웹 엔티티: {entities_str}\n"
             "규칙:\n"
             "- 위 실시간 검색 정보에 나온 작품명, 화가명이 실제 업로드된 명화와 완벽히 매치된다면, "
