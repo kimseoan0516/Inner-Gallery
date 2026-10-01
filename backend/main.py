@@ -494,97 +494,62 @@ def order_points(pts: np.ndarray) -> np.ndarray:
     return rect
 
 
+# Roboflow Universe 공개 그림 탐지 모델 (class: "art"). 다른 모델로 바꾸려면 ROBOFLOW_MODEL 환경변수 지정.
+_ROBOFLOW_MODEL = os.environ.get("ROBOFLOW_MODEL", "paintings-gpghp/1")
+_ROBOFLOW_MIN_CONF = 0.70   # 이미 잘린 그림 사진에선 0.5대 신뢰도로 일부만 잡는 경우가 있어 높게 설정
+
+
 def crop_painting_roboflow(img_bytes: bytes, api_key: str) -> tuple:
     """
-    Calls Roboflow Serverless Workflows API using base64-encoded image.
-    Parses bounding box coordinates, crops the painting border, and returns (cropped_image_bytes, best_pred).
-    If no painting is detected with confidence >= 50%, returns (None, None).
+    전시장 사진에서 그림 영역을 Roboflow 객체 탐지로 찾아 잘라낸다 (+ 기울어짐 보정).
+    반환: (cropped_image_bytes, best_pred) / 그림을 못 찾았거나 자를 필요가 없으면 (None, None)
     """
-    base64_str = base64.b64encode(img_bytes).decode('ascii')
-    
-    url = "https://serverless.roboflow.com/infer/workflows/s-workspace-ibjvf/detect-and-classify"
-    payload = {
-        "api_key": api_key,
-        "inputs": {
-            "image": {
-                "type": "base64",
-                "value": base64_str
-            }
-        }
-    }
-    headers = {
-        "Content-Type": "application/json"
-    }
-
-    try:
-        response = requests.post(url, json=payload, headers=headers, timeout=8)
-        response.raise_for_status()
-        data = response.json()
-    except Exception as e:
-        print(f"[Roboflow API Error] Request failed: {e}", flush=True)
-        return None, None
-
-    def find_predictions(obj):
-        if isinstance(obj, list):
-            if len(obj) > 0 and isinstance(obj[0], dict) and all(k in obj[0] for k in ["x", "y", "width", "height"]):
-                return obj
-            for item in obj:
-                res = find_predictions(item)
-                if res is not None:
-                    return res
-        elif isinstance(obj, dict):
-            if "predictions" in obj and isinstance(obj["predictions"], list):
-                return obj["predictions"]
-            for v in obj.values():
-                res = find_predictions(v)
-                if res is not None:
-                    return res
-        return None
-
-    predictions = find_predictions(data)
-    if not predictions:
-        print("[Roboflow Crop] No predictions list found in response", flush=True)
-        return None, None
-
-    # Find the prediction with the highest confidence >= 0.50
-    best_pred = None
-    best_conf = 0.0
-    for pred in predictions:
-        conf = pred.get("confidence", 0.0)
-        if conf >= 0.50 and conf > best_conf:
-            best_conf = conf
-            best_pred = pred
-
-    if not best_pred:
-        print("[Roboflow Crop] No painting detected with confidence >= 50%", flush=True)
-        return None, None
-
-    cx = best_pred.get("x")
-    cy = best_pred.get("y")
-    w = best_pred.get("width")
-    h = best_pred.get("height")
-
-    if None in (cx, cy, w, h):
-        print("[Roboflow Crop] Bounding box coordinates are missing", flush=True)
-        return None, None
-
     arr = np.frombuffer(img_bytes, np.uint8)
     img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
     if img is None:
         return None, None
     img_h, img_w = img.shape[:2]
 
-    is_normalized = (cx <= 1.0 and cy <= 1.0 and w <= 1.0 and h <= 1.0)
-    if is_normalized:
-        cx_px = cx * img_w
-        cy_px = cy * img_h
-        w_px = w * img_w
-        h_px = h * img_h
-    else:
-        cx_px = cx
-        cy_px = cy
-        w_px = w
-        h_px = h
+    # 전송량·지연을 줄이기 위해 긴 변 1280px로 축소해서 탐지 (좌표는 원본 비율로 환산)
+    scale = min(1.0, 1280 / max(img_h, img_w))
+    small = cv2.resize(img, (int(img_w * scale), int(img_h * scale))) if scale < 1.0 else img
+    base64_str = base64.b64encode(cv2.imencode('.jpg', small, [cv2.IMWRITE_JPEG_QUALITY, 90])[1].tobytes()).decode('ascii')
+
+    try:
+        response = requests.post(
+            f"https://serverless.roboflow.com/{_ROBOFLOW_MODEL}",
+            params={"api_key": api_key, "confidence": int(_ROBOFLOW_MIN_CONF * 100)},
+            data=base64_str,
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+            timeout=8,
+        )
+        response.raise_for_status()
+        predictions = response.json().get("predictions", [])
+    except Exception as e:
+        print(f"[Roboflow API Error] Request failed: {e}", flush=True)
+        return None, None
+
+    predictions = [p for p in predictions if p.get("confidence", 0.0) >= _ROBOFLOW_MIN_CONF
+                   and None not in (p.get("x"), p.get("y"), p.get("width"), p.get("height"))]
+    if not predictions:
+        print(f"[Roboflow Crop] No painting detected with confidence >= {_ROBOFLOW_MIN_CONF:.0%}", flush=True)
+        return None, None
+
+    # 여러 점이 잡히면 사용자가 겨냥한(화면 중앙에 가까운) 그림 우선, 그다음 신뢰도
+    sw, sh = small.shape[1], small.shape[0]
+    def _center_dist(p):
+        return ((p["x"] / sw - 0.5) ** 2 + (p["y"] / sh - 0.5) ** 2) ** 0.5
+    best_pred = min(predictions, key=lambda p: (_center_dist(p) - p["confidence"] * 0.2))
+
+    cx_px, cy_px = best_pred["x"] / scale, best_pred["y"] / scale
+    w_px,  h_px  = best_pred["width"] / scale, best_pred["height"] / scale
+    # quality_checker는 bbox를 원본 픽셀 기준으로 사용
+    best_pred = {**best_pred, "x": cx_px, "y": cy_px, "width": w_px, "height": h_px}
+
+    # 박스가 이미 화면 대부분이면 자를 필요 없음 (이미 그림만 찍힌 사진)
+    if (w_px * h_px) / (img_w * img_h) > 0.85:
+        print("[Roboflow Crop] Painting already fills the frame — skip crop", flush=True)
+        return None, best_pred
 
     # Add 8% padding/margin to avoid cutting off borders of the painting
     pad_w = w_px * 0.08
@@ -802,26 +767,30 @@ def analyze(
     if not _API_KEY:
         raise HTTPException(500, "GEMINI_API_KEY가 설정되지 않았습니다. 프로젝트 루트의 .env 파일을 확인하세요.")
 
-    upload_size = img.shape[0] * img.shape[1]
-
     # 프론트에서 이미 작품 영역을 잘라 보낸 경우, 자르기 전 원본 사진을 함께 받음
-    # (Gemini 공간 맥락 + 매칭 fallback 용). 없으면 업로드 이미지가 곧 원본.
+    # (Roboflow 탐지 + Gemini 공간 맥락 + 매칭 fallback 용). 없으면 업로드 이미지가 곧 원본.
     original_raw = raw
+    original_img = img
     if original_image is not None:
         ob = original_image.file.read()
-        if ob and cv2.imdecode(np.frombuffer(ob, np.uint8), cv2.IMREAD_COLOR) is not None:
-            original_raw = ob
+        oi = cv2.imdecode(np.frombuffer(ob, np.uint8), cv2.IMREAD_COLOR) if ob else None
+        if oi is not None:
+            original_raw, original_img = ob, oi
+    original_size = original_img.shape[0] * original_img.shape[1]
 
     # ── Roboflow Painting Border Detection & Crop ──────────────────────────────
+    # 벽·바닥이 함께 찍힌 원본 사진에서 탐지 (이미 잘린 이미지에선 일부만 잡는 경우가 있음).
+    # 실패하면 프론트에서 자른 이미지(없으면 원본)를 그대로 사용.
     best_pred = None
     roboflow_key = os.environ.get("ROBOFLOW_API_KEY")
     if roboflow_key:
         try:
-            cropped_bytes, pred = crop_painting_roboflow(raw, roboflow_key)
+            cropped_bytes, pred = crop_painting_roboflow(original_raw, roboflow_key)
+            best_pred = pred
             if cropped_bytes is not None:
                 temp_img = cv2.imdecode(np.frombuffer(cropped_bytes, np.uint8), cv2.IMREAD_COLOR)
                 if temp_img is not None:
-                    raw, img, best_pred = cropped_bytes, temp_img, pred
+                    raw, img = cropped_bytes, temp_img
                     print("[Roboflow Crop] Successfully cropped painting border (with 8% padding)", flush=True)
                 else:
                     print("[Roboflow Crop Warning] Cropped image could not be decoded, falling back to original", flush=True)
@@ -838,7 +807,7 @@ def analyze(
             f_match = ex.submit(_match_with_fallback, raw, original_raw) if not hint_artist else None
             f_web   = ex.submit(_web_with_fallback, crop_jpg, original_raw)
 
-            quality = check_image_quality(img, best_pred, original_size=upload_size)
+            quality = check_image_quality(img, best_pred, original_size=original_size)
             color   = analyze_colors(img, 5)
             comp    = analyze_composition(img)
             # 사용자가 명시한 유형이 인물 제외인 경우 analyze_person 스킵
@@ -919,7 +888,8 @@ def analyze(
         else:
             # 2) 자율 판단
             clip_artist  = db_match["artist"] if db_match else ""
-            clip_strong  = bool(db_match) and db_confidence >= 85
+            # 다른 작가 그림도 0.85~0.91까지 나오는 경우가 있어 90% 이상만 강일치로 인정
+            clip_strong  = bool(db_match) and db_confidence >= 90
             clip_cand    = next((c for c in candidates if _same_artist(c.get("artist", ""), clip_artist)), None) if clip_artist else None
             top          = candidates[0] if candidates else None
 

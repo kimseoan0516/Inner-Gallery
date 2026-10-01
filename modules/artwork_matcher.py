@@ -167,8 +167,13 @@ def match_artwork(image_bytes: bytes, top_k: int = 12, threshold: float = 0.78, 
         if artist not in artist_info:
             artist_info[artist] = meta
 
-    # 거의 동일한 이미지(≥0.95)는 1표여도 인정. 그 외엔 vote_min 이상 득표 필요.
-    qualified = [a for a in artist_score if artist_count[a] >= vote_min or artist_best[a] >= 0.95]
+    # 1표여도 인정하는 경우: 거의 동일한 이미지(≥0.95) 또는 2위 작가보다 확실히(≥0.02) 앞선 최고 유사도.
+    # (작품 수가 많은 작가는 비슷한 그림으로 표를 쉽게 모으므로 득표만으로 판단하면 안 됨)
+    ranked = sorted(artist_best.values(), reverse=True)
+    def _clear_winner(a):
+        return artist_best[a] == ranked[0] and (len(ranked) == 1 or ranked[0] - ranked[1] >= 0.02)
+    qualified = [a for a in artist_score
+                 if artist_count[a] >= vote_min or artist_best[a] >= 0.95 or _clear_winner(a)]
     if not qualified:
         return None
 
