@@ -296,13 +296,28 @@ export default function Results() {
   })()
   // 작품명/화가를 "확정"해서 보여주거나 저장/대화에 쓰지 않도록 안전장치
   // - LLM/후보가 추정한 신원을 사용자가 확인하지 않은 경우, 이름을 숨긴다.
-  const identityConfirmed =
-    Boolean(correctedInfo?.title && correctedInfo?.artist) ||
-    (identification_status === 'confirmed' && Boolean(displayInfo?.title && displayInfo?.artist))
+  // 백엔드 판정 → 화면 표시 단계
+  //  confirmed  : 사용자 확정 / 라벨 OCR / 웹 교차검증 → 작품명·화가 표시
+  //  partial    : 내부 데이터셋 화풍 일치 + 같은 화가의 작품 후보 → "추정" 표시와 함께 작품명 노출
+  //  artist_only: 화가만 확인 → 화가만 표시
+  //  unknown    : 이름 숨김
+  const VERIFIED_STATUSES = ['confirmed', 'ocr_confirmed', 'web_confirmed']
+  const idLevel = (correctedInfo?.title || correctedInfo?.artist)
+    ? (correctedInfo?.title ? 'confirmed' : 'artist_only')
+    : !displayInfo?.artist
+      ? 'unknown'
+      : VERIFIED_STATUSES.includes(identification_status)
+        ? (displayInfo?.title ? 'confirmed' : 'artist_only')
+        : identification_status === 'internal_match'
+          ? (displayInfo?.title ? 'partial' : 'artist_only')
+          : 'unknown'
+  const identityConfirmed = idLevel === 'confirmed' || idLevel === 'partial'   // 작품명 표시 여부
 
-  const safeInfo = identityConfirmed
-    ? displayInfo
-    : { title: '', artist: '', year: '', medium: '' }
+  const safeInfo = idLevel === 'unknown'
+    ? { title: '', artist: '', year: '', medium: '' }
+    : idLevel === 'artist_only'
+      ? { ...displayInfo, title: '', year: '' }
+      : displayInfo
 
   const applyCorrection = async () => {
     if (!manualTitle && !manualArtist) return
@@ -315,7 +330,8 @@ export default function Results() {
         title:  newInfo.title,
         artist: newInfo.artist,
         year:   newInfo.year || '',
-        mode:   'healing',
+        mode:   result.mode || 'healing',
+        analysisPayload: result.analysis_payload || null,
       })
       if (newEssay?.body?.length > 0) setCorrectedEssay(newEssay)
     } catch {
@@ -366,7 +382,7 @@ export default function Results() {
     date:             localDateStr,
     reflection,
     artwork_title:    identityConfirmed ? (formatTitle(safeInfo.title)  || '')  : '',
-    artwork_artist:   identityConfirmed ? (formatArtist(safeInfo.artist) || '')  : '',
+    artwork_artist:   formatArtist(safeInfo.artist) || '',
     artwork_year:     identityConfirmed ? (safeInfo.year   || '')  : '',
     essay_title:      identityConfirmed ? (activeEssay.title || '') : '이름을 알 수 없는 작품',
     essay_body:       activeEssay.body     || [],
@@ -427,9 +443,7 @@ export default function Results() {
     }
   }
 
-  const idStatus = correctedInfo
-    ? (identityConfirmed ? 'confirmed' : 'unknown')
-    : (identityConfirmed ? 'confirmed' : 'unknown')
+  const idStatus = idLevel
 
   const fetchEra = async () => {
     if (eraLoading) return
@@ -574,7 +588,15 @@ export default function Results() {
               )
             })() : (
               <p style={{ fontSize: 20, fontWeight: 700, fontFamily: "'Noto Serif KR', serif", color: 'var(--text)', lineHeight: 1.32, marginBottom: 6 }}>
-                이름을 알 수 없는 작품
+                {idLevel === 'artist_only' ? '작품명 미확인' : '이름을 알 수 없는 작품'}
+              </p>
+            )}
+            {!correctedInfo && info.ui_message && (
+              <p style={{ fontSize: 11, color: 'rgba(70,52,40,0.55)', lineHeight: 1.6, marginTop: 4 }}>
+                {idLevel === 'partial' && (
+                  <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--gold2)', border: '1px solid rgba(184,145,42,0.35)', borderRadius: 3, padding: '1px 5px', marginRight: 6 }}>추정</span>
+                )}
+                {info.ui_message}
               </p>
             )}
             {derivedEssayTitle && (

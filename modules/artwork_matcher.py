@@ -2,7 +2,7 @@
 artwork_matcher — CLIP + FAISS 기반 작품 유사도 검색.
 인덱스가 없으면 조용히 None 반환 (non-fatal).
 """
-import json, io, unicodedata
+import json, io, threading, unicodedata
 from pathlib import Path
 from typing import Optional
 
@@ -15,6 +15,7 @@ _metadata: list[dict] | None = None
 _model    = None
 _ready    = False
 _checked  = False
+_load_lock = threading.Lock()   # 동시 첫 요청에서 모델을 두 번 올리지 않도록
 
 # 인덱스 빌드 시 폴더명이 잘못 작가명으로 들어간 케이스 필터
 _INVALID_ARTISTS = {
@@ -37,7 +38,20 @@ def is_available() -> bool:
     )
 
 
+def preload():
+    """서버 시작 시 백그라운드에서 호출 — 첫 사용자가 모델 로딩을 기다리지 않게."""
+    try:
+        _load()
+    except Exception as e:
+        print(f"[ArtworkMatcher] preload failed: {e}", flush=True)
+
+
 def _load():
+    with _load_lock:
+        _load_unlocked()
+
+
+def _load_unlocked():
     global _index, _metadata, _model, _ready
     if _ready:
         return

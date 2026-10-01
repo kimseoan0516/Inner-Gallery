@@ -524,6 +524,7 @@ export default function Upload({ mode: pageMode }) {
         file,
         originalFile: cropInfo?.originalFile || null,
         cropBbox: cropInfo ? cropInfo.bbox : undefined,
+        quickCandidates: quickCands,
         mode: selectedMode,
         hintTitle: title,
         hintArtist: artist,
@@ -535,7 +536,12 @@ export default function Upload({ mode: pageMode }) {
       setResult(data)
       nav('/results')
     } catch (e) {
-      setError(e.response?.data?.detail || e.message || '오류가 발생했습니다')
+      const msg = e.code === 'ECONNABORTED'
+        ? '분석이 예상보다 오래 걸려 중단했어요. 잠시 후 다시 시도해 주세요.'
+        : !e.response
+          ? '서버에 연결할 수 없어요. 네트워크를 확인하거나 잠시 후 다시 시도해 주세요.'
+          : (e.response.data?.detail || '오류가 발생했습니다')
+      setError(msg)
       setLoading(false)
     }
   }

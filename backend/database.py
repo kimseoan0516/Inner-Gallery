@@ -38,7 +38,13 @@ class _PgConn:
 @contextmanager
 def conn():
     if _USE_PG:
-        c = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor)
+        try:
+            c = psycopg2.connect(DATABASE_URL, cursor_factory=psycopg2.extras.RealDictCursor, connect_timeout=10)
+        except psycopg2.OperationalError as e:
+            # DB 장애 시 500 스택트레이스 대신 사용자에게 보여줄 수 있는 503으로
+            print(f"[DB] connection failed: {e}", flush=True)
+            from fastapi import HTTPException
+            raise HTTPException(503, "기록 서버에 일시적으로 연결할 수 없어요. 잠시 후 다시 시도해 주세요.")
         try:
             yield _PgConn(c)
             c.commit()

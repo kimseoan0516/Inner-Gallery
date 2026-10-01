@@ -51,13 +51,14 @@ export async function resetPassword(email, new_password) {
 
 // ── analysis ───────────────────────────────────────────────────────────────
 
-export async function analyzeImage({ file, originalFile = null, cropBbox, mode, hintTitle = '', hintArtist = '', userIdentityProvided = false, artworkType = '자동', analysisFocus = '전체', artworkDescription = '' }) {
+export async function analyzeImage({ file, originalFile = null, cropBbox, quickCandidates = [], mode, hintTitle = '', hintArtist = '', userIdentityProvided = false, artworkType = '자동', analysisFocus = '전체', artworkDescription = '' }) {
   const form = new FormData()
   form.append('image',               file)
   // 프론트에서 작품 영역을 잘랐다면 자르기 전 원본도 함께 전송 (공간 맥락·매칭 fallback용)
   if (originalFile && originalFile !== file) form.append('original_image', originalFile)
   // 서버(Roboflow) 크롭을 이미 시도했다면 결과 bbox 전달 → 분석 때 재호출 생략 (탐지 실패면 'null')
   if (cropBbox !== undefined) form.append('crop_bbox', JSON.stringify(cropBbox))
+  if (quickCandidates.length > 0) form.append('quick_candidates', JSON.stringify(quickCandidates.map(c => ({ title: c.title, artist: c.artist, year: c.year, confidence: c.confidence, reason: c.reason }))))
   form.append('mode',                mode)
   form.append('hint_title',          hintTitle)
   form.append('hint_artist',         hintArtist)
@@ -65,7 +66,8 @@ export async function analyzeImage({ file, originalFile = null, cropBbox, mode, 
   form.append('artwork_type',        artworkType)
   form.append('analysis_focus',      analysisFocus)
   form.append('artwork_description', artworkDescription)
-  const { data } = await api.post('/api/analyze', form)
+  // 외부 AI 호출이 여러 단계라 넉넉히, 그래도 무한 대기는 하지 않도록 제한
+  const { data } = await api.post('/api/analyze', form, { timeout: 150000 })
   return data
 }
 
@@ -114,8 +116,9 @@ export async function docentChat({ artwork_info, message }) {
   return data
 }
 
-export async function generateEssayText({ title, artist, year, mode = 'healing' }) {
-  const { data } = await api.post('/api/essay-text', { title, artist, year, mode })
+// analysisPayload: 분석 응답의 analysis_payload (원래 색채·구도 분석을 유지한 채 해설만 다시 생성)
+export async function generateEssayText({ title, artist, year, mode = 'healing', analysisPayload = null }) {
+  const { data } = await api.post('/api/essay-text', { title, artist, year, mode, analysis_payload: analysisPayload })
   return data
 }
 

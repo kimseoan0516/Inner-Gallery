@@ -201,6 +201,8 @@ _SOURCE_NOTE = """
 """
 
 
+_RATE_LIMIT_WAIT = 3   # 429 시 대기(초). 길게 기다리기보다 다음 모델로 넘어감
+
 _MODELS = [
     "gemini-2.5-flash",
     "gemini-2.5-flash-lite",
@@ -223,16 +225,9 @@ def _generate_with_retry(model_fn, prompt: str, api_key: str, system: str) -> st
             if "404" in msg or "NotFound" in msg or "not found" in msg.lower():
                 print(f"[LLM] {model_name} not available (404), trying next model …")
                 continue
-            if "429" in msg or "ResourceExhausted" in msg:
-                # Extract retry delay if present, wait up to 30s then try next model
-                delay = 30
-                try:
-                    import re
-                    m = re.search(r'retry.*?(\d+)', msg)
-                    if m:
-                        delay = min(int(m.group(1)) + 2, 30)
-                except Exception:
-                    pass
+            if "429" in msg or "ResourceExhausted" in msg or "RESOURCE_EXHAUSTED" in msg:
+                # 사용자가 화면 앞에서 기다리므로 짧게만 쉬고 다음 모델로 (예전엔 최대 30초 대기)
+                delay = _RATE_LIMIT_WAIT
                 print(f"[LLM] {model_name} rate-limited, waiting {delay}s …")
                 time.sleep(delay)
                 try:
@@ -377,6 +372,9 @@ def detect_web_artwork(img_bytes: bytes) -> dict:
         with _cache_lock:
             cache = _load_web_cache()
             cache[img_hash] = result
+            if len(cache) > 500:   # 무한히 커지지 않게 오래된 항목부터 정리
+                for k in sorted(cache, key=lambda k: cache[k].get("created_at", ""))[:len(cache) - 500]:
+                    cache.pop(k, None)
             _save_web_cache(cache)
         print(f"[WebDetection Cache Saved] API called successfully and cached for hash: {img_hash}", flush=True)
         return result
@@ -480,9 +478,9 @@ def analyze_artwork_vision(img_bytes: bytes, api_key: str, original_img_bytes: b
                         return _normalize_vision(r)
                 break
             except Exception as e:
-                if ("429" in str(e) or "ResourceExhausted" in str(e)) and attempt == 0:
-                    print(f"[LLM] vision {model_name} rate-limited, waiting 30s …")
-                    time.sleep(30)
+                if ("429" in str(e) or "ResourceExhausted" in str(e) or "RESOURCE_EXHAUSTED" in str(e)) and attempt == 0:
+                    print(f"[LLM] vision {model_name} rate-limited, waiting {_RATE_LIMIT_WAIT}s …")
+                    time.sleep(_RATE_LIMIT_WAIT)
                     continue
                 print(f"[LLM] vision {model_name} error: {e}")
                 break
@@ -607,9 +605,9 @@ def generate_sketch_reflection(
             except ValueError:
                 return "마음 스케치를 자세히 살펴보기 어렵습니다. 하지만 당신만의 색깔과 선이 담긴 멋진 스케치네요. 어떤 마음으로 선을 그었는지 스스로 되돌아보는 것도 좋은 감상이 될 거예요."
             except Exception as e:
-                if ("429" in str(e) or "ResourceExhausted" in str(e)) and attempt == 0:
-                    print(f"[LLM] sketch {model_name} rate-limited, waiting 20s …")
-                    time.sleep(20)
+                if ("429" in str(e) or "ResourceExhausted" in str(e) or "RESOURCE_EXHAUSTED" in str(e)) and attempt == 0:
+                    print(f"[LLM] sketch {model_name} rate-limited, waiting {_RATE_LIMIT_WAIT}s …")
+                    time.sleep(_RATE_LIMIT_WAIT)
                     continue
                 print(f"[LLM] sketch {model_name} error: {e}")
                 break

@@ -11,10 +11,10 @@ load_dotenv(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file_
 
 import cv2
 import numpy as np
-from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Depends
+from fastapi import FastAPI, File, UploadFile, Form, HTTPException, Depends, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel
 from typing import List, Any, Optional
 
@@ -25,14 +25,36 @@ from modules.saliency_analyzer    import create_saliency_overlay, get_attention_
 from modules.emotion_scorer       import calculate_emotion_scores, scores_to_ko, EMOTION_KO
 from modules.llm_generator        import generate_interpretation, analyze_artwork_vision, recommend_similar, generate_sketch_reflection, generate_docent_reply, generate_artwork_era, detect_web_artwork
 from modules.quality_checker      import check_image_quality
-from modules.artwork_matcher      import match_artwork, top_k_artists, is_available as matcher_available
+from modules.artwork_matcher      import match_artwork, top_k_artists, is_available as matcher_available, preload as preload_matcher
 from modules.era_lookup           import lookup_artwork
 from backend.database             import init_db, get_journal, get_journal_entry, get_journal_thumbs, save_journal_entry, delete_journal_entry, update_journal_note, update_journal_sketch, update_journal_exhibition, get_random_quote
 from backend.auth                 import router as auth_router, get_current_user
+from backend.rate_limit           import limit
 
 app = FastAPI(title="Inner Gallery API")
 app.include_router(auth_router)
-init_db()   # ensure all tables exist on startup
+
+
+def _init_db_with_retry():
+    """DB 연결 실패가 앱 전체를 죽이지 않도록: 실패하면 로그만 남기고 백그라운드에서 재시도.
+    (DB가 필요 없는 분석 기능은 계속 동작, 기록 기능만 DB 복구 전까지 실패)"""
+    import time
+    delay = 10
+    while True:
+        try:
+            init_db()
+            print("[DB] ready", flush=True)
+            return
+        except Exception as e:
+            print(f"[DB] init failed ({type(e).__name__}: {e}) — retry in {delay}s", flush=True)
+            time.sleep(delay)
+            delay = min(delay * 2, 300)
+
+
+import threading as _threading
+_threading.Thread(target=_init_db_with_retry, daemon=True).start()
+# CLIP 모델·인덱스를 미리 올려서 첫 분석 요청이 수십 초 기다리지 않게
+_threading.Thread(target=preload_matcher, daemon=True).start()
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -748,7 +770,7 @@ def _web_with_fallback(crop_bytes: bytes, original_bytes: bytes) -> dict:
         return empty
 
 
-@app.post("/api/analyze")
+@app.post("/api/analyze", dependencies=[Depends(limit("analyze", 20, 600))])
 def analyze(
     image:          UploadFile = File(...),
     original_image: Optional[UploadFile] = File(None),
@@ -761,6 +783,8 @@ def analyze(
     artwork_description: str = Form(""),
     # 프론트가 /api/crop-artwork(Roboflow)로 이미 자른 경우: 재호출 없이 그 bbox(JSON) 사용
     crop_bbox:           str = Form(""),
+    # 미리보기(quick-match)에서 이미 얻은 후보(JSON) — Gemini 인식이 실패하면 대신 사용
+    quick_candidates:    str = Form(""),
 ):
     raw = image.file.read()
     img = cv2.imdecode(np.frombuffer(raw, np.uint8), cv2.IMREAD_COLOR)
@@ -812,7 +836,8 @@ def analyze(
         with ThreadPoolExecutor(max_workers=2) as ex:
             # 사용자가 화가를 직접 알려준 경우 CLIP 자동 매칭 불필요
             f_match = ex.submit(_match_with_fallback, raw, original_raw) if not hint_artist else None
-            f_web   = ex.submit(_web_with_fallback, crop_jpg, original_raw)
+            # 사용자가 작품을 확정한 경우 웹 검색으로 식별할 필요 없음 (Google Vision 호출 절약)
+            f_web   = ex.submit(_web_with_fallback, crop_jpg, original_raw) if not (hint_title or hint_artist) else None
 
             quality = check_image_quality(img, best_pred, original_size=original_size)
             color   = analyze_colors(img, 5)
@@ -830,7 +855,7 @@ def analyze(
             att_x, att_y = get_attention_center(img)
 
             db_match = f_match.result() if f_match else None
-            web_info = f_web.result()
+            web_info = f_web.result() if f_web else {"best_guess": "", "entities": [], "matching_pages": [], "has_trusted_domain": False}
 
         # Vision call before emotion scoring so figure expression feeds into scores
         vision   = analyze_artwork_vision(
@@ -839,6 +864,17 @@ def analyze(
             web_info=web_info,
         )
         candidates = vision["recognition"]
+        if not candidates and quick_candidates:
+            # Gemini Vision 실패(할당량 초과 등) 시 미리보기 후보로 대체 (작품명이 있는 후보만)
+            try:
+                qc = json.loads(quick_candidates)
+                candidates = [
+                    {"title": c.get("title", ""), "artist": c.get("artist", ""), "year": c.get("year", ""),
+                     "confidence": c.get("confidence", 0), "reason": c.get("reason", "")}
+                    for c in (qc if isinstance(qc, list) else []) if isinstance(c, dict) and c.get("title")
+                ][:3]
+            except Exception:
+                pass
         ocr_info   = vision["ocr"]
         figure     = vision["figure"]
 
@@ -1033,6 +1069,14 @@ def analyze(
         "scores":   {EMOTION_KO[k]: round(float(v), 2) for k, v in scores.items()},
         "evidence": evidence,
         "essay":    essay,
+        "mode":     mode,
+        # 결과 화면에서 작품명을 고쳐 해설을 다시 만들 때 원래 시각 분석을 재사용하기 위한 값
+        "analysis_payload": {
+            "visual_analysis": payload["visual_analysis"],
+            "mood_scores":     payload["mood_scores"],
+            "artwork_type":    artwork_type,
+            "analysis_focus":  analysis_focus,
+        },
     }
 
 
@@ -1097,7 +1141,7 @@ class SketchReflectionRequest(BaseModel):
     mode:     str       = "short"
 
 
-@app.post("/api/sketch-reflection")
+@app.post("/api/sketch-reflection", dependencies=[Depends(limit("sketch", 20, 600))])
 def sketch_reflection_api(req: SketchReflectionRequest):
     if not _API_KEY:
         raise HTTPException(500, "API 키가 설정되지 않았습니다")
@@ -1115,9 +1159,11 @@ class EssayTextRequest(BaseModel):
     artist: str = ""
     year:   str = ""
     mode:   str = "healing"
+    # /api/analyze 응답의 analysis_payload — 있으면 원래 시각 분석을 근거로 해설 재생성
+    analysis_payload: Optional[dict] = None
 
 
-@app.post("/api/essay-text")
+@app.post("/api/essay-text", dependencies=[Depends(limit("essay", 20, 600))])
 def essay_text_api(req: EssayTextRequest):
     """Generate an essay from artwork text info only (no image required).
     Used when user manually corrects artwork identification on the Results page."""
@@ -1126,6 +1172,7 @@ def essay_text_api(req: EssayTextRequest):
     if not req.title and not req.artist:
         raise HTTPException(400, "작품명 또는 화가명이 필요합니다")
     try:
+        ap = req.analysis_payload or {}
         payload = {
             "artwork_info": {
                 "title":  req.title  or "작품명 미정",
@@ -1136,10 +1183,16 @@ def essay_text_api(req: EssayTextRequest):
             "candidates": [],
             "identification_status": "confirmed",
             "user_provided_name": True,
-            "visual_analysis": {},
-            "mood_scores": {},
+            "visual_analysis": ap.get("visual_analysis", {}),
+            "mood_scores": ap.get("mood_scores", {}),
         }
-        essay_raw = generate_interpretation(payload, _API_KEY, req.mode, "자동", "전체", "")
+        # 사용자가 고친 작품이 DB에 있으면 배경 정보도 함께 (작가 불일치 시 _resolve_info가 무시)
+        info, db_entry = _resolve_info(req.title, req.artist, None, "", "")
+        description = _db_description(info, db_entry) if db_entry else ""
+        essay_raw = generate_interpretation(
+            payload, _API_KEY, req.mode,
+            ap.get("artwork_type", "자동"), ap.get("analysis_focus", "전체"), description,
+        )
         essay = _parse_essay(essay_raw)
         return {"essay": essay}
     except Exception as e:
@@ -1442,7 +1495,7 @@ class ArtworkEraRequest(BaseModel):
 
 
 # \u2500\u2500 \ud654\uc9c8 \uc0ac\uc804 \uccb4\ud06c \uc5d4\ub4dc\ud3ec\uc778\ud2b8 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500
-@app.post("/api/quick-quality")
+@app.post("/api/quick-quality", dependencies=[Depends(limit("quality", 120, 600))])
 def quick_quality(image: UploadFile = File(...)):
     """
     \uc774\ubbf8\uc9c0 \uc120\ud0dd \uc990\uc2dc \ud654\uc9c8 \uccb4\ud06c\ub9cc \uc2e4\ud589\ud569\ub2c8\ub2e4 (AI \ud638\ucd9c \uc5c6\uc74c).
@@ -1467,7 +1520,7 @@ def quick_quality(image: UploadFile = File(...)):
         return {"ok": False, "warnings": [f"\ud654\uc9c8 \ud655\uc778 \uc911 \uc624\ub958: {str(e)}"]}
 
 
-@app.post("/api/crop-artwork")
+@app.post("/api/crop-artwork", dependencies=[Depends(limit("crop", 60, 600))])
 def crop_artwork(image: UploadFile = File(...)):
     """촬영/선택 직후 미리보기용: Roboflow로 그림 영역을 잘라(+기울기 보정) 돌려준다.
     bbox는 분석 요청 때 그대로 돌려받아 Roboflow 재호출 없이 화질 판정에 사용."""
@@ -1487,9 +1540,14 @@ def crop_artwork(image: UploadFile = File(...)):
 
 
 @app.post("/api/quick-match")
-def quick_match(image: UploadFile = File(...), local_only: bool = Form(False)):
+def quick_match(request: Request, image: UploadFile = File(...), local_only: bool = Form(False)):
     """이미지 업로드 즉시 Top-5 작품 후보 반환 (분석 전 미리보기용).
     local_only=True면 Gemini를 건너뛰고 로컬 CLIP만 사용 (카메라 자동 스캔처럼 반복 호출되는 경우)."""
+    # 카메라 자동 스캔(로컬 CLIP, 1.8초 간격)은 느슨하게, Gemini 호출 경로는 엄격하게 제한
+    if local_only:
+        limit("scan", 400, 600)(request)
+    else:
+        limit("quick", 60, 600)(request)
     raw = image.file.read()
 
     # 1. Try Gemini API first (only if key exists)
@@ -1582,7 +1640,7 @@ def quick_match(image: UploadFile = File(...), local_only: bool = Form(False)):
 
 
 
-@app.post("/api/artwork-era")
+@app.post("/api/artwork-era", dependencies=[Depends(limit("era", 40, 600))])
 def artwork_era_api(req: ArtworkEraRequest):
     if not _API_KEY:
         return {
@@ -1614,7 +1672,7 @@ class ChatRequest(BaseModel):
     message: str
 
 
-@app.post("/api/docent-chat")
+@app.post("/api/docent-chat", dependencies=[Depends(limit("chat", 40, 600))])
 def docent_chat(req: ChatRequest):
     if not _API_KEY:
         raise HTTPException(500, "API 키가 설정되지 않았습니다")
@@ -1630,7 +1688,7 @@ def docent_chat(req: ChatRequest):
 class TranslateRequest(BaseModel):
     text: str
 
-@app.post("/api/translate")
+@app.post("/api/translate", dependencies=[Depends(limit("translate", 40, 600))])
 def translate_text(req: TranslateRequest):
     """영어 텍스트 → 한국어 번역 (Gemini)."""
     if not req.text.strip():
@@ -1659,17 +1717,59 @@ def translate_text(req: TranslateRequest):
 
 # ── 이미지 프록시 ──────────────────────────────────────────────────────────────
 
-@app.get("/api/proxy-image")
-def proxy_image(url: str):
-    import urllib.request
+def _is_public_host(host: str) -> bool:
+    """호스트가 공인 IP로만 해석되는지 (내부망·루프백·메타데이터 주소 차단 — SSRF 방지)."""
+    import ipaddress, socket
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            data = resp.read()
-            content_type = resp.headers.get("Content-Type", "image/jpeg")
+        infos = socket.getaddrinfo(host, None)
+    except Exception:
+        return False
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0].split("%")[0])
+        if not ip.is_global:
+            return False
+    return bool(infos)
+
+
+_PROXY_MAX_BYTES = 10 * 1024 * 1024
+
+
+@app.get("/api/proxy-image", dependencies=[Depends(limit("proxy", 120, 600))])
+def proxy_image(url: str):
+    """저널 티켓 캡처용: 외부 이미지·웹폰트 CSS를 같은 출처로 중계 (canvas CORS 회피).
+    공인 주소의 http(s) 이미지/CSS만, 10MB까지."""
+    from urllib.parse import urlparse
+    current = url
+    try:
+        for _ in range(4):   # 리다이렉트도 매 단계 주소 검사
+            u = urlparse(current)
+            if u.scheme not in ("http", "https") or not u.hostname or not _is_public_host(u.hostname):
+                raise HTTPException(400, "허용되지 않는 주소입니다")
+            resp = requests.get(current, headers={"User-Agent": "Mozilla/5.0"}, timeout=10,
+                                allow_redirects=False, stream=True)
+            if resp.is_redirect and resp.headers.get("Location"):
+                from urllib.parse import urljoin
+                current = urljoin(current, resp.headers["Location"])
+                resp.close()
+                continue
+            break
+        else:
+            raise HTTPException(400, "리다이렉트가 너무 많습니다")
+
+        resp.raise_for_status()
+        content_type = resp.headers.get("Content-Type", "image/jpeg").split(";")[0].strip().lower()
+        if not (content_type.startswith("image/") or content_type in ("text/css", "font/woff2", "font/woff")):
+            raise HTTPException(400, "이미지만 가져올 수 있습니다")
+        data = b""
+        for chunk in resp.iter_content(64 * 1024):
+            data += chunk
+            if len(data) > _PROXY_MAX_BYTES:
+                raise HTTPException(400, "파일이 너무 큽니다")
         return Response(content=data, media_type=content_type)
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(400, f"이미지를 가져올 수 없습니다: {str(e)}")
+        raise HTTPException(400, f"이미지를 가져올 수 없습니다: {e}")
 
 
 # ── 명언 ─────────────────────────────────────────────────────────────────────

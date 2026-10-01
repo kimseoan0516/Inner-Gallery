@@ -19,7 +19,8 @@ def configure(api_key: str):
     with _lock:
         if api_key and api_key != _api_key:
             _api_key = api_key
-            _client  = _genai.Client(api_key=api_key)
+            # 호출당 최대 60초 — 응답이 멈춰도 요청이 무한정 붙잡혀 있지 않게
+            _client  = _genai.Client(api_key=api_key, http_options=_types.HttpOptions(timeout=60_000))
 
 
 def _get_client():
