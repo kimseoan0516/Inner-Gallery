@@ -1859,6 +1859,28 @@ def demo_result():
     }
 
 
+@app.get("/api/health")
+def health():
+    """연동 상태 점검용 (비밀값은 노출하지 않고 켜짐/꺼짐만)."""
+    import modules.llm_generator as _llm
+    import modules.artwork_matcher as _am
+    google = {"secret_present": bool(os.environ.get("GOOGLE_CREDENTIALS_JSON", "").strip()),
+              "credentials_file": bool(os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")),
+              "library": _llm.GOOGLE_VISION_AVAILABLE, "client_ok": False}
+    if google["library"] and google["credentials_file"]:
+        try:
+            _llm.vision.ImageAnnotatorClient()
+            google["client_ok"] = True
+        except Exception as e:
+            google["error"] = type(e).__name__
+    return {
+        "gemini":   bool(_API_KEY),
+        "roboflow": bool(os.environ.get("ROBOFLOW_API_KEY")),
+        "clip_ready": _am._ready,
+        "google_web_detection": google,
+    }
+
+
 @app.get("/api/artist-quote")
 def artist_quote():
     """DB에서 랜덤 명언 반환."""
